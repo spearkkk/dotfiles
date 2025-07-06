@@ -1,0 +1,133 @@
+# This is a demo config to showcase some of the most important commands.
+# It is meant to be changed and configured, as it is intentionally kept sparse.
+# For a (much) more advanced configuration example see my dotfiles:
+# https://github.com/FelixKratz/dotfiles
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+
+##### Bar Appearance #####
+sketchybar --bar \
+  color=0xFF001C1F \
+  border_color=0xFF003640 \
+  position=bottom \
+  height=35 \
+  margin=4 \
+  y_offset=2 \
+  corner_radius=4 \
+  border_width=2 \
+  blur_radius=0 \
+  padding_left=4 \
+  padding_right=4 \
+  topmost=1
+
+##### Changing Defaults #####
+
+default=(
+  background.height=20
+  background.padding_left=2
+  background.padding_right=2
+  background.color=0xFF003640
+  label.font="Hack Nerd Font:Normal:12.0"
+  label.color=0xffd4e1e8
+  label.padding_left=0
+  label.padding_right=0
+  icon.font="Hack Nerd Font:Normal:12.0"
+  icon.color=0xffd4e1e8
+  icon.padding_left=0
+  icon.padding_right=0
+
+)
+sketchybar --default "${default[@]}"
+
+##### Adding Mission Control Space Indicators #####
+# Let's add some mission control spaces:
+# https://felixkratz.github.io/SketchyBar/config/components#space----associate-mission-control-spaces-with-an-item
+# to indicate active and available mission control spaces.
+
+SPACE_ICONS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
+for i in "${!SPACE_ICONS[@]}"
+do
+  sid="$(($i+1))"
+  space=(
+    space="$sid"
+    icon="${SPACE_ICONS[i]}"
+    icon.padding_left=7
+    icon.padding_right=7
+    background.color=0x40ffffff
+    background.corner_radius=5
+    background.height=25
+    label.drawing=off
+    script="$PLUGIN_DIR/space.sh"
+    click_script="yabai -m space --focus $sid"
+  )
+  # sketchybar --add space space."$sid" left --set space."$sid" "${space[@]}"
+done
+
+##### Adding Left Items #####
+
+##### Adding Center Items #####
+
+sketchybar --add item _date center \
+           --set _date update_freq=3600 script="$PLUGIN_DIR/date.sh" \
+              icon.padding_left=10 \
+              icon.padding_right=4 \
+              label.padding_left=4 \
+              label.padding_right=8 \
+              label.font.style=bold \
+              background.corner_radius=4 \
+              background.border_width=0 \
+              background.y_offset=0
+sketchybar --add item _day center \
+           --set _day update_freq=3600 script="$PLUGIN_DIR/day.sh" \
+              icon.drawing=off \
+              label.padding_left=10 \
+              label.padding_right=10 \
+              label.font.style=italic \
+              background.corner_radius=4 \
+              background.border_width=1 \
+              background.border_color=0xFFf3b863 \
+              background.y_offset=0 \
+              background.color=0xFF001C1F \
+                background.padding_right=4
+
+
+
+# Time item
+sketchybar -m --add item _time center \
+           --set _time script="$PLUGIN_DIR/time.sh" \
+                      update_freq=1 \
+                      drawing=on \
+                      background.drawing=off \
+                                       label.padding_left=4 \
+                                       label.padding_right=2 \
+                                       label.font.style=bold
+
+# Weather item
+sketchybar -m --add item _weather center \
+           --set _weather script="$PLUGIN_DIR/weather.sh" \
+                         update_freq=3600 \
+                         drawing=on \
+                         background.drawing=off \
+                         icon.padding_left=4 \
+                                          icon.padding_right=1 \
+                                          label.padding_left=1 \
+                                          label.padding_right=8 \
+                                          label.font.style=bold
+
+# Bracket group (🔧 위치와 스타일 명시적으로 설정)
+sketchybar -m --add bracket _weather_time _weather _time center \
+           --set _weather_time drawing=on \
+                 background.drawing=on \
+                 background.corner_radius=4 \
+                 background.border_width=0 \
+                 background.y_offset=0
+
+##### Adding Right Items #####
+
+
+
+
+
+##### Force all scripts to run the first time (never do this in a script) #####
+sketchybar --update
