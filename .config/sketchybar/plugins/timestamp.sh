@@ -1,5 +1,5 @@
 #!/bin/sh
 
-DATE=$(TZ=Asia/Seoul date "+%Y-%m-%d")
+TIMESTAMP=$(LC_TIME=it_IT.UTF-8 TZ=Asia/Seoul date "+%Y-%m-%d(%a)  %H:%M:%S")
 
-sketchybar --set "${NAME}" icon=" " label="$DATE"
+sketchybar --set "${NAME}" label="$TIMESTAMP"

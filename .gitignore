@@ -377,3 +377,5 @@ bh_unicode_properties.cache
 GitHub.sublime-settings
 
 # End of https://www.toptal.com/developers/gitignore/api/osx,macos,fish,intellij+all,sublimetext,java,kotlin,pycharm+all,go,rust,lua,c++,git
+
+**env.sh
