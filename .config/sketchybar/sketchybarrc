@@ -1,44 +1,65 @@
-# This is a demo config to showcase some of the most important commands.
-# It is meant to be changed and configured, as it is intentionally kept sparse.
-# For a (much) more advanced configuration example see my dotfiles:
-# https://github.com/FelixKratz/dotfiles
 
+# Loads all defined colors
+source "$CONFIG_DIR/colors.sh"
+
+# Loads all defined icons
+source "$CONFIG_DIR/icons.sh"
+
+# Set variables for directories
+ITEM_DIR="$CONFIG_DIR/items"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
-
-##### Bar Appearance #####
-sketchybar --bar \
-  color=0xFF001C1F \
-  border_color=0xFF003640 \
-  position=bottom \
-  height=35 \
-  margin=4 \
-  y_offset=2 \
-  corner_radius=4 \
-  border_width=2 \
-  blur_radius=0 \
-  padding_left=4 \
-  padding_right=4 \
+# BAR Appearance
+BAR=(
+  position=bottom
+  height=35
+  margin=4
+  y_offset=2
+  corner_radius=4
+  border_width=2
+  blur_radius=0
+  padding_left=4
+  padding_right=4
   topmost=1
 
-##### Changing Defaults #####
+  color="$BACKGROUND_DARKEST"
+  border_color="$BACKGROUND_DARK"
+)
 
-default=(
+sketchybar --bar "${BAR[@]}"
+
+
+# Default appearance for items
+INNER_PADDING=4
+OUTER_PADDING=8
+FONT="Hack Nerd Font:BOLD:16.0"
+
+DEFAULT=(
   background.height=20
   background.padding_left=2
   background.padding_right=2
-  background.color=0xFF003640
-  label.font="Hack Nerd Font:Normal:12.0"
-  label.color=0xffd4e1e8
+  label.font="$FONT"
   label.padding_left=0
   label.padding_right=0
-  icon.font="Hack Nerd Font:Normal:12.0"
-  icon.color=0xffd4e1e8
+  icon.font="$FONT"
   icon.padding_left=0
   icon.padding_right=0
-
 )
-sketchybar --default "${default[@]}"
+
+DEFAULT_COLORS=(
+  background.color="$BACKGROUND_DARKEST"
+  label.color="$TEXT_DEFAULT"
+  icon.color="$TEXT_DEFAULT"
+)
+
+CONTRAST_COLORS=(
+  background.color="$BACKGROUND_DARK"
+  label.color="$TEXT_DEFAULT"
+  icon.color="$TEXT_DEFAULT"
+)
+
+sketchybar --default "${DEFAULT[@]}" "${DEFAULT_COLORS[@]}"
+
 
 ##### Adding Mission Control Space Indicators #####
 # Let's add some mission control spaces:
