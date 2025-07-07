@@ -1,6 +1,7 @@
 after-login-command = []
 after-startup-command = [
-    'exec-and-forget sketchybar'
+    'exec-and-forget sketchybar',
+    'exec-and-forget borders active_color=0xFFF3B863 inactive_color=0xFF003640 width=8.0 hidpi=on'
 ]
 
 exec-on-workspace-change = ['/bin/bash', '-c',
@@ -34,12 +35,12 @@ automatically-unhide-macos-hidden-apps = false
 #                 See:
 #                 https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
-    inner.horizontal = 4
-    inner.vertical =   4
-    outer.left =       5
-    outer.bottom =     5
-    outer.top =        10
-    outer.right =      5
+    inner.horizontal = 12
+    inner.vertical =   12
+    outer.left =       8
+    outer.bottom =     8
+    outer.top =        [{ monitor."LG HDR 4K" = 44 }, 10]
+    outer.right =      8
 
 # 'main' binding mode declaration
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
@@ -100,12 +101,14 @@ automatically-unhide-macos-hidden-apps = false
     alt-3 = 'workspace 3'
     alt-4 = 'workspace 4'
     alt-5 = 'workspace 5'
+    alt-m = 'workspace M'
     
     alt-shift-1 = 'move-node-to-workspace 1'
     alt-shift-2 = 'move-node-to-workspace 2'
     alt-shift-3 = 'move-node-to-workspace 3'
     alt-shift-4 = 'move-node-to-workspace 4'
     alt-shift-5 = 'move-node-to-workspace 5'
+    alt-shift-m = 'move-node-to-workspace M'
 
     alt-shift-f = 'fullscreen'
 
@@ -140,3 +143,15 @@ automatically-unhide-macos-hidden-apps = false
 [[on-window-detected]]
 if.app-id = 'com.culturedcode.ThingsMac'
 run = ['layout floating']
+
+[[on-window-detected]]
+if.app-id = 'com.kakao.KakaoTalkMac'
+run = ['layout floating', 'move-node-to-workspace M']
+
+[[on-window-detected]]
+if.app-id = 'ru.keepcoder.Telegram'
+run = ['layout floating', 'move-node-to-workspace M']
+
+[[on-window-detected]]
+if.app-id = 'net.whatsapp.WhatsApp'
+run = ['layout floating', 'move-node-to-workspace M']

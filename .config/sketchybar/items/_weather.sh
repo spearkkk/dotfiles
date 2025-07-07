@@ -9,5 +9,5 @@ WEATHER=(
   label.padding_right="$OUTER_PADDING"
 )
 
-sketchybar --add item _weather e \
+sketchybar --add item _weather right \
            --set _weather "${WEATHER[@]}"

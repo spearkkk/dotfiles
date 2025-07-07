@@ -71,6 +71,8 @@ sketchybar --default "${DEFAULT[@]}" "${DEFAULT_COLORS[@]}"
 
 source "$ITEM_DIR/_aerospace.sh"
 
+source "$ITEM_DIR/_front_app.sh"
+
 source "$ITEM_DIR/_timestamp.sh"
 source "$ITEM_DIR/_weather.sh"
 

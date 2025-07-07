@@ -11,16 +11,16 @@ source "$CONFIG_DIR/icon_map.sh"
 HIGHLIGHTED=(
   icon.highlight=on
   label.highlight=on
-  background.color="$BLACK"
-  background.border_color="$YELLOW"
-  background.border_width=2
+  background.color="$(set_alpha $BLACK 60)"
+#  background.border_color="$(set_alpha $YELLOW 60)"
+#  background.border_width=2
 )
 NOT_HIGHLIGHTED=(
   icon.highlight=off
   label.highlight=off
   background.color="0x00000000"
-  background.border_width=0
-  background.border_color="0x00000000"
+#  background.border_width=0
+#  background.border_color="0x00000000"
 )
 
 FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused)"
