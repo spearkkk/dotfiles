@@ -107,16 +107,15 @@ weather_icons_night=(
 )
 
 #CITY=$(echo "$CITY" | curl -Gso /dev/null -w %{url_effective} --data-urlencode @- "" | cut -c 3- || true)
-echo "$CITY"
-data=$(curl -s "http://api.weatherapi.com/v1/current.json?key=$API_KEY&q=$CITY")
-echo "$data"
-condition=$(echo $data | jq -r '.current.condition.code')
-temp=$(echo $data | jq -r '.current.temp_c')
-feelslike=$(echo $data | jq -r '.current.feelslike_c')
-humidity=$(echo $data | jq -r '.current.humidity')
-is_day=$(echo $data | jq -r '.current.is_day')
 
-[ "$is_day" = "1" ] && icon=$weather_icons_day[$condition] || icon=$weather_icons_night[$condition]
+data=$(curl -s "http://api.weatherapi.com/v1/current.json?key=$API_KEY&q=$CITY")
+condition=$(echo "$data" | jq -r '.current.condition.code')
+temp=$(echo "$data" | jq -r '.current.temp_c')
+feelslike=$(echo "$data" | jq -r '.current.feelslike_c')
+humidity=$(echo "$data" | jq -r '.current.humidity')
+is_day=$(echo "$data" | jq -r '.current.is_day')
+
+[ "$is_day" = "1" ] && icon="${weather_icons_day[$condition]}" || icon="${weather_icons_night[$condition]}"
 
 sketchybar --set "$NAME" \
         icon="$icon" \

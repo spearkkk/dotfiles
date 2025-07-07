@@ -8,5 +8,5 @@ TIMESTAMP=(
   label.padding_right="$OUTER_PADDING"
 )
 
-sketchybar --add item _timestamp center \
+sketchybar --add item _timestamp e \
            --set _timestamp "${TIMESTAMP[@]}"

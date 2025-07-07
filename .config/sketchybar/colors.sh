@@ -61,3 +61,30 @@ export BLACK=$BASE01
 export WHITE=$BASE05
 export BRIGHT_BLACK=$BASE03
 export BRIGHT_WHITE=$BASE07
+
+set_alpha() {
+  local hex="$1"
+  local percent="$2"
+
+  # clamp percent between 0~100
+  if [ "$percent" -lt 0 ]; then percent=0; fi
+  if [ "$percent" -gt 100 ]; then percent=100; fi
+
+  # strip prefix
+  hex="${hex#\#}"
+  hex="${hex#0x}"
+
+  # if length is 8, remove existing alpha (assume AARRGGBB or RRGGBBAA)
+  if [ "${#hex}" -eq 8 ]; then
+    hex="${hex: -6}"  # keep last 6 chars
+  fi
+
+  # upper case
+  hex=$(echo "$hex" | tr '[:lower:]' '[:upper:]')
+
+  # compute alpha
+  local a_int=$(printf "%.0f" "$(echo "$percent * 2.55" | bc -l)")
+  local alpha_hex=$(printf "%02X" "$a_int")
+
+  echo "0x${alpha_hex}${hex}"
+}
