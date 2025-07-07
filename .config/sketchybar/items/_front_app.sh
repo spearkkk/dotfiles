@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+
 # https://github.com/forteleaf/sketkchybar-with-aerospace
 APP=(
   icon.font.family="sketchybar-app-font-bg"
@@ -11,8 +12,8 @@ APP=(
   label.padding_right=16
   label.color="$YELLOW"
   label.font.style="Regular"
-  background.color="$(set_alpha $BLACK 90)"
-  background.border_color="$(set_alpha $YELLOW 90)"
+  background.color="$(set_alpha "$LAYER_1" 90)"
+  background.border_color="$(set_alpha "$BACKGROUND_DARKW" 90)"
   background.border_width=2
   script="$PLUGIN_DIR/front_app.sh"
   click_script="open -a 'Mission Control'"

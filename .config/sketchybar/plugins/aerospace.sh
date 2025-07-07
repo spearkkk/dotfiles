@@ -12,27 +12,15 @@ HIGHLIGHTED=(
   icon.highlight=on
   label.highlight=on
   background.color="$(set_alpha $BLACK 60)"
-#  background.border_color="$(set_alpha $YELLOW 60)"
-#  background.border_width=2
 )
 NOT_HIGHLIGHTED=(
   icon.highlight=off
   label.highlight=off
   background.color="0x00000000"
-#  background.border_width=0
-#  background.border_color="0x00000000"
 )
 
 FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused)"
 apps=$(aerospace list-windows --workspace "$FOCUSED_WORKSPACE" | awk -F'|' '{gsub(/^ *| *$/, "", $2); print $2}')
-
-#label="hello"
-#if [ "${apps}" != "" ]; then
-#  while read -r app
-#  do
-#    label+=" $(get_app_icon "$app")"
-#  done <<< "${apps}"
-#fi
 
 for monitor_idx in $(aerospace list-monitors | awk '{print $1}'); do
   for workspace_idx in $(aerospace list-workspaces --monitor "$monitor_idx"); do
