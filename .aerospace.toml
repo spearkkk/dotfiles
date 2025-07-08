@@ -38,8 +38,8 @@ automatically-unhide-macos-hidden-apps = false
     inner.horizontal = 12
     inner.vertical =   12
     outer.left =       8
-    outer.bottom =     8
-    outer.top =        [{ monitor."LG HDR 4K" = 44 }, 10]
+    outer.bottom =     [{ monitor."LG HDR 4K" = 44 }, 8]
+    outer.top =        8
     outer.right =      8
 
 # 'main' binding mode declaration

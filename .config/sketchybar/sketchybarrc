@@ -15,7 +15,7 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 # BAR Appearance
 BAR=(
-  position=TOP
+  position=bottom
   height=35
   margin=0
   y_offset=0
