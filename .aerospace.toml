@@ -1,5 +1,6 @@
 after-login-command = []
 after-startup-command = [
+    'exec-and-forget sketchybar --reload',
     'exec-and-forget sketchybar',
     'exec-and-forget borders active_color=0xFFF3B863 inactive_color=0xFF003640 width=8.0 hidpi=on'
 ]
@@ -13,9 +14,9 @@ start-at-login = true
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 
-accordion-padding = 10
+accordion-padding = 20
 
-default-root-container-layout = 'accordion'
+default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'
 
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
@@ -38,8 +39,8 @@ automatically-unhide-macos-hidden-apps = false
     inner.horizontal = 12
     inner.vertical =   12
     outer.left =       8
-    outer.bottom =     [{ monitor."LG HDR 4K" = 44 }, 8]
-    outer.top =        8
+    outer.bottom =     8
+    outer.top =        [{ monitor."LG HDR 4K" = 44 }, 8]
     outer.right =      8
 
 # 'main' binding mode declaration
@@ -141,7 +142,19 @@ automatically-unhide-macos-hidden-apps = false
     shift-down = ['volume set 0', 'mode main']
 
 [[on-window-detected]]
+if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-id = 'com.google.Chrome.app.cinhimbnkkaeohfgghhklpknlkffjgod'
+run = ['layout floating']
+
+[[on-window-detected]]
 if.app-id = 'com.culturedcode.ThingsMac'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-id = 'net.freemacsoft.AppCleaner'
 run = ['layout floating']
 
 [[on-window-detected]]

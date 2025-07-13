@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Load environment variables
 source "$CONFIG_DIR/env.sh"
 
@@ -12,10 +14,9 @@ source "$CONFIG_DIR/icons.sh"
 ITEM_DIR="$CONFIG_DIR/items"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
-
 # BAR Appearance
 BAR=(
-  position=bottom
+  position=top
   height=35
   margin=0
   y_offset=0
@@ -25,8 +26,8 @@ BAR=(
   padding_left=4
   padding_right=4
 
-  color="$(set_alpha $BACKGROUND_DARKEST 20)"
-  border_color="$(set_alpha $CYAN 80)"
+  color="$(set_alpha "$BACKGROUND_DARKEST" 20)"
+  border_color="$(set_alpha "$CYAN" 80)"
 )
 
 sketchybar --bar "${BAR[@]}"
@@ -35,13 +36,13 @@ sketchybar --bar "${BAR[@]}"
 # Default appearance for items
 INNER_PADDING=4
 OUTER_PADDING=8
-FONT="Hack Nerd Font:BOLD:16.0"
+FONT="Hack Nerd Font:BOLD:12.0"
 
 EAGER_FREQUENCY=1
 LAZY_FREQUENCY=300
 
 DEFAULT=(
-  background.height=30
+  background.height=28
   background.y_offset=0
   background.padding_left=2
   background.padding_right=2
@@ -56,7 +57,7 @@ DEFAULT=(
 )
 
 DEFAULT_COLORS=(
-  background.color="$(set_alpha $BACKGROUND_DARKEST 60)"
+  background.color="$(set_alpha $BLACK 80)"
   label.color="$TEXT_DEFAULT"
   icon.color="$TEXT_DEFAULT"
 )
@@ -69,15 +70,43 @@ CONTRAST_COLORS=(
 
 sketchybar --default "${DEFAULT[@]}" "${DEFAULT_COLORS[@]}"
 
-source "$ITEM_DIR/_aerospace.sh"
+"$CONFIG_DIR"/batch_init.sh left &
+left_pid=$!
 
-source "$ITEM_DIR/_front_app.sh"
+$CONFIG_DIR/batch_init.sh right &
+right_pid=$!
 
-source "$ITEM_DIR/_sausage.sh"
+
 
 source "$ITEM_DIR/_timestamp.sh"
 source "$ITEM_DIR/_weather.sh"
+source "$ITEM_DIR/_weather_timestamp.sh"
 
+source "$ITEM_DIR/_transparent.sh"
+render 1
+
+source "$ITEM_DIR/_battery.sh"
+source "$ITEM_DIR/_cafe.sh"
+source "$ITEM_DIR/_things.sh"
+source "$ITEM_DIR/_icons.sh"
+
+source "$ITEM_DIR/_transparent.sh"
+render 2
+
+source "$ITEM_DIR/_pomodoro.sh"
+
+source "$ITEM_DIR/_sausage.sh"
+
+wait $left_pid $right_pid
+
+# Set focused workspace styling after all items are created
+source $CONFIG_DIR/utils/aerospace.sh
+FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)
+if [[ -n "$FOCUSED_WORKSPACE" ]]; then
+    set_workspace_focused "$FOCUSED_WORKSPACE"
+fi
+# -- Handle theme changes --
+sketchybar --add event theme_change AppleInterfaceThemeChangedNotification
 
 # End
 sketchybar --update

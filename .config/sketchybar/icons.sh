@@ -3,6 +3,23 @@ export CALENDAR_ICON="􀒎"
 sf_symbol_for() {
   local input="$1"
   case "$input" in
+    cloud.bolt.fill) echo "􀇓" ;;
+    cloud.bolt.rain.fill) echo "􀇟" ;;
+    cloud.drizzle.fill) echo "􀇅" ;;
+    cloud.fill) echo "􀇃" ;;
+    cloud.fog.fill) echo "􀇋" ;;
+    cloud.hail.fill) echo "􀇍" ;;
+    cloud.heavyrain.fill) echo "􀇉" ;;
+    cloud.moon.fill) echo "􀇛" ;;
+    cloud.moon.rain.fill) echo "􀇝" ;;
+    cloud.rain.fill) echo "􀇇" ;;
+    cloud.sleet.fill) echo "􀇑" ;;
+    cloud.snow.fill) echo "􀇏" ;;
+    cloud.sun.fill) echo "􀇕" ;;
+    cloud.sun.rain.fill) echo "􀇗" ;;
+    moon.stars.fill) echo "􀇁" ;;
+    sun.max.fill) echo "􀆮" ;;
+    wind.snow) echo "􀇦" ;;
     cal) echo "􀉉" ;;
     0) echo "􀃈" ;;
     1) echo "􀃊" ;;
@@ -46,6 +63,6 @@ sf_symbol_for() {
     30) echo "􀕇" ;;
     31) echo "􀘢" ;;
     M) echo "􀂬" ;;
-    *) echo "" ;;
+    *) echo "aaa" ;;
   esac
 }

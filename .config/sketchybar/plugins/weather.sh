@@ -1,122 +1,142 @@
 #!/bin/zsh
 
 API_KEY="73a4c1b756384c228e9142307250307" # insert api key here
-CITY="$(curl -s ipinfo.io/loc)" # insert city here
+CITY="$(curl -s ipinfo.io/loc)" # get current location coordinates
 
-# first comment is description, second is icon number
+source "$CONFIG_DIR/colors.sh"
+source "$CONFIG_DIR/icons.sh"
+
+# Weather icon maps (SF Symbol names)
 weather_icons_day=(
-    [1000]=  # Sunny/113
-    [1003]=  # Partly cloudy/116
-    [1006]=  # Cloudy/119
-    [1009]=  # Overcast/122
-    [1030]=  # Mist/143
-    [1063]=  # Patchy rain possible/176
-    [1066]=  # Patchy snow possible/179
-    [1069]=  # Patchy sleet possible/182
-    [1072]=  # Patchy freezing drizzle possible/185
-    [1087]=  # Thundery outbreaks possible/200
-    [1114]=  # Blowing snow/227
-    [1117]=  # Blizzard/230
-    [1135]=  # Fog/248
-    [1147]=  # Freezing fog/260
-    [1150]=  # Patchy light drizzle/263
-    [1153]=  # Light drizzle/266
-    [1168]=  # Freezing drizzle/281
-    [1171]=  # Heavy freezing drizzle/284
-    [1180]=  # Patchy light rain/293
-    [1183]=  # Light rain/296
-    [1186]=  # Moderate rain at times/299
-    [1189]=  # Moderate rain/302
-    [1192]=  # Heavy rain at times/305
-    [1195]=  # Heavy rain/308
-    [1198]=  # Light freezing rain/311
-    [1201]=  # Moderate or heavy freezing rain/314
-    [1204]=  # Light sleet/317
-    [1207]=  # Moderate or heavy sleet/320
-    [1210]=  # Patchy light snow/323
-    [1213]=  # Light snow/326
-    [1216]=  # Patchy moderate snow/329
-    [1219]=  # Moderate snow/332
-    [1222]=  # Patchy heavy snow/335
-    [1225]=  # Heavy snow/338
-    [1237]=  # Ice pellets/350
-    [1240]=  # Light rain shower/353
-    [1243]=  # Moderate or heavy rain shower/356
-    [1246]=  # Torrential rain shower/359
-    [1249]=  # Light sleet showers/362
-    [1252]=  # Moderate or heavy sleet showers/365
-    [1255]=  # Light snow showers/368
-    [1258]=  # Moderate or heavy snow showers/371
-    [1261]=  # Light showers of ice pellets/374
-    [1264]=  # Moderate or heavy showers of ice pellets/377
-    [1273]=  # Patchy light rain with thunder/386
-    [1276]=  # Moderate or heavy rain with thunder/389
-    [1279]=  # Patchy light snow with thunder/392
-    [1282]=  # Moderate or heavy snow with thunder/395
+  [1000]="sun.max.fill"
+  [1003]="cloud.sun.fill"
+  [1006]="cloud.fill"
+  [1009]="cloud.fill"
+  [1030]="cloud.fog.fill"
+  [1063]="cloud.drizzle.fill"
+  [1066]="cloud.snow.fill"
+  [1069]="cloud.sleet.fill"
+  [1072]="cloud.drizzle.fill"
+  [1087]="cloud.bolt.fill"
+  [1114]="cloud.snow.fill"
+  [1117]="wind.snow"
+  [1135]="cloud.fog.fill"
+  [1147]="cloud.fog.fill"
+  [1150]="cloud.drizzle.fill"
+  [1153]="cloud.drizzle.fill"
+  [1168]="cloud.drizzle.fill"
+  [1171]="cloud.drizzle.fill"
+  [1180]="cloud.rain.fill"
+  [1183]="cloud.rain.fill"
+  [1186]="cloud.rain.fill"
+  [1189]="cloud.heavyrain.fill"
+  [1192]="cloud.heavyrain.fill"
+  [1195]="cloud.heavyrain.fill"
+  [1198]="cloud.rain.fill"
+  [1201]="cloud.heavyrain.fill"
+  [1204]="cloud.sleet.fill"
+  [1207]="cloud.sleet.fill"
+  [1210]="cloud.snow.fill"
+  [1213]="cloud.snow.fill"
+  [1216]="cloud.snow.fill"
+  [1219]="cloud.snow.fill"
+  [1222]="cloud.snow.fill"
+  [1225]="cloud.snow.fill"
+  [1237]="cloud.hail.fill"
+  [1240]="cloud.sun.rain.fill"
+  [1243]="cloud.sun.rain.fill"
+  [1246]="cloud.sun.rain.fill"
+  [1249]="cloud.sleet.fill"
+  [1252]="cloud.sleet.fill"
+  [1255]="cloud.snow.fill"
+  [1258]="cloud.snow.fill"
+  [1261]="cloud.hail.fill"
+  [1264]="cloud.hail.fill"
+  [1273]="cloud.bolt.rain.fill"
+  [1276]="cloud.bolt.rain.fill"
+  [1279]="cloud.snow.fill"
+  [1282]="cloud.snow.fill"
 )
 
 weather_icons_night=(
-    [1000]=  # Clear/113
-    [1003]=  # Partly cloudy/116
-    [1006]=  # Cloudy/119
-    [1009]=  # Overcast/122
-    [1030]=  # Mist/143
-    [1063]=  # Patchy rain possible/176
-    [1066]=  # Patchy snow possible/179
-    [1069]=  # Patchy sleet possible/182
-    [1072]=  # Patchy freezing drizzle possible/185
-    [1087]=  # Thundery outbreaks possible/200
-    [1114]=  # Blowing snow/227
-    [1117]=  # Blizzard/230
-    [1135]=  # Fog/248
-    [1147]=  # Freezing fog/260
-    [1150]=  # Patchy light drizzle/263
-    [1153]=  # Light drizzle/266
-    [1168]=  # Freezing drizzle/281
-    [1171]=  # Heavy freezing drizzle/284
-    [1180]=  # Patchy light rain/293
-    [1183]=  # Light rain/296
-    [1186]=  # Moderate rain at times/299
-    [1189]=  # Moderate rain/302
-    [1192]=  # Heavy rain at times/305
-    [1195]=  # Heavy rain/308
-    [1198]=  # Light freezing rain/311
-    [1201]=  # Moderate or heavy freezing rain/314
-    [1204]=  # Light sleet/317
-    [1207]=  # Moderate or heavy sleet/320
-    [1210]=  # Patchy light snow/323
-    [1213]=  # Light snow/326
-    [1216]=  # Patchy moderate snow/329
-    [1219]=  # Moderate snow/332
-    [1222]=  # Patchy heavy snow/335
-    [1225]=  # Heavy snow/338
-    [1237]=  # Ice pellets/350
-    [1240]=  # Light rain shower/353
-    [1243]=  # Moderate or heavy rain shower/356
-    [1246]=  # Torrential rain shower/359
-    [1249]=  # Light sleet showers/362
-    [1252]=  # Moderate or heavy sleet showers/365
-    [1255]=  # Light snow showers/368
-    [1258]=  # Moderate or heavy snow showers/371
-    [1261]=  # Light showers of ice pellets/374
-    [1264]=  # Moderate or heavy showers of ice pellets/377
-    [1273]=  # Patchy light rain with thunder/386
-    [1276]=  # Moderate or heavy rain with thunder/389
-    [1279]=  # Patchy light snow with thunder/392
-    [1282]=  # Moderate or heavy snow with thunder/395
+  [1000]="moon.stars.fill"
+  [1003]="cloud.moon.fill"
+  [1006]="cloud.fill"
+  [1009]="cloud.fill"
+  [1030]="cloud.fog.fill"
+  [1063]="cloud.moon.rain.fill"
+  [1066]="cloud.snow.fill"
+  [1069]="cloud.sleet.fill"
+  [1072]="cloud.moon.rain.fill"
+  [1087]="cloud.bolt.fill"
+  [1114]="cloud.snow.fill"
+  [1117]="wind.snow"
+  [1135]="cloud.fog.fill"
+  [1147]="cloud.fog.fill"
+  [1150]="cloud.moon.rain.fill"
+  [1153]="cloud.moon.rain.fill"
+  [1168]="cloud.moon.rain.fill"
+  [1171]="cloud.moon.rain.fill"
+  [1180]="cloud.moon.rain.fill"
+  [1183]="cloud.moon.rain.fill"
+  [1186]="cloud.moon.rain.fill"
+  [1189]="cloud.moon.rain.fill"
+  [1192]="cloud.moon.rain.fill"
+  [1195]="cloud.moon.rain.fill"
+  [1198]="cloud.moon.rain.fill"
+  [1201]="cloud.moon.rain.fill"
+  [1204]="cloud.sleet.fill"
+  [1207]="cloud.sleet.fill"
+  [1210]="cloud.snow.fill"
+  [1213]="cloud.snow.fill"
+  [1216]="cloud.snow.fill"
+  [1219]="cloud.snow.fill"
+  [1222]="cloud.snow.fill"
+  [1225]="cloud.snow.fill"
+  [1237]="cloud.hail.fill"
+  [1240]="cloud.moon.rain.fill"
+  [1243]="cloud.moon.rain.fill"
+  [1246]="cloud.moon.rain.fill"
+  [1249]="cloud.sleet.fill"
+  [1252]="cloud.sleet.fill"
+  [1255]="cloud.snow.fill"
+  [1258]="cloud.snow.fill"
+  [1261]="cloud.hail.fill"
+  [1264]="cloud.hail.fill"
+  [1273]="cloud.bolt.rain.fill"
+  [1276]="cloud.bolt.rain.fill"
+  [1279]="cloud.snow.fill"
+  [1282]="cloud.snow.fill"
 )
 
-#CITY=$(echo "$CITY" | curl -Gso /dev/null -w %{url_effective} --data-urlencode @- "" | cut -c 3- || true)
-
+# Fetch weather data
 data=$(curl -s "http://api.weatherapi.com/v1/current.json?key=$API_KEY&q=$CITY")
 condition=$(echo "$data" | jq -r '.current.condition.code')
 temp=$(echo "$data" | jq -r '.current.temp_c')
-feelslike=$(echo "$data" | jq -r '.current.feelslike_c')
 humidity=$(echo "$data" | jq -r '.current.humidity')
 is_day=$(echo "$data" | jq -r '.current.is_day')
 
-[ "$is_day" = "1" ] && icon="${weather_icons_day[$condition]}" || icon="${weather_icons_night[$condition]}"
+# Determine icon and color
+if [[ "$is_day" == "1" ]]; then
+  icon="${weather_icons_day[$condition]}"
+  if (( $(echo "$temp >= 28" | bc -l) )); then
+    color="$BRIGHT_RED"
+  else
+    color="$BRIGHT_YELLOW"
+  fi
+else
+  icon="${weather_icons_night[$condition]}"
+  if (( $(echo "$temp >= 25" | bc -l) )); then
+    color="$BRIGHT_MAGENTA"
+  elif (( $(echo "$temp < 0" | bc -l) )); then
+    color="$BRIGHT_CYAN"
+  else
+    color="$BRIGHT_BLUE"
+  fi
+fi
 
+# Set sketchybar item
 sketchybar --set "$NAME" \
-        icon="$icon" \
-        label="${temp}°C"
+  icon="$(sf_symbol_for $icon)" \
+  icon.color="$color" \
+  label="${temp}􂧤"

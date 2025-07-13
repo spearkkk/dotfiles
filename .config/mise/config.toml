@@ -1,6 +1,3 @@
 [tools]
 java = "corretto-17.0.13.11.1"
 node = "23.8.0"
-
-[env]
-WEATHER_API_KEY = { value = "73a4c1b756384c228e9142307250307", redact = true }

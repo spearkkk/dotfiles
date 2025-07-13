@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 get_app_icon() {
   case "$1" in
