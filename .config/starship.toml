@@ -1,40 +1,11 @@
 # Starship Configuration
 "$schema" = 'https://starship.rs/config-schema.json'
 
-add_newline = true
+add_newline = false
 
 format = """
-$directory\
-$git_branch\
-$git_commit\
-$git_state\
-$git_metrics\
-$git_status\
-$cmd_duration\
-$fill\
-$kubernetes\
-$docker_context\
-$nodejs\
-$python\
-$rust\
-$java\
-$php\
-$perl\
-$swift\
-$dart\
-$scala\
-$kotlin\
-\n
-$fill\
-$time\
-$character\
-
+$character
 """
-
-right_format = """
-[󰇥](bold fg:bright-yellow)
-"""
-
 # Palette
 palette = "deep_oceanic_next"
 
@@ -68,30 +39,29 @@ bright-purple = "#b788ff" # Base17
 disabled = true
 
 [directory]
-truncation_length = 3
+truncation_length = 4
 truncate_to_repo = true
-style = "fg:bright-yellow bg:background"
+style = "fg:foreground bg:background"
 read_only_style = "bright-red"
 truncation_symbol = "…/"
-repo_root_style = "underline fg:bright-yellow bg:background"
+repo_root_style = "underline fg:foreground bg:background"
 
 [git_branch]
-symbol = ""
-format = "[< ](fg:light-grey bg:background)[$symbol-$branch](fg:bright-green bg:background)[ >](fg:light-grey bg:background)"
+format = "[\\[$branch\\]](fg:foreground bg:background)"
 truncation_length = 50
 
 # Enhanced Git Status without clean indicator
 [git_status]
-format = "[ $all_status$ahead_behind ](fg:bright-green bg:background)"
-staged = "●"  # Indicates staged files
-modified = "✚"  # Indicates modified files
-deleted = "✖"  # Indicates deleted files
-renamed = "➜"  # Indicates renamed files
-untracked = "… "  # Indicates untracked files
-conflicted = "≠"  # Indicates conflicts
-ahead = "⇡"  # Indicates commits ahead of the remote
-behind = "⇣"  # Indicates commits behind the remote
-diverged = "⇕"  # Indicates commits diverged from the remote
+format = "[$all_status$ahead_behind](fg:foreground bg:background)"
+staged      = "●"   # 스테이징됨
+modified    = "±"   # 수정됨 (plus-minus: 변경 느낌)
+deleted     = "−"   # 삭제됨 (minus 기호로 통일)
+renamed     = "→"   # 이름 변경됨
+untracked   = "… "  # 추적되지 않음 (생략점 그대로 유지)
+conflicted  = "≠"   # 충돌
+ahead       = "↑"   # 로컬이 앞섬
+behind      = "↓"   # 로컬이 뒤처짐
+diverged    = "↕"   # 서로 갈라짐
 
 [package]
 disabled = true
@@ -102,13 +72,13 @@ format="[$time](fg:bright-yellow bg:background)"
 time_format="%a %Y.%m.%d %H:%M:%S %Z (%s)"
 
 [cmd_duration]
-format = "[$duration](fg:magenta bg:background)"
+format = "[$duration](fg:foreground bg:background)"
 
 [fill]
 symbol = "-"
 
 [character]
-format = "\n$symbol "
+format = "$symbol "
 error_symbol = "[✗](bold red)"
 
 
