@@ -1,7 +1,7 @@
 #!/usr/bin/env fish
 
-function install_if_missing \
-    --description "Install package if missing. Usage: install_if_missing <type> <name> <is_cask> [tap_name]"
+function _install_if_missing \
+    --description "Install package if missing. Usage: _install_if_missing <type> <name> <is_cask> [tap_name]"
 
     set -l type $argv[1]
     set -l name $argv[2]
@@ -29,7 +29,7 @@ function install_if_missing \
         end
 
         if test -n "$tap_name"
-            tap_if_missing $tap_name
+            _tap_if_missing $tap_name
         end
 
         set -l found 1

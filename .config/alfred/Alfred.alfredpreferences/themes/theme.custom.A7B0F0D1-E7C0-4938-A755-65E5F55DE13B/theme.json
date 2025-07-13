@@ -1,0 +1,64 @@
+{
+  "alfredtheme" : {
+    "result" : {
+      "textSpacing" : 16,
+      "subtext" : {
+        "size" : 12,
+        "colorSelected" : "#F3B863FF",
+        "font" : "Monaco",
+        "color" : "#D3E1E8B2"
+      },
+      "shortcut" : {
+        "size" : 16,
+        "colorSelected" : "#FBC959FF",
+        "font" : "Monaco",
+        "color" : "#A7ADBAFF"
+      },
+      "backgroundSelected" : "#001C1FFF",
+      "text" : {
+        "size" : 16,
+        "colorSelected" : "#F3B863FE",
+        "font" : "Monaco",
+        "color" : "#E0E9EFFF"
+      },
+      "iconPaddingHorizontal" : 8,
+      "roundness" : 0,
+      "paddingVertical" : 4,
+      "iconSize" : 48
+    },
+    "search" : {
+      "backgroundSelected" : "#003640FF",
+      "paddingHorizontal" : 4,
+      "spacing" : 5,
+      "text" : {
+        "size" : 16,
+        "colorSelected" : "#E37551FF",
+        "font" : "Monaco",
+        "color" : "#D3E1E8FF"
+      },
+      "background" : "#001C1F00",
+      "roundness" : 0,
+      "paddingVertical" : 8
+    },
+    "window" : {
+      "color" : "#002830FF",
+      "paddingHorizontal" : 0,
+      "width" : 512,
+      "borderPadding" : 4,
+      "borderColor" : "#002830FF",
+      "blur" : 20,
+      "roundness" : 4,
+      "paddingVertical" : 0
+    },
+    "credit" : "spearkkk",
+    "separator" : {
+      "color" : "#2A2F3034",
+      "thickness" : 4
+    },
+    "scrollbar" : {
+      "color" : "#FFCC66FF",
+      "thickness" : 3
+    },
+    "name" : "Deep Oceanic Next"
+  }
+}

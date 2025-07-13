@@ -9,12 +9,12 @@ if test -f ~/.config/fish/conf.d/logger.fish
     source ~/.config/fish/conf.d/logger.fish
 end
 
-if test -f ~/.config/fish/functions/install_if_missing.fish
-    source ~/.config/fish/functions/install_if_missing.fish
+if test -f ~/.config/fish/functions/_install_if_missing.fish
+    source ~/.config/fish/functions/_install_if_missing.fish
 end
 
-if test -f ~/.config/fish/functions/tap_if_missing.fish
-    source ~/.config/fish/functions/tap_if_missing.fish
+if test -f ~/.config/fish/functions/_tap_if_missing.fish
+    source ~/.config/fish/functions/_tap_if_missing.fish
 end
 
 # Fallback log functions (if logger.fish didn't define them)
@@ -47,7 +47,8 @@ set -l core_tools \
     "sf-symbols:true:" \
     "borders:false:felixkratz/formulae" \
     "eza:false:" \
-    "bat:false:"
+    "bat:false:" \
+    "deepl:true:"
 
 for entry in $core_tools
     set -l parts (string split ":" $entry)
@@ -65,7 +66,7 @@ for entry in $core_tools
         set tap $parts[3]
     end
 
-    install_if_missing brew $name $is_cask $tap
+    _install_if_missing brew $name $is_cask $tap
 end
 
 log_success "✅ Core tools installation complete!"

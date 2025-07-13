@@ -7,7 +7,7 @@
 	<key>AlternateMouseScroll</key>
 	<true/>
 	<key>AlwaysOpenWindowAtStartup</key>
-	<true/>
+	<false/>
 	<key>Custom Color Presets</key>
 	<dict>
 		<key>deep-oceanic-next</key>
@@ -177,7 +177,7 @@
 	<key>DoubleClickPerformsSmartSelection</key>
 	<true/>
 	<key>EnableDivisionView</key>
-	<true/>
+	<false/>
 	<key>EnableRendezvous</key>
 	<false/>
 	<key>GlobalKeyMap</key>
@@ -300,7 +300,7 @@
 	<key>HideActivityIndicator</key>
 	<false/>
 	<key>HideScrollbar</key>
-	<false/>
+	<true/>
 	<key>HideTab</key>
 	<false/>
 	<key>HideTabNumber</key>
@@ -311,6 +311,8 @@
 	<integer>4</integer>
 	<key>MaxVertically</key>
 	<false/>
+	<key>NeverBlockSystemShutdown</key>
+	<true/>
 	<key>New Bookmarks</key>
 	<array>
 		<dict>
@@ -1534,21 +1536,21 @@
 	<key>ShowNewOutputIndicator</key>
 	<true/>
 	<key>SmartPlacement</key>
-	<false/>
+	<true/>
 	<key>SoundForEsc</key>
 	<false/>
 	<key>StatusBarPosition</key>
-	<integer>1</integer>
+	<integer>0</integer>
 	<key>StretchTabsToFillBar</key>
 	<false/>
 	<key>TabStyleWithAutomaticOption</key>
-	<integer>4</integer>
+	<integer>5</integer>
 	<key>TabViewType</key>
-	<integer>1</integer>
+	<integer>0</integer>
 	<key>TabsHaveCloseButton</key>
 	<true/>
 	<key>UseBorder</key>
-	<true/>
+	<false/>
 	<key>VisualIndicatorForEsc</key>
 	<false/>
 	<key>WindowNumber</key>

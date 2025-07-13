@@ -41,6 +41,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     brew install stow
 
     # Run stow to symlink all directories inside ~/.dotfiles
+    # cd ~/.dotfiles/; stow --ignore='(\.DS_Store$)' -v -R .
     DOTFILES_DIR="$HOME/.dotfiles"
     if [ -d "$DOTFILES_DIR" ]; then
         echo "[INFO] Symlinking dotfiles from $DOTFILES_DIR..."

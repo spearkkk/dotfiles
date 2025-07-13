@@ -2,6 +2,7 @@ TIMESTAMP=(
   icon="$(sf_symbol_for cal)"
   icon.color="$ORANGE"
   script="$PLUGIN_DIR/timestamp.sh"
+  click_script='open "btt://trigger_named/?trigger_name=sketchybar-notification-center-trigger"'
   update_freq="$EAGER_FREQUENCY"
   icon.padding_left="$OUTER_PADDING"
   icon.padding_right="$INNER_PADDING"

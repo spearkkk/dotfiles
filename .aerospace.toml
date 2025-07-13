@@ -144,6 +144,18 @@ automatically-unhide-macos-hidden-apps = false
     shift-down = ['volume set 0', 'mode main']
 
 [[on-window-detected]]
+if.app-id = 'com.linguee.DeepLCopyTranslator'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-id = 'com.runningwithcrayons.Alfred-Preferences'
+run = ['layout floating']
+
+[[on-window-detected]]
+if.app-id = 'com.hegenberg.BetterTouchTool'
+run = ['layout floating']
+
+[[on-window-detected]]
 if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml'
 run = ['layout floating']
 

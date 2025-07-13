@@ -8,4 +8,10 @@
 #  sketchybar --set $NAME drawing=off
 #fi
 
-sketchybar --set $NAME label="$INFO hey" drawing=on
+TITLE=$(osascript -e 'tell application "BetterTouchTool" to get_string_variable "NowPlayingTitle"')
+ARTIST=$(osascript -e 'tell application "BetterTouchTool" to get_string_variable "NowPlayingArtist"')
+
+echo "Title: $TITLE"
+echo "Artist: $ARTIST"
+#sketchybar --set media_item label="$TITLE - $ARTIST"
+#sketchybar --set $NAME label="$INFO hey" drawing=on

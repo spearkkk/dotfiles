@@ -26,7 +26,7 @@ start_timer() {
 
     (
       TIME_LEFT=$((duration * 60))
-      while [ $TIME_LEFT -ge 58 ]; do
+      while [ $TIME_LEFT -ge 0 ]; do
           MINUTES=$((TIME_LEFT / 60))
           SECONDS=$((TIME_LEFT % 60))
           TIME_STR=$(printf "%02d:%02d" $MINUTES $SECONDS)

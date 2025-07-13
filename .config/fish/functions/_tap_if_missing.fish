@@ -1,4 +1,4 @@
-function tap_if_missing \
+function _tap_if_missing \
     --description "Tap Homebrew repository if not already tapped"
 
     set -l tap_name $argv[1]
