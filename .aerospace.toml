@@ -103,6 +103,7 @@ automatically-unhide-macos-hidden-apps = false
     alt-4 = 'workspace 4'
     alt-5 = 'workspace 5'
     alt-m = 'workspace M'
+    alt-w = 'workspace W'
     
     alt-shift-1 = 'move-node-to-workspace 1'
     alt-shift-2 = 'move-node-to-workspace 2'
@@ -110,6 +111,7 @@ automatically-unhide-macos-hidden-apps = false
     alt-shift-4 = 'move-node-to-workspace 4'
     alt-shift-5 = 'move-node-to-workspace 5'
     alt-shift-m = 'move-node-to-workspace M'
+    alt-shift-w = 'move-node-to-workspace W'
 
     alt-shift-f = 'fullscreen'
 
@@ -168,3 +170,11 @@ run = ['layout floating', 'move-node-to-workspace M']
 [[on-window-detected]]
 if.app-id = 'net.whatsapp.WhatsApp'
 run = ['layout floating', 'move-node-to-workspace M']
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+run = ['move-node-to-workspace W']
+
+[[on-window-detected]]
+if.app-id = 'com.googlecode.iterm2'
+run = ['move-node-to-workspace W']
