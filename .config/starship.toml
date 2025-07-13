@@ -4,7 +4,7 @@
 add_newline = false
 
 format = """
-$character
+$directory$git_branch$character
 """
 # Palette
 palette = "deep_oceanic_next"
@@ -39,15 +39,15 @@ bright-purple = "#b788ff" # Base17
 disabled = true
 
 [directory]
-truncation_length = 4
-truncate_to_repo = true
-style = "fg:foreground bg:background"
-read_only_style = "bright-red"
-truncation_symbol = "…/"
-repo_root_style = "underline fg:foreground bg:background"
+truncation_length = 1
+truncate_to_repo = false
+style = "fg:blue bg:background"
+read_only_style = "bright-yellow"
+truncation_symbol = ""
+repo_root_style = "underline fg:blue bg:background"
 
 [git_branch]
-format = "[\\[$branch\\]](fg:foreground bg:background)"
+format = "[\\[](fg:yellow bg:background)[$branch](fg:bright-yellow bg:background)[\\]](fg:yellow bg:background)"
 truncation_length = 50
 
 # Enhanced Git Status without clean indicator
