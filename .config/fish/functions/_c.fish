@@ -11,8 +11,8 @@ function _c --description "Echo with foreground, optional background, and style"
     set -l idx 2
 
     set -l valid_colors black red green yellow blue magenta cyan white \
-        bright-black bright-red bright-green bright-yellow \
-        bright-blue bright-magenta bright-cyan bright-white
+        brblack brred brgreen bryellow \
+        brblue brmagenta brcyan brwhite
 
     if contains $argv[2] $valid_colors
         set bg $argv[2]

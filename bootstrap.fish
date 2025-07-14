@@ -48,7 +48,8 @@ set -l core_tools \
     "borders:false:felixkratz/formulae" \
     "eza:false:" \
     "bat:false:" \
-    "deepl:true:"
+    "deepl:true:" \
+    "wakatime:true:"
 
 for entry in $core_tools
     set -l parts (string split ":" $entry)
