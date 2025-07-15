@@ -1,47 +1,79 @@
-function _c --description "Echo with foreground, optional background, and style"
-    if test (count $argv) -lt 2
-        echo "Usage: _c <fg> [bg] [--bold|--underline|--italic] <text...>"
+function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--styles=bold,italic,underline] <text...>"
+    set -l fg ''
+    set -l bg ''
+    set -l styles
+    set -l args
+    set -l i 1
+
+    set -l valid_colors black red green yellow blue magenta cyan white \
+        brblack brred brgreen bryellow brblue brmagenta brcyan brwhite
+
+    while test $i -le (count $argv)
+        set -l arg $argv[$i]
+
+        if test $arg = "--color"
+            set fg $argv[(math $i + 1)]
+            set i (math $i + 2)
+            continue
+        end
+
+        if test $arg = "--background"
+            set bg $argv[(math $i + 1)]
+            set i (math $i + 2)
+            continue
+        end
+
+        if string match -rq '^--styles=' -- $arg
+            set -l style_string (string split "=" -- $arg)[2]
+            set styles (string split "," -- $style_string)
+            set i (math $i + 1)
+            continue
+        end
+
+        # 첫 번째 옵션 아닌 인자부터는 텍스트
+        break
+    end
+
+    # 남은 인자들을 출력 텍스트로 간주
+    if test $i -le (count $argv)
+        set args $argv[$i..-1]
+    end
+
+    if test -z "$fg"
+        echo "Usage: _c --color <fg> [--background <bg>] [--styles=bold,underline,italic] <text...>"
         return 1
     end
 
-    # 파라미터 파싱
-    set -l fg $argv[1]
-    set -l bg ''
-    set -l style ''
-    set -l idx 2
-
-    set -l valid_colors black red green yellow blue magenta cyan white \
-        brblack brred brgreen bryellow \
-        brblue brmagenta brcyan brwhite
-
-    if contains $argv[2] $valid_colors
-        set bg $argv[2]
-        set idx 3
+    if not contains -- $fg $valid_colors
+        echo "Invalid foreground color: $fg"
+        return 1
     end
 
-    if contains -- $argv[$idx] --bold --underline --italic
-        set style $argv[$idx]
-        set idx (math $idx + 1)
+    if test -n "$bg"; and not contains -- $bg $valid_colors
+        echo "Invalid background color: $bg"
+        return 1
     end
 
-    # ANSI 시작 시퀀스 구성
     set -l sequence (set_color $fg)
+
     if test -n "$bg"
         set sequence "$sequence"(set_color --background $bg)
     end
-    switch $style
-        case --bold
-            set sequence "$sequence"(set_color --bold)
-        case --underline
-            set sequence "$sequence"(set_color --underline)
-        case --italic
-            set sequence "$sequence"(set_color --italic)
+
+    for style in $styles
+        switch $style
+            case bold
+                set sequence "$sequence\e[1m"
+            case underline
+                set sequence "$sequence\e[4m"
+            case italic
+                set sequence "$sequence\e[3m"
+        end
     end
 
-    # 출력
     echo -en "$sequence"
-    for i in (seq $idx (count $argv))
-        echo -n "$argv[$i] "
+    for word in $args
+        echo -n "$word "
     end
-    echo -e (set_color normal)
+    echo -e "\e[0m"
 end
