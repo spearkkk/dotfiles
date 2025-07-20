@@ -2,7 +2,7 @@ after-login-command = []
 after-startup-command = [
     'exec-and-forget sketchybar --reload',
     'exec-and-forget sketchybar',
-    'exec-and-forget borders active_color=0xFFF3B863 inactive_color=0xFF003640 width=8.0 hidpi=on'
+    'exec-and-forget borders active_color=0xFF4FB7AE inactive_color=0xFF001C1F width=12 hidpi=off¬Ú'
 ]
 
 exec-on-workspace-change = ['/bin/bash', '-c',

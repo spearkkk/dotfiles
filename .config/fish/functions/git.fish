@@ -30,7 +30,7 @@ function git
     # 저장소 필요한 명령어 체크
     if contains $subcommand $repo_required
         if not command git rev-parse --is-inside-work-tree >/dev/null 2>&1
-            echo -e "\033[31m❌  이 디렉토리는 Git 저장소가 아닙니다.\033[0m"
+            echo -e "\033[31mNot exist .git file.\033[0m"
             return 1
         end
     end
@@ -38,11 +38,11 @@ function git
     # 깔끔한 로그 출력
     if test $subcommand = "log"
         command git log --graph \
-            --pretty=format:'%C(auto)%h%Creset %<(50,trunc)%s %C(blue)%<(12,trunc)%ad%Creset %C(magenta)%<(12,trunc)%an%Creset %C(yellow)%d%Creset' \
-            --date=short \
-            --abbrev-commit \
-            --decorate \
-            --all
+                  --pretty=format:'%C(auto)%h%Creset │ %<(50,trunc)%s%Creset │ %C(blue)%<(12,trunc)%ad%Creset │ %C(magenta)%<(12,trunc)%an%Creset │ %C(yellow)%d%Creset%n│ %w(80,6,6)%b%Creset' \
+                  --date=short \
+                  --abbrev-commit \
+                  --decorate \
+                  --all
         return 0
     end
 

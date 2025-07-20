@@ -49,7 +49,19 @@ set -l core_tools \
     "eza:false:" \
     "bat:false:" \
     "deepl:true:" \
-    "wakatime:true:"
+    "wakatime:true:" \
+    # yazi
+    "yazi:false:" \
+    "ffmpeg:false:" \
+    "sevenzip:false:" \
+    "jq:false:" \
+    "poppler:false:" \
+    "imagemagick:false:" \
+    "resvg:false:" \
+    "font-symbols-only-nerd-font:true:" \
+    "neovim:false:" \
+    "tree:false:" \
+    "tinty:false:tinted-theming/tinted"
 
 for entry in $core_tools
     set -l parts (string split ":" $entry)

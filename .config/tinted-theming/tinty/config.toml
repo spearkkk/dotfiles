@@ -1,0 +1,6 @@
+[[items]]
+path = "https://github.com/tinted-theming/tinted-nvim"
+name = "tinted-nvim"
+themes-dir = "colors"
+supported-systems = ["base16", "base24"]
+hook = "command cp -f %f ~/.config/nvim/colors"
