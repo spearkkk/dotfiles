@@ -37,3 +37,7 @@ opt.splitbelow = true -- split horizontal window to the bottom
 
 -- turn off swapfile
 opt.swapfile = false
+
+opt.encoding = "UTF-8"
+opt.mouse:append("a")
+opt.scrolloff=10
