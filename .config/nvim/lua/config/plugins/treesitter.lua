@@ -43,6 +43,7 @@ return {
         "vimdoc",
         "c",
         "regex",
+        "go",
       },
       incremental_selection = {
         enable = true,
