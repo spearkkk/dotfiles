@@ -115,6 +115,9 @@ automatically-unhide-macos-hidden-apps = false
 
     alt-shift-f = 'fullscreen'
 
+    alt-cmd-h = 'move-workspace-to-monitor left'
+    alt-cmd-l = 'move-workspace-to-monitor right'
+
     # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
     alt-tab = 'workspace-back-and-forth'
     # See: https://nikitabobko.github.io/AeroSpace/commands#move-workspace-to-monitor

@@ -20,3 +20,6 @@
   rebase = true
 [core]
   excludesfile = ~/gitignore
+  autocrlf = input
+[includeIf "gitdir:~/Projects/"]
+  path = ~/.gitconfig-work
