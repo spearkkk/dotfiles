@@ -1,17 +1,28 @@
-.dotfiles
+### Install 
+```shell
+chmod +x ./install.sh
+```
+```shell
+# install 
+./install.sh
+```
 
-home directory에 이 git 가져온다음
-stow 설치필요
-stow로 link
-
-sketchybar + border
-font설정 필요
-hack그거랑..
-app icon 폰트
-
-aerospace
-
-
-
-wallpaper
-Mountain01_Mac.png
+### Bootsrap
+```shell
+# --work or --personal
+./bootstrap.fish
+```
+```
+stow --ignore='(\.DS_Store$)|resources' -v -R .
+```
+```shell
+chmod +x ~/.config/sketchybar/plugins/*
+```
+```shell
+open -a Aerospace
+```
+[] Set [wallpaper](https://basicappleguy.com/basicappleblog/on-wallpapers)
+[] Set [font](https://github.com/SoichiroYamane/sketchybar-app-font-bg)
+```shell
+sketchybar --reload
+```
