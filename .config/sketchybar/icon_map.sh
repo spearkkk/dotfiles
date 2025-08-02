@@ -9,6 +9,7 @@ get_app_icon() {
     "Affinity Photo 2") echo ":affinity_photo:" ;;
     "Affinity Publisher 2") echo ":affinity_publisher:" ;;
     "Alacritty") echo ":alacritty:" ;;
+    "Alfred") echo ":alfred:" ;;
     "Amazon Music") echo ":amazon_music:" ;;
     "Amazon Q") echo ":amazonq:" ;;
     "AnyDesk") echo ":anydesk:" ;;
@@ -29,7 +30,6 @@ get_app_icon() {
     "CotEditor") echo ":coteditor:" ;;
     "Cursor") echo ":cursor:" ;;
     "DataSpell") echo ":dataspell:" ;;
-    "default") echo ":default:" ;;
     "DEVONthink" | "DEVONthink 3") echo ":devonthink:" ;;
     "Discord") echo ":discord:" ;;
     "Docker Desktop") echo ":docker:" ;;
@@ -51,6 +51,7 @@ get_app_icon() {
     "Hammerspoon") echo ":hammerspoon:" ;;
     "Hoppscotch") echo ":hoppscotch:" ;;
     "Inkscape") echo ":inkscape:" ;;
+    "IntelliJ IDEA") echo ":intellij_idea:" ;;
     "iTerm2") echo ":iterm:" ;;
     "Karabiner-Elements") echo ":karabiner_elements:" ;;
     "Karabiner-EventViewer") echo ":karabiner_eventviewer:" ;;
@@ -99,11 +100,13 @@ get_app_icon() {
     "Slack") echo ":slack:" ;;
     "Spark") echo ":spark:" ;;
     "Spotify") echo ":spotify:" ;;
+    "Sublime Text") echo ":sublime_text:" ;;
     "System Settings") echo ":system_settings_simple_big:" ;;
     "Tailescale") echo ":tailscale:" ;;
     "TeamViewer") echo ":teamviewer:" ;;
     "Terminal") echo ":terminal:" ;;
     "TeXShop") echo ":texshop:" ;;
+    "Things" | "Things 3") echo ":things:" ;;
     "TickTick") echo ":ticktick:" ;;
     "Todoist") echo ":todoist:" ;;
     "UpNote") echo ":upnote:" ;;
@@ -113,6 +116,8 @@ get_app_icon() {
     "Warp") echo ":warp:" ;;
     "WezTerm") echo ":wezterm:" ;;
     "XQuartz") echo ":xquartz:" ;;
+    "YouTube") echo ":youtube:" ;;
+    "YouTube Music") echo ":youtube_music:" ;;
     "Zed") echo ":zed:" ;;
     "Zen Browser") echo ":zen_browser:" ;;
     "zoom" | "zoom.us") echo ":zoom:" ;;
