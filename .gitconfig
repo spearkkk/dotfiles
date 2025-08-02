@@ -1,8 +1,8 @@
 [user]
-	name = spearkkk
-	email = spearkkp@gmail.com
+  name = spearkkk
+  email = spearkkp@gmail.com
 [push]
-    autoSetupRemote = true
+  autoSetupRemote = true
 [diff]
   algorithm = histogram
   colorMoved = plain
@@ -21,5 +21,5 @@
 [core]
   excludesfile = ~/gitignore
   autocrlf = input
-[includeIf "gitdir:~/Projects/"]
+[includeIf "gitdir:/Users/al02494219/Projects/**"]
   path = ~/.gitconfig-work
