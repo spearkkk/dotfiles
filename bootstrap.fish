@@ -84,6 +84,7 @@ set -l core_tools \
     "bat:false:" \
     "deepl:true:" \
     "wakatime:true:" \
+    "uutils-coreutils:false:" \
     # yazi
     "yazi:false:" \
     "ffmpeg:false:" \

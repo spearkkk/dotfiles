@@ -1,8 +1,7 @@
 after-login-command = []
 after-startup-command = [
     'exec-and-forget sketchybar --reload',
-    'exec-and-forget sketchybar',
-    'exec-and-forget borders active_color=0xFF4FB7AE inactive_color=0xFF001C1F width=12 hidpi=off¬Ú'
+    'exec-and-forget sketchybar'
 ]
 
 exec-on-workspace-change = ['/bin/bash', '-c',
@@ -36,12 +35,12 @@ automatically-unhide-macos-hidden-apps = false
 #                 See:
 #                 https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
-    inner.horizontal = 12
-    inner.vertical =   12
-    outer.left =       8
-    outer.bottom =     8
-    outer.top =        [{ monitor."LG HDR 4K" = 44 }, { monitor."DELL P2723QE" = 44 }, 8]
-    outer.right =      8
+    inner.horizontal = 4
+    inner.vertical =   4
+    outer.left =       4
+    outer.bottom =     4
+    outer.top =        [{ monitor."LG HDR 4K" = 40 }, { monitor."DELL P2723QE" = 40 }, 4]
+    outer.right =      4
 
 # 'main' binding mode declaration
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
