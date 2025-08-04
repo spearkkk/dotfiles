@@ -185,6 +185,16 @@ run = ['layout floating', 'move-node-to-workspace M']
 if.app-id = 'net.whatsapp.WhatsApp'
 run = ['layout floating', 'move-node-to-workspace M']
 
+
+[[on-window-detected]]
+if.app-id = 'jp.naver.line.mac'
+run = ['layout floating', 'move-node-to-workspace M']
+
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = ['layout floating', 'move-node-to-workspace M']
+
 [[on-window-detected]]
 if.app-id = 'com.jetbrains.intellij'
 run = ['move-node-to-workspace W']
