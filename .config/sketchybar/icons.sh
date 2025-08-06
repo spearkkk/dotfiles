@@ -63,7 +63,9 @@ sf_symbol_for() {
     30) echo "􀕇" ;;
     31) echo "􀘢" ;;
     M) echo "􀂬" ;;
-    W) echo "􀃀" ;;
+    A) echo "􀂔";;
+    S) echo "􀂸" ;;
+    D) echo "􀂚" ;;
     E) echo "􀂜" ;;
     *) echo "-" ;;
   esac

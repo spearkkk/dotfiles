@@ -102,8 +102,9 @@ automatically-unhide-macos-hidden-apps = false
     alt-4 = 'workspace 4'
     alt-5 = 'workspace 5'
     alt-m = 'workspace M'
-    alt-w = 'workspace W'
-    alt-e = 'workspace E'
+    alt-a = 'workspace A'
+    alt-s = 'workspace S'
+    alt-d = 'workspace D'
     
     alt-shift-1 = 'move-node-to-workspace 1'
     alt-shift-2 = 'move-node-to-workspace 2'
@@ -111,8 +112,9 @@ automatically-unhide-macos-hidden-apps = false
     alt-shift-4 = 'move-node-to-workspace 4'
     alt-shift-5 = 'move-node-to-workspace 5'
     alt-shift-m = 'move-node-to-workspace M'
-    alt-shift-w = 'move-node-to-workspace W'
-    alt-shift-e = 'move-node-to-workspace E'
+    alt-shift-a = 'move-node-to-workspace A'
+    alt-shift-s = 'move-node-to-workspace S'
+    alt-shift-d = 'move-node-to-workspace D'
 
     alt-shift-f = 'fullscreen'
 
@@ -203,12 +205,12 @@ run = ['move-node-to-workspace M']
 
 [[on-window-detected]]
 if.app-id = 'com.jetbrains.intellij'
-run = ['move-node-to-workspace W']
+run = ['move-node-to-workspace A']
 
 [[on-window-detected]]
 if.app-id = 'com.googlecode.iterm2'
-run = ['move-node-to-workspace W']
+run = ['move-node-to-workspace A']
 
 [[on-window-detected]]
 if.app-id = 'com.oecoway.friendlynetflix'
-run = ['move-node-to-workspace E']
+run = ['layout floating', 'move-node-to-workspace D']
