@@ -4,3 +4,8 @@ node = "23.8.0"
 
 [settings]
 experimental = true
+
+trusted_config_paths = [
+    '~/.config',
+    '~/.dotfiles_line'
+]
