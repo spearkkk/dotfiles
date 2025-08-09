@@ -85,6 +85,7 @@ set -l core_tools \
     "deepl:true:" \
     "wakatime:true:" \
     "uutils-coreutils:false:" \
+    "macism:false:laishulu/homebrew" \
     # yazi
     "yazi:false:" \
     "ffmpeg:false:" \

@@ -36,19 +36,39 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     chsh -s "$FISH_PATH"
     echo "[DONE] Fish is now your default shell. Please restart your terminal."
 
-    # Install stow
-    echo "[INFO] Installing stow for dotfile symlinks..."
+    # Install GNU Stow for symlink management
+    echo "[INFO] Installing GNU Stow for dotfile symlink management..."
+    echo "       Stow creates symbolic links from dotfiles to your home directory"
     brew install stow
 
-    # Run stow to symlink all directories inside ~/.dotfiles
-    # cd ~/.dotfiles/; stow --ignore='(\.DS_Store$)' -v -R .
+    # Configure dotfiles with GNU Stow
     DOTFILES_DIR="$HOME/.dotfiles"
     if [ -d "$DOTFILES_DIR" ]; then
-        echo "[INFO] Symlinking dotfiles from $DOTFILES_DIR..."
+        echo "[INFO] Creating symbolic links for dotfiles..."
+        echo "       This will link configuration files from $DOTFILES_DIR to your home directory"
+        echo "       Files like .gitconfig, .config/*, etc. will be symlinked"
+        
         cd "$DOTFILES_DIR"
-        stow -v -R .
+        
+        # Use stow with proper options:
+        # --ignore: Skip .DS_Store files and resources directory
+        # --verbose: Show detailed output of what's being linked
+        # --restow: Remove existing links and recreate them (safe update)
+        # --target: Explicitly set target directory to home
+        echo "[INFO] Running: stow --ignore='(\.DS_Store$)|resources' --verbose --restow --target=$HOME ."
+        stow --ignore='(\.DS_Store$)|resources' --verbose --restow --target="$HOME" .
+        
+        if [ $? -eq 0 ]; then
+            echo "[✅ SUCCESS] Dotfiles have been successfully symlinked to your home directory"
+            echo "             You can now edit files in $DOTFILES_DIR and changes will be reflected immediately"
+        else
+            echo "[❌ ERROR] Failed to create symlinks. Please check for conflicts and try again"
+            echo "           You may need to backup existing config files first"
+            echo "           Common conflicts: ~/.gitconfig, ~/.config/ directories"
+        fi
     else
         echo "[WARN] Dotfiles directory not found at $DOTFILES_DIR"
+        echo "       Please ensure this script is run from within the dotfiles repository"
     fi
 
     # Install iTerm2
@@ -60,6 +80,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     ITERM_CONFIG_DIR="$HOME/.config/iterm2"
     defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$ITERM_CONFIG_DIR"
     defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
+
+    # To enable to move window with three figners without click
+    defaults write -g NSWindowShouldDragOnGesture -bool true
 
     echo
     echo "[✅ SETUP COMPLETE] Restart your terminal or open iTerm2."

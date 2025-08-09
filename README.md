@@ -12,8 +12,12 @@ chmod +x ./install.sh
 # --work or --personal
 ./bootstrap.fish
 ```
-```
-stow --ignore='(\.DS_Store$)|resources' -v -R .
+```bash
+# Create symbolic links for all dotfiles (recommended)
+stow --ignore='(\.DS_Store$)|resources' --verbose --restow --target="$HOME" .
+
+# Alternative: Use short flags
+stow --ignore='(\.DS_Store$)|resources' -v -R -t "$HOME" .
 ```
 ```shell
 chmod +x ~/.config/sketchybar/plugins/*
