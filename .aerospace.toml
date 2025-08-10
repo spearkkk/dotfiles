@@ -47,135 +47,79 @@ automatically-unhide-macos-hidden-apps = false
 # 'main' binding mode must be always presented
 # Fallback value (if you omit the key): mode.main.binding = {}
 [mode.main.binding]
-  ctrl-backtick = ['mode edit'] 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#layout
-    alt-slash = 'layout tiles horizontal vertical'
-    alt-comma = 'layout accordion horizontal vertical'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#layout
+  alt-slash = 'layout tiles horizontal vertical'
+  alt-comma = 'layout accordion horizontal vertical'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#focus
-    alt-h = 'focus left'
-    alt-j = 'focus down'
-    alt-k = 'focus up'
-    alt-l = 'focus right'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#focus
+  alt-h = 'focus left'
+  alt-j = 'focus down'
+  alt-k = 'focus up'
+  alt-l = 'focus right'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#move
-    alt-shift-h = 'move left'
-    alt-shift-j = 'move down'
-    alt-shift-k = 'move up'
-    alt-shift-l = 'move right'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#move
+  alt-shift-h = 'move left'
+  alt-shift-j = 'move down'
+  alt-shift-k = 'move up'
+  alt-shift-l = 'move right'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#resize
-    alt-minus = 'resize smart -50'
-    alt-equal = 'resize smart +50'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#resize
+  alt-minus = 'resize smart -50'
+  alt-equal = 'resize smart +50'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-    alt-1 = 'workspace 1'
-    alt-2 = 'workspace 2'
-    alt-3 = 'workspace 3'
-    alt-4 = 'workspace 4'
-    alt-5 = 'workspace 5'
-    alt-m = 'workspace M'
-    alt-q = 'workspace Q'
-    alt-w = 'workspace W'
-    alt-e = 'workspace E'
-    
-    alt-shift-1 = 'move-node-to-workspace 1'
-    alt-shift-2 = 'move-node-to-workspace 2'
-    alt-shift-3 = 'move-node-to-workspace 3'
-    alt-shift-4 = 'move-node-to-workspace 4'
-    alt-shift-5 = 'move-node-to-workspace 5'
-    alt-shift-m = 'move-node-to-workspace M'
-    alt-shift-q = 'move-node-to-workspace Q'
-    alt-shift-w = 'move-node-to-workspace W'
-    alt-shift-e = 'move-node-to-workspace E'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
+  alt-1 = 'workspace 1'
+  alt-2 = 'workspace 2'
+  alt-3 = 'workspace 3'
+  alt-4 = 'workspace 4'
+  alt-5 = 'workspace 5'
+  alt-m = 'workspace M'
+  alt-q = 'workspace Q'
+  alt-w = 'workspace W'
+  alt-e = 'workspace E'
+  
+  alt-shift-1 = 'move-node-to-workspace 1'
+  alt-shift-2 = 'move-node-to-workspace 2'
+  alt-shift-3 = 'move-node-to-workspace 3'
+  alt-shift-4 = 'move-node-to-workspace 4'
+  alt-shift-5 = 'move-node-to-workspace 5'
+  alt-shift-m = 'move-node-to-workspace M'
+  alt-shift-q = 'move-node-to-workspace Q'
+  alt-shift-w = 'move-node-to-workspace W'
+  alt-shift-e = 'move-node-to-workspace E'
 
-    alt-shift-f = 'fullscreen'
+  alt-shift-f = 'fullscreen'
 
-    alt-cmd-h = 'move-workspace-to-monitor left'
-    alt-cmd-l = 'move-workspace-to-monitor right'
+  # alt-cmd-h = 'move-workspace-to-monitor left'
+  # alt-cmd-l = 'move-workspace-to-monitor right'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
-    alt-tab = 'workspace-back-and-forth'
-    # See: https://nikitabobko.github.io/AeroSpace/commands#move-workspace-to-monitor
-    alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
+  alt-tab = 'workspace-back-and-forth'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#move-workspace-to-monitor
+  alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 
-    # See: https://nikitabobko.github.io/AeroSpace/commands#mode
-    alt-shift-semicolon = 'mode service'
+  # See: https://nikitabobko.github.io/AeroSpace/commands#mode
+  alt-shift-semicolon = 'mode service'
 
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
 [mode.service.binding]
-    esc = ['reload-config', 'mode main']
-    r = ['flatten-workspace-tree', 'mode main'] # reset layout
-    f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
-    backspace = ['close-all-windows-but-current', 'mode main']
+  esc = ['reload-config', 'mode main']
+  r = ['flatten-workspace-tree', 'mode main'] # reset layout
+  f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+  backspace = ['close-all-windows-but-current', 'mode main']
 
-    # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
-    #s = ['layout sticky tiling', 'mode main']
+  # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
+  #s = ['layout sticky tiling', 'mode main']
 
-    alt-shift-h = ['join-with left', 'mode main']
-    alt-shift-j = ['join-with down', 'mode main']
-    alt-shift-k = ['join-with up', 'mode main']
-    alt-shift-l = ['join-with right', 'mode main']
+  alt-shift-h = ['join-with left', 'mode main']
+  alt-shift-j = ['join-with down', 'mode main']
+  alt-shift-k = ['join-with up', 'mode main']
+  alt-shift-l = ['join-with right', 'mode main']
 
-    down = 'volume down'
-    up = 'volume up'
-    shift-down = ['volume set 0', 'mode main']
-
-[mode.edit.binding]
-  esc = ['mode main']
-  backtick = ['reload-config', 'mode main']
-
-
-  1 = ['workspace 1', ]
-  2 = ['workspace 2', ]
-  3 = ['workspace 3', ]
-  4 = ['workspace 4', ]
-  5 = ['workspace 5', ]
-  m = ['workspace M', ]
-  q = ['workspace Q', ]
-  w = ['workspace W', ]
-  e = ['workspace E', ]
-  
-  shift-1 = ['move-node-to-workspace 1','workspace 1' ]
-  shift-2 = ['move-node-to-workspace 2','workspace 2' ]
-  shift-3 = ['move-node-to-workspace 3','workspace 3' ]
-  shift-4 = ['move-node-to-workspace 4','workspace 4' ]
-  shift-5 = ['move-node-to-workspace 5','workspace 5' ]
-  shift-m = ['move-node-to-workspace M','workspace M' ]
-  shift-q = ['move-node-to-workspace Q','workspace Q' ]
-  shift-w = ['move-node-to-workspace W','workspace W' ]
-  shift-e = ['move-node-to-workspace E','workspace E' ]
-
-  shift-h = 'move left'
-  shift-j = 'move down'
-  shift-k = 'move up'
-  shift-l = 'move right'
-
-  shift-p = 'move-workspace-to-monitor prev'
-  shift-n = 'move-workspace-to-monitor next'
-
-  h = ['focus --boundaries-action stop left', 'move-mouse window-force-center']
-  j = ['focus --boundaries-action stop down', 'move-mouse window-force-center']
-  k = ['focus --boundaries-action stop up', 'move-mouse window-force-center']
-  l = ['focus --boundaries-action stop right', 'move-mouse window-force-center']
-  u = 'workspace prev'
-  i = 'workspace next'
-  p = ['focus-monitor prev', 'move-mouse window-force-center']
-  n = ['focus-monitor next', 'move-mouse window-force-center']
-
-  ctrl-minus = 'resize smart -64'
-  ctrl-equal = 'resize smart +64'
-  ctrl-shift-minus = 'resize smart -128'
-  ctrl-shift-equal = 'resize smart +128'
-
-  ctrl-h = ['join-with left']
-  ctrl-j = ['join-with down']
-  ctrl-k = ['join-with up']
-  ctrl-l = ['join-with right']
-
-  ctrl-slash = 'layout tiles horizontal vertical'
-  ctrl-comma = 'layout accordion horizontal vertical'
+  # down = 'volume down'
+  # up = 'volume up'
+  # shift-down = ['volume set 0', 'mode main']
 
 [[on-window-detected]]
 if.app-id = 'com.linguee.DeepLCopyTranslator'
