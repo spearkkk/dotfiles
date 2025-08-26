@@ -38,11 +38,8 @@ function git
     # 깔끔한 로그 출력
     if test $subcommand = "log"
         command git log --graph \
-                  --pretty=format:'%C(auto)%h%Creset │ %<(50,trunc)%s%Creset │ %C(blue)%<(12,trunc)%ad%Creset │ %C(magenta)%<(12,trunc)%an%Creset │ %C(yellow)%d%Creset%n│ %w(80,6,6)%b%Creset' \
-                  --date=short \
-                  --abbrev-commit \
-                  --decorate \
-                  --all
+                    --date=short --abbrev-commit --decorate --all \
+                    --pretty=format:'%C(auto)%h%Creset | %<(80,trunc)%s%Creset | %C(blue)%ad%Creset | %C(magenta)%<(16,trunc)%an%Creset %C(yellow)%d%Creset%n| %w(80,2,2)%b'
         return 0
     end
 
