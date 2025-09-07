@@ -55,8 +55,8 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         # --verbose: Show detailed output of what's being linked
         # --restow: Remove existing links and recreate them (safe update)
         # --target: Explicitly set target directory to home
-        echo "[INFO] Running: stow --ignore='(\.DS_Store$)|resources' --verbose --restow --target=$HOME ."
-        stow --ignore='(\.DS_Store$)|resources' --verbose --restow --target="$HOME" .
+        echo "[INFO] Running: stow --ignore='(\.DS_Store$)|resources|(\.gitconfig$)|.claude' --verbose --restow --target=$HOME ."
+        stow --ignore='(\.DS_Store$)|resources|(\.gitconfig$)|.claude' --verbose --restow --target="$HOME" .
         
         if [ $? -eq 0 ]; then
             echo "[✅ SUCCESS] Dotfiles have been successfully symlinked to your home directory"
@@ -83,6 +83,11 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 
     # To enable to move window with three figners without click
     defaults write -g NSWindowShouldDragOnGesture -bool true
+
+    # To customize dock
+    defaults write com.apple.dock autohide -bool true
+    defaults write com.apple.dock autohide-delay -float 2.0
+    defaults write com.apple.dock autohide-time-modifier -float 0.5
 
     echo
     echo "[✅ SETUP COMPLETE] Restart your terminal or open iTerm2."
