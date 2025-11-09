@@ -150,6 +150,7 @@ set -l core_tools \
     "brew:monitorcontrol:true:" \
     "brew:obsidian:true:" \
     "brew:sublime-text:true:" \
+    "brew:uv:false:" \
     "fisher:PatrickF1/fzf.fish" \
     "mas:553245401" \    # Friendly Streaming
     "mas:1398373917" \   # UpNote
