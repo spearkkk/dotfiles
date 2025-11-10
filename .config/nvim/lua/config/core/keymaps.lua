@@ -25,3 +25,9 @@ keymap.set("n", "<leader>tw", "<cmd>close<CR>", { desc = "Close current winndow"
 -- indentation
 keymap.set('v', '<', '<gv')
 keymap.set('v', '>', '>gv')
+
+-- ignore delete character and line 
+keymap.set({"n", "x"}, "x", '"_x')
+keymap.set("n", "d", '"_d')
+keymap.set("n", "dd", '"_dd')
+
