@@ -39,7 +39,7 @@ automatically-unhide-macos-hidden-apps = false
     inner.vertical =   4
     outer.left =       4
     outer.bottom =     4
-    outer.top =        [{ monitor."LG HDR 4K" = 40 }, { monitor."DELL P2723QE" = 40 }, 28]
+    outer.top =        [{ monitor."LG HDR 4K" = 40 }, { monitor."DELL P2723QE" = 40 }, 4]
     outer.right =      4
 
 # 'main' binding mode declaration
@@ -146,6 +146,10 @@ if.app-id = 'com.google.Chrome.app.cinhimbnkkaeohfgghhklpknlkffjgod'
 run = ['layout floating']
 
 [[on-window-detected]]
+if.app-id = 'com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan'
+run = ['layout floating']
+
+[[on-window-detected]]
 if.app-id = 'com.culturedcode.ThingsMac'
 run = ['layout floating']
 
@@ -168,12 +172,12 @@ run = ['layout floating', 'move-node-to-workspace M']
 
 [[on-window-detected]]
 if.app-id = 'jp.naver.line.mac'
-run = ['move-node-to-workspace M']
+run = ['layout floating', 'move-node-to-workspace M']
 
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
-run = ['move-node-to-workspace M']
+run = ['layout floating', 'move-node-to-workspace M']
 
 [[on-window-detected]]
 if.app-id = 'com.jetbrains.intellij'

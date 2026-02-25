@@ -8,6 +8,10 @@
 	<true/>
 	<key>AlwaysOpenWindowAtStartup</key>
 	<false/>
+	<key>BracketedPasteMode</key>
+	<true/>
+	<key>ConvertDosNewlines</key>
+	<true/>
 	<key>Custom Color Presets</key>
 	<dict>
 		<key>deep-oceanic-next</key>
@@ -179,6 +183,8 @@
 	<key>EnableDivisionView</key>
 	<false/>
 	<key>EnableRendezvous</key>
+	<false/>
+	<key>EscapeShellCharsWithBackslash</key>
 	<false/>
 	<key>GlobalKeyMap</key>
 	<dict>
@@ -1234,6 +1240,8 @@
 			<integer>1</integer>
 			<key>Idle Code</key>
 			<integer>0</integer>
+			<key>Initial Text</key>
+			<string></string>
 			<key>Jobs to Ignore</key>
 			<array>
 				<string>rlogin</string>
@@ -1987,6 +1995,12 @@
 	<false/>
 	<key>OpenNoWindowsAtStartup</key>
 	<false/>
+	<key>PasteSpecialRegex</key>
+	<string></string>
+	<key>PasteSpecialSubstitution</key>
+	<string></string>
+	<key>PasteSpecialUseRegexSubstitution</key>
+	<false/>
 	<key>PointerActions</key>
 	<dict>
 		<key>Button,1,1,,</key>
@@ -2048,6 +2062,8 @@
 	<integer>0</integer>
 	<key>TabsHaveCloseButton</key>
 	<true/>
+	<key>URLHandlersByGuid</key>
+	<dict/>
 	<key>UseBorder</key>
 	<false/>
 	<key>VisualIndicatorForEsc</key>
