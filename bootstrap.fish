@@ -103,6 +103,30 @@ end
 
 log_info "🔧 Bootstrapping dotfiles environment..."
 
+set -l required_functions \
+    _install_if_missing \
+    _tap_if_missing \
+    _install_mise_if_missing \
+    _install_fisher_if_missing \
+    _install_mas_if_missing
+
+set -l missing_functions
+for fn in $required_functions
+    if not functions -q $fn
+        set missing_functions $missing_functions $fn
+    end
+end
+
+if test (count $missing_functions) -gt 0
+    log_error "Missing required Fish functions:"
+    for fn in $missing_functions
+        log_error "  - $fn"
+    end
+    log_error "Install the dotfiles that provide these functions before running bootstrap."
+    log_error "Expected path: ~/.config/fish/functions/"
+    exit 1
+end
+
 # Define core tools with format: manager:name:extra_args
 set -l core_tools \
     "brew:mise:false:" \
@@ -151,10 +175,14 @@ set -l core_tools \
     "brew:obsidian:true:" \
     "brew:sublime-text:true:" \
     "brew:uv:false:" \
+    "brew:codex:false:" \
     "fisher:PatrickF1/fzf.fish" \
-    "mas:553245401" \    # Friendly Streaming
-    "mas:1398373917" \   # UpNote
-    "mas:904280696"      # Things
+    # MAS: Friendly Streaming
+    "mas:553245401" \
+    # MAS: UpNote
+    "mas:1398373917" \
+    # MAS: Things 3
+    "mas:904280696"
 
 set -l work_tools \
     "brew:lens:true:" \

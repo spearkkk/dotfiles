@@ -1,4 +1,4 @@
-### Install 
+### Install
 ```shell
 chmod +x ./install.sh
 ```
