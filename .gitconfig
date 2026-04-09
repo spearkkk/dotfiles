@@ -19,7 +19,4 @@
 [pull]
   rebase = true
 [core]
-  excludesfile = ~/gitignore
   autocrlf = input
-[includeIf "gitdir:/Users/al02494219/Projects/**"]
-  path = ~/.gitconfig-work
