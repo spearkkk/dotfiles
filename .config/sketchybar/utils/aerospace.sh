@@ -133,6 +133,66 @@ sort_alphanumeric() {
   # Process input: remove duplicates and sort
   printf "%s\n" "${input[@]}" | sort -u
 }
+
+# Preferred workspace order for SketchyBar rendering
+WORKSPACE_ORDER=("1" "2" "3" "9" "\`" "M" "Q" "W" "E")
+
+workspace_order_index() {
+  local workspace_id="$1"
+  local i=0
+  for ws in "${WORKSPACE_ORDER[@]}"; do
+    if [[ "$ws" == "$workspace_id" ]]; then
+      echo "$i"
+      return
+    fi
+    i=$((i + 1))
+  done
+  echo 999
+}
+
+sort_workspaces_by_preference() {
+  local input="$1"
+  local unique_sorted
+  unique_sorted=$(printf "%s\n" "$input" | sed '/^$/d' | awk '!seen[$0]++')
+
+  local preferred=()
+  local overflow=()
+
+  while read -r ws; do
+    [[ -z "$ws" ]] && continue
+    local idx
+    idx=$(workspace_order_index "$ws")
+    if [[ "$idx" -lt 999 ]]; then
+      preferred+=("$idx|$ws")
+    else
+      overflow+=("$ws")
+    fi
+  done <<< "$unique_sorted"
+
+  if [[ ${#preferred[@]} -gt 0 ]]; then
+    printf "%s\n" "${preferred[@]}" | sort -t '|' -k1,1n | cut -d'|' -f2
+  fi
+
+  if [[ ${#overflow[@]} -gt 0 ]]; then
+    printf "%s\n" "${overflow[@]}" | sort
+  fi
+}
+
+is_workspace_before() {
+  local lhs="$1"
+  local rhs="$2"
+  local lhs_idx rhs_idx
+  lhs_idx=$(workspace_order_index "$lhs")
+  rhs_idx=$(workspace_order_index "$rhs")
+
+  if [[ "$lhs_idx" -ne 999 || "$rhs_idx" -ne 999 ]]; then
+    [[ "$lhs_idx" -lt "$rhs_idx" ]]
+    return
+  fi
+
+  [[ "$lhs" < "$rhs" ]]
+}
+
 # Extract unique workspace IDs from aerospace workspace data
 # Parameters:
 #   $1 - workspace_data: multi-line string in format "workspace_id|app_name"
@@ -148,10 +208,9 @@ extract_unique_workspaces() {
     fi
   done <<< "$workspace_data"
 
-  # 중복 제거 및 정렬: 숫자 우선, 알파벳 나중
-  local sorted_unique=$(printf "%s\n" "${workspaces[@]}" \
-    | sort -u \
-    | sort -t '' -k1,1)
+  # 중복 제거 및 우선순위 정렬
+  local sorted_unique
+  sorted_unique=$(sort_workspaces_by_preference "$(printf "%s\n" "${workspaces[@]}")")
 
   # 다시 공백 구분 문자열로 변환
   local result=""
@@ -177,7 +236,7 @@ include_focused_workspace() {
     workspace_list+=" $focused_workspace "
   fi
 
-  echo "$workspace_list"
+  sort_workspaces_by_preference "$workspace_list"
 }
 
 # Legacy function for compatibility with existing code
@@ -322,7 +381,7 @@ create_and_position_workspace() {
   # Find the correct position
   local position_target="workspace_separator"
   for ws in $existing_workspaces; do
-    if [[ "$ws" > "$workspace_id" ]]; then
+    if is_workspace_before "$workspace_id" "$ws"; then
       position_target="workspace.$ws"
       break
     fi
@@ -342,14 +401,15 @@ position_workspace_item() {
   sketchybar --move "workspace.$new_workspace" before workspace_separator
 
   # Then find the correct position among other workspace items
-  local all_workspaces=$(aerospace list-windows --monitor all --format "%{workspace}" | sort -u)
+  local all_workspaces
+  all_workspaces=$(sort_workspaces_by_preference "$(aerospace list-windows --monitor all --format "%{workspace}")")
   local previous_workspace=""
 
   # Find the workspace that should come immediately before this one
   for ws in $all_workspaces; do
-    if [[ "$ws" < "$new_workspace" ]] && sketchybar --query "workspace.$ws" &>/dev/null; then
+    if is_workspace_before "$ws" "$new_workspace" && sketchybar --query "workspace.$ws" &>/dev/null; then
       previous_workspace="$ws"
-    elif [[ "$ws" > "$new_workspace" ]] && sketchybar --query "workspace.$ws" &>/dev/null; then
+    elif is_workspace_before "$new_workspace" "$ws" && sketchybar --query "workspace.$ws" &>/dev/null; then
       # Found the first workspace after our new one, so position before it
       sketchybar --move "workspace.$new_workspace" before "workspace.$ws"
       return
@@ -391,4 +451,3 @@ set_workspace_unfocused() {
   fi
 
 }
-

@@ -69,6 +69,8 @@ sf_symbol_for() {
     E) echo "􀂜" ;;
     W) echo "􀃀" ;;
     Q) echo "􀂴" ;;
+    '`') echo '`' ;;
+    backtick) echo '`' ;;
     *) echo "-" ;;
   esac
 }
