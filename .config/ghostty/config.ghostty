@@ -1,0 +1,44 @@
+font-family = "Hack Nerd Font Mono"
+# Fallback for Korean + Nerd glyphs
+font-family = "D2CodingLigature Nerd Font Mono"
+font-size = 16
+font-thicken = true
+font-thicken-strength = 255
+
+adjust-cell-height = 8%
+adjust-cell-width = 5%
+
+adjust-cursor-height = 20%
+
+cursor-style = block
+
+# Keep inactive splits visible, but clearly dimmer than the focused split
+unfocused-split-opacity = 0.45
+unfocused-split-fill = "#32302f"
+split-divider-color = "#d8a657"
+
+notify-on-command-finish = unfocused
+
+window-padding-x = 8
+
+split-inherit-working-directory = true
+
+window-decoration = auto
+
+window-title-font-family = "Hack Nerd Font Mono"
+window-title-font-family = "D2CodingLigature Nerd Font Mono"
+
+quick-terminal-position = bottom
+quick-terminal-size = 90%
+quick-terminal-animation-duration = 0
+
+shell-integration = fish
+
+macos-option-as-alt = true
+macos-auto-secure-input = true
+
+confirm-close-surface = false
+
+
+config-file = ?auto/theme.ghostty
+config-file = ?keybinds.config.ghostty
