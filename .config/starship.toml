@@ -7,33 +7,33 @@ format = """
 $directory$git_branch$character
 """
 # Palette
-palette = "gruvbox_material_dark_medium"
+palette = "simhae_pelagic"
 
-[palettes.gruvbox_material_dark_medium]
-background = "#282828"     # Base00
-black = "#32302f"          # Base01
-bright-black = "#45403d"   # Base02
-grey = "#5a524c"           # Base03
-light-grey = "#7c6f64"     # Base04
-foreground = "#d4be98"     # Base05
-white = "#ddc7a1"          # Base06
-bright-white = "#ebdbb2"   # Extra foreground
-red = "#ea6962"            # Base08
-orange = "#e78a4e"         # Base09
-yellow = "#d8a657"         # Base0A
-green = "#a9b665"          # Base0B
-cyan = "#89b482"           # Base0C
-blue = "#7daea3"           # Base0D
-magenta = "#d3869b"        # Base0E
-pink = "#d3869b"           # Accent duplicate for compatibility
-darker-black = "#1b1b1b"   # Base10 (bg_dim)
-darkest-black = "#141617"  # Extra deep background
-bright-red = "#ea6962"     # Base12
-bright-yellow = "#d8a657"  # Base13
-bright-green = "#a9b665"   # Base14
-bright-cyan = "#89b482"    # Base15
-bright-blue = "#7daea3"    # Base16
-bright-purple = "#d3869b"  # Base17
+[palettes.simhae_pelagic]
+background = "#0A1F2E"     # base00
+black = "#142C3E"          # base01
+bright-black = "#1C3A50"   # base02
+grey = "#24425C"           # base03
+light-grey = "#4A6E86"     # base04
+foreground = "#C6D8E4"     # base05
+white = "#D6E2E8"          # base06
+bright-white = "#ECF0F4"   # base07
+red = "#C47A72"            # base08
+orange = "#C8945A"         # base09
+yellow = "#C8AE6A"         # base0A
+green = "#68BE92"          # base0B
+cyan = "#50C4C0"           # base0C
+blue = "#7896CC"           # base0D
+magenta = "#9A7EC8"        # base0E
+pink = "#9A7EC8"           # base0E
+darker-black = "#071420"   # base10
+darkest-black = "#071420"  # base10
+bright-red = "#D08880"     # base11
+bright-yellow = "#D4BE82"  # base13
+bright-green = "#80CCAA"   # base14
+bright-cyan = "#68D4D0"    # base15
+bright-blue = "#90AED8"    # base16
+bright-purple = "#AE96D4"  # base17
 
 [os]
 disabled = true

@@ -1,0 +1,27 @@
+# simhae (Lagoon) custom Ghostty palette
+# Source: simhae/simhae-lagoon.yaml
+
+background = #F2F7FC
+foreground = #234057
+cursor-color = #1B3449
+selection-background = #D8E6F2
+selection-foreground = #1B3449
+
+# 16-color ANSI palette
+palette = 0=#F2F7FC
+palette = 1=#B4645D
+palette = 2=#3A9D76
+palette = 3=#AE944F
+palette = 4=#4D72B7
+palette = 5=#7A62AD
+palette = 6=#2F9FA1
+palette = 7=#234057
+
+palette = 8=#C9DBEC
+palette = 9=#CB7A73
+palette = 10=#58B992
+palette = 11=#C2AB63
+palette = 12=#6D8FCC
+palette = 13=#9A83C4
+palette = 14=#4DB8B8
+palette = 15=#12283A

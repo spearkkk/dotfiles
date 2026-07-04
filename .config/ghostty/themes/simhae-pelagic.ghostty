@@ -1,0 +1,27 @@
+# simhae (Pelagic) custom Ghostty palette
+# Source: simhae/simhae-pelagic.yaml
+
+background = #0A1F2E
+foreground = #C6D8E4
+cursor-color = #D6E2E8
+selection-background = #1C3A50
+selection-foreground = #D6E2E8
+
+# 16-color ANSI palette
+palette = 0=#0A1F2E
+palette = 1=#C47A72
+palette = 2=#68BE92
+palette = 3=#C8AE6A
+palette = 4=#7896CC
+palette = 5=#9A7EC8
+palette = 6=#50C4C0
+palette = 7=#C6D8E4
+
+palette = 8=#24425C
+palette = 9=#D08880
+palette = 10=#80CCAA
+palette = 11=#D4BE82
+palette = 12=#90AED8
+palette = 13=#AE96D4
+palette = 14=#68D4D0
+palette = 15=#ECF0F4

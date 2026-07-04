@@ -14,8 +14,8 @@ cursor-style = block
 
 # Keep inactive splits visible, but clearly dimmer than the focused split
 unfocused-split-opacity = 0.45
-unfocused-split-fill = "#32302f"
-split-divider-color = "#d8a657"
+unfocused-split-fill = "#142C3E"
+split-divider-color = "#24425C"
 
 notify-on-command-finish = unfocused
 
@@ -41,4 +41,5 @@ confirm-close-surface = false
 
 
 config-file = ?auto/theme.ghostty
+config-file = ?themes/simhae-pelagic.ghostty
 config-file = ?keybinds.config.ghostty

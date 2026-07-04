@@ -1,0 +1,27 @@
+# simhae (Trench) custom Ghostty palette
+# Source: simhae/simhae.yaml
+
+background = #081520
+foreground = #BED0E2
+cursor-color = #DCE0E8
+selection-background = #182C3E
+selection-foreground = #DCE0E8
+
+# 16-color ANSI palette
+palette = 0=#081520
+palette = 1=#C47A72
+palette = 2=#6AB898
+palette = 3=#C8AE6A
+palette = 4=#7090CC
+palette = 5=#9A7EC8
+palette = 6=#58C0C8
+palette = 7=#BED0E2
+
+palette = 8=#20364A
+palette = 9=#D08880
+palette = 10=#82CCB0
+palette = 11=#D4BE82
+palette = 12=#8AAAD8
+palette = 13=#AE96D4
+palette = 14=#72D0D8
+palette = 15=#EEF0F4

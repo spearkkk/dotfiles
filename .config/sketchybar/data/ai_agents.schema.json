@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.sketchybar/ai-agents.schema.json",
+  "title": "SketchyBar AI Agent States",
+  "type": "object",
+  "required": ["version", "updated_at", "agents"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "workspace_id",
+          "application_name",
+          "agent_name",
+          "session_name",
+          "status"
+        ],
+        "properties": {
+          "workspace_id": {
+            "type": "string",
+            "description": "AeroSpace workspace id (e.g. Q/W/E/1/2/3)."
+          },
+          "application_name": {
+            "type": "string",
+            "description": "Host app where the agent session is running (Ghostty, Cursor, etc)."
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "Agent/runtime name (codex, claude, gemini, custom)."
+          },
+          "session_name": {
+            "type": "string",
+            "description": "Human-readable session identifier."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "working",
+              "waiting_input",
+              "idle",
+              "done",
+              "blocked",
+              "error",
+              "offline",
+              "unknown"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "normal", "high", "urgent"]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          },
+          "workspace_display": {
+            "type": "string",
+            "description": "Optional display/monitor hint."
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
