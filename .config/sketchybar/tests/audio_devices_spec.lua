@@ -86,7 +86,7 @@ assert_eq(audio.icon_for_device("DELL U2720Q HDMI"), audio.icons.display, "displ
 assert_eq(audio.icon_for_device("MacBook Pro Speakers"), audio.icons.speaker, "speaker icon")
 assert_eq(audio.icon_for_device("Unknown Device"), audio.icons.volume, "fallback icon")
 
-local function load_volume_helpers(query_output, initial_files)
+local function load_volume_helpers(query_output, initial_files, env_overrides)
   local files = {}
   for path, value in pairs(initial_files or {}) do
     files[path] = value
@@ -133,6 +133,9 @@ local function load_volume_helpers(query_output, initial_files)
     io = { open = fake_open, popen = fake_popen },
     os = {
       getenv = function(name)
+        if env_overrides and env_overrides[name] ~= nil then
+          return env_overrides[name]
+        end
         if name == "HOME" then
           return os.getenv("HOME")
         end
@@ -173,5 +176,23 @@ local fallback_helpers = assert(load_volume_helpers("", {
   [volume_helpers.popup_open_file] = "1",
 }))
 assert_eq(fallback_helpers.popup_is_open(), true, "popup fallback uses open flag when query unavailable")
+
+local env_helpers = assert(load_volume_helpers("", nil, {
+  VOLUME_MUTED_COLOR = "0xFF112233",
+  VOLUME_ON_COLOR = "0xFF445566",
+  VOLUME_LABEL_COLOR = "0xFF778899",
+}))
+assert_eq(
+  env_helpers.color_env_prefix,
+  "VOLUME_MUTED_COLOR='0xFF112233' VOLUME_ON_COLOR='0xFF445566' VOLUME_LABEL_COLOR='0xFF778899'",
+  "volume env prefix"
+)
+assert_eq(
+  env_helpers.plugin_command({ "--select", "AirPods Pro" }),
+  "VOLUME_MUTED_COLOR='0xFF112233' VOLUME_ON_COLOR='0xFF445566' VOLUME_LABEL_COLOR='0xFF778899' '" ..
+    config_dir ..
+    "/plugins/volume.lua' '--select' 'AirPods Pro'",
+  "volume plugin command env prefix"
+)
 
 print("ok: audio_devices_spec")

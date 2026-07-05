@@ -14,6 +14,8 @@ local popup_token_file = "/tmp/sketchybar.volume.popup.token"
 local muted_color = os.getenv("VOLUME_MUTED_COLOR") or "0xFF4A6E86"
 local on_color = os.getenv("VOLUME_ON_COLOR") or "0xFFC8AE6A"
 local popup_text_color_env = os.getenv("VOLUME_LABEL_COLOR")
+local theme = require("lib.theme")
+local popup_text_color = popup_text_color_env or theme.colors.text_lightest
 
 local popup_prefix = "lua.volume.device"
 local popup_slots = 8
@@ -39,12 +41,18 @@ local function shell_quote(value)
   return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
+local color_env_prefix = table.concat({
+  "VOLUME_MUTED_COLOR=" .. shell_quote(muted_color),
+  "VOLUME_ON_COLOR=" .. shell_quote(on_color),
+  "VOLUME_LABEL_COLOR=" .. shell_quote(popup_text_color),
+}, " ")
+
 local function spawn(script)
   os.execute(string.format("sh -c %s >/dev/null 2>&1 &", shell_quote(script)))
 end
 
 local function plugin_command(args)
-  local parts = { shell_quote(config_dir .. "/plugins/volume.lua") }
+  local parts = { color_env_prefix, shell_quote(config_dir .. "/plugins/volume.lua") }
   for _, value in ipairs(args) do
     parts[#parts + 1] = shell_quote(value)
   end
@@ -98,6 +106,8 @@ end
 
 if __VOLUME_TEST then
   return {
+    color_env_prefix = color_env_prefix,
+    plugin_command = plugin_command,
     popup_open_file = popup_open_file,
     popup_token_file = popup_token_file,
     popup_state_from_query = popup_state_from_query,
@@ -106,9 +116,7 @@ if __VOLUME_TEST then
 end
 
 local sbar = require("lib.sketchybar")
-local theme = require("lib.theme")
 local audio = require("lib.audio_devices")
-local popup_text_color = popup_text_color_env or theme.colors.text_lightest
 
 local function current_device()
   return capture("SwitchAudioSource -t output -c")
