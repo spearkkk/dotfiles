@@ -8,7 +8,7 @@ local sbar = require("lib.sketchybar")
 local theme = require("lib.theme")
 local audio = require("lib.audio_devices")
 
-local item = os.getenv("NAME") or "lua.volume"
+local MAIN_ITEM = "lua.volume"
 local mode = arg[1] or "--refresh"
 local arg2 = arg[2] or ""
 
@@ -21,6 +21,8 @@ local popup_text_color = os.getenv("VOLUME_LABEL_COLOR") or theme.colors.text_li
 
 local popup_prefix = "lua.volume.device"
 local popup_slots = 8
+local popup_close_delay_seconds = "0.18"
+local popup_timeout_seconds = "3"
 
 local function capture(cmd)
   local p = io.popen(cmd)
@@ -35,6 +37,22 @@ end
 
 local function sh(cmd)
   os.execute(cmd .. " >/dev/null 2>&1")
+end
+
+local function shell_quote(value)
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
+end
+
+local function spawn(script)
+  os.execute(string.format("sh -c %s >/dev/null 2>&1 &", shell_quote(script)))
+end
+
+local function plugin_command(args)
+  local parts = { shell_quote(config_dir .. "/plugins/volume.lua") }
+  for _, value in ipairs(args) do
+    parts[#parts + 1] = shell_quote(value)
+  end
+  return table.concat(parts, " ")
 end
 
 local function file_write(path, value)
@@ -73,7 +91,7 @@ local function refresh_main_icon()
   local device = current_device()
   local icon = audio.icon_for_device(device)
   local color = is_muted() and muted_color or on_color
-  sbar.set(item, { icon = icon, ["icon.color"] = color, drawing = "on" })
+  sbar.set(MAIN_ITEM, { icon = icon, ["icon.color"] = color, drawing = "on" })
 end
 
 local function hide_popup_rows()
@@ -98,7 +116,7 @@ local function build_popup_rows()
       drawing = "on",
       label = prefix .. name,
       ["label.color"] = popup_text_color,
-      click_script = string.format("%s/plugins/volume.lua --select %q", config_dir, name),
+      click_script = plugin_command({ "--select", name }),
       ["background.drawing"] = "off",
       ["icon.drawing"] = "off",
     })
@@ -106,14 +124,23 @@ local function build_popup_rows()
 end
 
 local function fade_in()
-  sh(string.format("sketchybar --animate sin 18 --set %q popup.drawing=on popup.background.alpha=0", item))
-  sh(string.format("sketchybar --animate sin 18 --set %q popup.background.alpha=0xCC", item))
+  sh(string.format("sketchybar --animate sin 18 --set %q popup.drawing=on popup.background.alpha=0", MAIN_ITEM))
+  sh(string.format("sketchybar --animate sin 18 --set %q popup.background.alpha=0xCC", MAIN_ITEM))
 end
 
-local function fade_out()
-  sh(string.format("sketchybar --animate sin 18 --set %q popup.background.alpha=0", item))
-  sh(string.format("sketchybar --set %q popup.drawing=off", item))
-  hide_popup_rows()
+local function schedule_popup_hide(token)
+  local script = table.concat({
+    "sleep " .. popup_close_delay_seconds,
+    string.format('test "$(cat %s 2>/dev/null)" = "0" || exit 0', shell_quote(popup_open_file)),
+    string.format('test "$(cat %s 2>/dev/null)" = %s || exit 0', shell_quote(popup_token_file), shell_quote(token)),
+    plugin_command({ "--finish-close", token }),
+  }, "; ")
+  spawn(script)
+end
+
+local function fade_out(token)
+  sh(string.format("sketchybar --animate sin 18 --set %q popup.background.alpha=0", MAIN_ITEM))
+  schedule_popup_hide(token)
 end
 
 local function open_popup_with_timeout()
@@ -124,19 +151,36 @@ local function open_popup_with_timeout()
   build_popup_rows()
   fade_in()
 
-  local cmd = string.format(
-    [[sh -c 'sleep 3; test "$(cat %s 2>/dev/null)" = "%s" || exit 0; test "$(cat %s 2>/dev/null)" = "1" || exit 0; %s/plugins/volume.lua --timeout-close >/dev/null 2>&1']],
-    popup_token_file,
-    token,
-    popup_open_file,
-    config_dir
-  )
-  os.execute(cmd)
+  local script = table.concat({
+    "sleep " .. popup_timeout_seconds,
+    string.format('test "$(cat %s 2>/dev/null)" = %s || exit 0', shell_quote(popup_token_file), shell_quote(token)),
+    string.format('test "$(cat %s 2>/dev/null)" = "1" || exit 0', shell_quote(popup_open_file)),
+    plugin_command({ "--timeout-close" }),
+  }, "; ")
+  spawn(script)
 end
 
 local function close_popup()
+  local token = file_read(popup_token_file)
   file_write(popup_open_file, "0")
-  fade_out()
+  fade_out(token)
+end
+
+local function finish_close(token)
+  if token == "" then
+    return
+  end
+
+  if file_read(popup_open_file) ~= "0" then
+    return
+  end
+
+  if file_read(popup_token_file) ~= token then
+    return
+  end
+
+  sh(string.format("sketchybar --set %q popup.drawing=off popup.background.alpha=0", MAIN_ITEM))
+  hide_popup_rows()
 end
 
 local function switch_output(device_name)
@@ -163,6 +207,8 @@ elseif mode == "--timeout-close" then
   if file_read(popup_open_file) == "1" then
     close_popup()
   end
+elseif mode == "--finish-close" then
+  finish_close(arg2)
 else
   refresh_main_icon()
 end

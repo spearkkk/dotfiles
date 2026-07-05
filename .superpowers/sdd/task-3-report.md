@@ -38,3 +38,44 @@ Not performed in this session. GUI-driven behaviors still need direct user verif
 ### Files changed
 - `.config/sketchybar/plugins/volume.lua`
 - `.superpowers/sdd/task-3-report.md`
+
+## 2026-07-05 Task 3 Fix Round
+
+### Scope
+Applied review fixes for Task 3 in the owned runtime and test bootstrap files.
+
+### Fixes
+- Introduced an explicit `MAIN_ITEM = "lua.volume"` constant in `plugins/volume.lua` and routed refresh/open/close/fade operations through that item instead of `NAME`.
+- Changed popup row `click_script` generation to call the plugin directly while keeping all runtime state transitions anchored to `MAIN_ITEM`.
+- Reworked popup close behavior so fade-out is visible before the popup is hidden.
+  - `close_popup()` now animates alpha to `0` and schedules a delayed internal `--finish-close` step.
+  - `--finish-close` hides `popup.drawing` and clears row drawing only after the delay and only if the close token still matches.
+- Made the timeout closer non-blocking by backgrounding the `sleep 3` workflow through `spawn(...)` instead of calling `os.execute(...)` synchronously.
+- Made `tests/audio_devices_spec.lua` path-robust by deriving the SketchyBar config directory from the script path, so the required verification command works from the repo root.
+
+### Verification
+Required commands:
+- `lua /Users/al02494219/.dotfiles/.config/sketchybar/tests/audio_devices_spec.lua`
+  - Result: passed
+  - Output: `ok: audio_devices_spec`
+- `sketchybar --reload`
+  - Result: passed (exit code 0)
+- `SwitchAudioSource -t output -a`
+  - Result: passed (exit code 0)
+
+Structural checks:
+- Confirmed `plugins/volume.lua` now defines `MAIN_ITEM` and uses delayed `--finish-close` handling.
+- Confirmed the old `local item = os.getenv("NAME") ...` targeting is gone.
+- Confirmed the timeout path is now backgrounded via `spawn(...)` rather than a blocking inline sleep.
+
+### Manual validation
+Not performed in this session. Remaining GUI checks:
+1. Click volume icon and verify popup opens.
+2. Click a popup row and verify the main item updates, output switches, and popup closes.
+3. Verify fade-out remains visible before the popup fully hides.
+4. Verify timeout close happens after roughly 3 seconds without blocking the click handler.
+
+### Files changed in fix round
+- `.config/sketchybar/plugins/volume.lua`
+- `.config/sketchybar/tests/audio_devices_spec.lua`
+- `.superpowers/sdd/task-3-report.md`

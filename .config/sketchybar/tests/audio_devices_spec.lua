@@ -1,4 +1,8 @@
-package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
+local script_path = arg and arg[0] or debug.getinfo(1, "S").source:sub(2)
+local script_dir = script_path:match("(.*/)")
+local config_dir = script_dir and script_dir:gsub("/tests/$", "") or "."
+
+package.path = config_dir .. "/lua/?.lua;" .. config_dir .. "/lua/?/init.lua;" .. package.path
 
 local audio = require("lib.audio_devices")
 
