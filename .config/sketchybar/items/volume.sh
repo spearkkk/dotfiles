@@ -11,6 +11,7 @@ sketchybar \
   --set "$VOLUME_ITEM" \
     icon="􀊩" \
     icon.width="$ICON_WIDTH" \
+    display="$MAIN_DISPLAY_ID" \
     label.drawing=off \
     background.drawing=off \
     click_script="$VOLUME_COLOR_ENV $PLUGIN_DIR/volume.lua --toggle-popup" \
