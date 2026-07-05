@@ -4,10 +4,6 @@ local home = os.getenv("HOME") or ""
 local config_dir = os.getenv("CONFIG_DIR") or (home .. "/.config/sketchybar")
 package.path = config_dir .. "/lua/?.lua;" .. config_dir .. "/lua/?/init.lua;" .. package.path
 
-local sbar = require("lib.sketchybar")
-local theme = require("lib.theme")
-local audio = require("lib.audio_devices")
-
 local MAIN_ITEM = "lua.volume"
 local mode = arg[1] or "--refresh"
 local arg2 = arg[2] or ""
@@ -17,7 +13,7 @@ local popup_token_file = "/tmp/sketchybar.volume.popup.token"
 
 local muted_color = os.getenv("VOLUME_MUTED_COLOR") or "0xFF4A6E86"
 local on_color = os.getenv("VOLUME_ON_COLOR") or "0xFFC8AE6A"
-local popup_text_color = os.getenv("VOLUME_LABEL_COLOR") or theme.colors.text_lightest
+local popup_text_color_env = os.getenv("VOLUME_LABEL_COLOR")
 
 local popup_prefix = "lua.volume.device"
 local popup_slots = 8
@@ -74,6 +70,46 @@ local function file_read(path)
   return value:gsub("%s+$", "")
 end
 
+local function popup_state_from_query(query)
+  local state = tostring(query or ""):match('"popup"%s*:%s*{.-"drawing"%s*:%s*"([^"]+)"')
+  if state == "on" then
+    return true
+  end
+  if state == "off" then
+    return false
+  end
+  return nil
+end
+
+local function popup_query_state()
+  local query = capture("sketchybar --query " .. shell_quote(MAIN_ITEM) .. " 2>/dev/null")
+  return popup_state_from_query(query)
+end
+
+local function popup_is_open()
+  local query_state = popup_query_state()
+  if query_state ~= nil then
+    file_write(popup_open_file, query_state and "1" or "0")
+    return query_state
+  end
+
+  return file_read(popup_open_file) == "1"
+end
+
+if __VOLUME_TEST then
+  return {
+    popup_open_file = popup_open_file,
+    popup_token_file = popup_token_file,
+    popup_state_from_query = popup_state_from_query,
+    popup_is_open = popup_is_open,
+  }
+end
+
+local sbar = require("lib.sketchybar")
+local theme = require("lib.theme")
+local audio = require("lib.audio_devices")
+local popup_text_color = popup_text_color_env or theme.colors.text_lightest
+
 local function current_device()
   return capture("SwitchAudioSource -t output -c")
 end
@@ -92,6 +128,7 @@ local function refresh_main_icon()
   local icon = audio.icon_for_device(device)
   local color = is_muted() and muted_color or on_color
   sbar.set(MAIN_ITEM, { icon = icon, ["icon.color"] = color, drawing = "on" })
+  popup_is_open()
 end
 
 local function hide_popup_rows()
@@ -196,7 +233,7 @@ end
 if mode == "--refresh" then
   refresh_main_icon()
 elseif mode == "--toggle-popup" then
-  if file_read(popup_open_file) == "1" then
+  if popup_is_open() then
     close_popup()
   else
     open_popup_with_timeout()
@@ -204,7 +241,7 @@ elseif mode == "--toggle-popup" then
 elseif mode == "--select" then
   switch_output(arg2)
 elseif mode == "--timeout-close" then
-  if file_read(popup_open_file) == "1" then
+  if popup_is_open() then
     close_popup()
   end
 elseif mode == "--finish-close" then

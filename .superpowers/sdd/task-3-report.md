@@ -79,3 +79,33 @@ Not performed in this session. Remaining GUI checks:
 - `.config/sketchybar/plugins/volume.lua`
 - `.config/sketchybar/tests/audio_devices_spec.lua`
 - `.superpowers/sdd/task-3-report.md`
+
+## 2026-07-05 Task 3 Re-fix Round
+
+### Scope
+Applied the reviewer must-fix follow-up for Task 3 in the owned SketchyBar volume runtime and regression spec.
+
+### Fixes
+- Made `tests/audio_devices_spec.lua` resolve the SketchyBar config directory from either an absolute script path or a relative `tests/...` invocation rooted at the current working directory.
+- Added regression coverage for both supported spec entrypoints so the bootstrap contract is exercised directly by the spec.
+- Added a test-only helper export path in `plugins/volume.lua` and used it from the spec to cover popup state reconciliation logic without driving the full SketchyBar runtime.
+- Hardened popup open/close state detection in `plugins/volume.lua` to query `sketchybar --query lua.volume` first, sync `/tmp/sketchybar.volume.popup.open` to the observed UI state when available, and only fall back to the temp flag when the query does not provide a popup state.
+- Reused the query-first popup state check in both `--toggle-popup` and `--timeout-close`, and reconciled state during `--refresh`, so stale temp files from reload/restart do not cause the first click to no-op-close a popup that is already gone.
+
+### Verification
+Required commands:
+- `lua /Users/al02494219/.dotfiles/.config/sketchybar/tests/audio_devices_spec.lua`
+  - Result: passed
+  - Output: `ok: audio_devices_spec`
+- `cd /Users/al02494219/.dotfiles/.config/sketchybar && lua tests/audio_devices_spec.lua`
+  - Result: passed
+  - Output: `ok: audio_devices_spec`
+- `sketchybar --reload`
+  - Result: passed (exit code 0)
+- `SwitchAudioSource -t output -a`
+  - Result: passed (exit code 0)
+
+### Files changed in re-fix round
+- `.config/sketchybar/plugins/volume.lua`
+- `.config/sketchybar/tests/audio_devices_spec.lua`
+- `.superpowers/sdd/task-3-report.md`
