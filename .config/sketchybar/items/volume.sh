@@ -3,7 +3,7 @@
 VOLUME_ITEM="lua.volume"
 VOLUME_POPUP_PREFIX="lua.volume.device"
 
-ICON_WIDTH="$($PLUGIN_DIR/calc_icon_width.lua --min 27 --max 45 --ratio 0.02025 --fallback 33)"
+ICON_WIDTH="$(lua "$PLUGIN_DIR/calc_icon_width.lua" --min 27 --max 45 --ratio 0.02025 --fallback 33 2>/dev/null || echo 33)"
 
 sketchybar \
   --add item "$VOLUME_ITEM" right \
