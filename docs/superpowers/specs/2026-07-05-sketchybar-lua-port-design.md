@@ -46,12 +46,13 @@ These files are replaced entirely by the new structure:
 - `colors.sh`, `theme.sh`, `icons.sh`
 - `items/battery.sh`, `items/cafe.sh`, `items/timestamp.sh`, `items/pomodoro.sh`
 - `plugins/battery.lua`, `plugins/cafe.lua`, `plugins/timestamp.lua`, `plugins/pomodoro.lua`
-- `plugins/calc_icon_width.lua`
 - `lua/lib/sketchybar.lua`, `lua/lib/theme.lua`
 
 ### Files kept untouched (not in scope)
 
 All other inactive `items/*.sh` and `plugins/*.lua`, plus `lua/lib/audio_devices.lua`, `tests/`, `data/`, `ITEMS.md`, `backup-*/`.
+
+**`plugins/calc_icon_width.lua` is kept.** Although `icon_width()` in `helpers/utils.lua` replaces its role for the 4 ported items, the volume plugin (out of scope) still calls this file at runtime. Deleting it would silently break volume if it is ever re-enabled.
 
 ---
 
@@ -104,13 +105,33 @@ Direct port of `theme.sh`. Returns a table with:
 
 ### `helpers/utils.lua`
 
-Three pure functions:
+Four functions:
+
+**`log(msg)`** — writes a timestamped line to `~/.sketchybar.log`:
+```
+[2026-07-05 14:32:01] battery: percentage=87 charging=true
+```
+Uses `io.open(path, "a")` with `os.date("%Y-%m-%d %H:%M:%S")`. Safe to call from any item or helper. Items should call `log()` at key moments: on initial load, on state transitions, and on errors.
 
 **`set_alpha(hex, percent)`** — port of the bash `set_alpha` function. Takes a `"0xFFRRGGBB"` string and an integer 0–100, returns a new hex string with the alpha channel replaced.
 
 **`capture(cmd)`** — thin wrapper around `io.popen`. Returns trimmed stdout or `""` on failure.
 
-**`icon_width(min, max, ratio, fallback)`** — queries display width via `Sbar.query("displays")`. Computes `math.max(min, math.min(max, width * ratio))`. Returns `fallback` if the query fails or returns no usable display info.
+**`icon_width(min, max, ratio, fallback)`** — queries display info via `Sbar.query("displays")`. Uses the width of the **first display in the result** (index 1), which is the primary display that holds the menu bar. On single-display setups this is unambiguous; on multi-display setups the bar lives on the primary display, so this is always the correct reference. Computes `math.max(min, math.min(max, width * ratio))`. Returns `fallback` if the query fails, returns an empty table, or the first display has no usable width field.
+
+### Viewing logs during development
+
+Tail the log file in a terminal while SketchyBar is running:
+```fish
+tail -f ~/.sketchybar.log
+```
+
+To trigger a reload and watch startup logs from scratch:
+```fish
+sketchybar --reload; tail -f ~/.sketchybar.log
+```
+
+The log file is append-only and grows unbounded — truncate manually when needed (`> ~/.sketchybar.log`).
 
 ---
 
@@ -166,7 +187,13 @@ local BREAK_SECS = 5 * 60
 
 `duration` is not stored separately — it is always derived at call time: `WORK_SECS` when `mode == "work"`, `BREAK_SECS` when `mode == "break"`.
 
-State is persisted to `~/.pomodoro/pomo_state` using pure `io.open/write` (two lines: mode and start_time as a Unix timestamp string). State is loaded from this file at **module load time** (when `items/pomodoro.lua` is `require()`d), so it survives hot-reloads. The routine callback reads only the in-memory module variables, never the file.
+State is persisted to `~/.pomodoro/pomo_state` (two lines: mode and start_time as a Unix timestamp string). State is loaded from this file at **module load time** (when `items/pomodoro.lua` is `require()`d), so it survives hot-reloads. The routine callback reads only the in-memory module variables, never the file.
+
+Before the first write, the module ensures the directory exists:
+```lua
+os.execute("mkdir -p " .. os.getenv("HOME") .. "/.pomodoro")
+```
+This runs once at load time. If it fails (permissions), writes are skipped silently and state resets to `"none"` on the next reload — a safe degraded behavior.
 
 **`routine` subscription** (update_freq=1) on both items, shared callback:
 1. If `mode == "none"`: return early.
