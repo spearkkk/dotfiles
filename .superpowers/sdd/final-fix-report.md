@@ -1,0 +1,1 @@
+- 2026-07-05: Final review fixes for volume popup branch. Replaced the `SwitchAudioSource` select path with `shell_quote`-based command construction and hardened popup query parsing so pretty JSON with nested `drawing` keys resolves the popup's own `drawing` state. Added focused regression tests for both cases.

@@ -165,6 +165,20 @@ local volume_helpers = assert(load_volume_helpers('{"popup":{"drawing":"on"}}', 
 assert_eq(volume_helpers.popup_state_from_query('{"popup":{"drawing":"on"}}'), true, "popup query on")
 assert_eq(volume_helpers.popup_state_from_query('{"popup":{"drawing":"off"}}'), false, "popup query off")
 assert_eq(volume_helpers.popup_state_from_query('{"popup":{}}'), nil, "popup query unknown")
+assert_eq(
+  volume_helpers.popup_state_from_query([[
+{
+  "popup": {
+    "background": {
+      "drawing": "off"
+    },
+    "drawing": "on"
+  }
+}
+]]),
+  true,
+  "popup query pretty json prefers popup drawing"
+)
 
 local stale_helpers, stale_files = load_volume_helpers('{"popup":{"drawing":"off"}}', {
   [volume_helpers.popup_open_file] = "1",
@@ -193,6 +207,11 @@ assert_eq(
     config_dir ..
     "/plugins/volume.lua' '--select' 'AirPods Pro'",
   "volume plugin command env prefix"
+)
+assert_eq(
+  env_helpers.select_output_command("Office Speaker 'Main'"),
+  "SwitchAudioSource -t output -s 'Office Speaker '\"'\"'Main'\"'\"'' >/dev/null 2>&1",
+  "volume select command quoting"
 )
 
 print("ok: audio_devices_spec")

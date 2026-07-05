@@ -78,8 +78,80 @@ local function file_read(path)
   return value:gsub("%s+$", "")
 end
 
+local function skip_json_whitespace(text, index)
+  local i = index or 1
+  while i <= #text and text:sub(i, i):match("%s") do
+    i = i + 1
+  end
+  return i
+end
+
+local function find_json_string_end(text, start_index)
+  local i = start_index + 1
+  while i <= #text do
+    local ch = text:sub(i, i)
+    if ch == "\\" then
+      i = i + 2
+    elseif ch == '"' then
+      return i
+    else
+      i = i + 1
+    end
+  end
+
+  return nil
+end
+
+local function parse_top_level_json_string_field(text, object_key, field_key)
+  local _, object_start = tostring(text or ""):find('"' .. object_key .. '"%s*:%s*{')
+  if not object_start then
+    return nil
+  end
+
+  local depth = 0
+  local i = object_start
+  while i <= #text do
+    local ch = text:sub(i, i)
+
+    if ch == '"' then
+      local string_end = find_json_string_end(text, i)
+      if not string_end then
+        return nil
+      end
+
+      if depth == 1 then
+        local key = text:sub(i + 1, string_end - 1)
+        local cursor = skip_json_whitespace(text, string_end + 1)
+        if text:sub(cursor, cursor) == ":" then
+          cursor = skip_json_whitespace(text, cursor + 1)
+          if key == field_key and text:sub(cursor, cursor) == '"' then
+            local value_end = find_json_string_end(text, cursor)
+            if not value_end then
+              return nil
+            end
+            return text:sub(cursor + 1, value_end - 1)
+          end
+        end
+      end
+
+      i = string_end
+    elseif ch == "{" then
+      depth = depth + 1
+    elseif ch == "}" then
+      depth = depth - 1
+      if depth == 0 then
+        return nil
+      end
+    end
+
+    i = i + 1
+  end
+
+  return nil
+end
+
 local function popup_state_from_query(query)
-  local state = tostring(query or ""):match('"popup"%s*:%s*{.-"drawing"%s*:%s*"([^"]+)"')
+  local state = parse_top_level_json_string_field(tostring(query or ""), "popup", "drawing")
   if state == "on" then
     return true
   end
@@ -92,6 +164,10 @@ end
 local function popup_query_state()
   local query = capture("sketchybar --query " .. shell_quote(MAIN_ITEM) .. " 2>/dev/null")
   return popup_state_from_query(query)
+end
+
+local function select_output_command(device_name)
+  return "SwitchAudioSource -t output -s " .. shell_quote(device_name) .. " >/dev/null 2>&1"
 end
 
 local function popup_is_open()
@@ -112,6 +188,7 @@ if __VOLUME_TEST then
     popup_token_file = popup_token_file,
     popup_state_from_query = popup_state_from_query,
     popup_is_open = popup_is_open,
+    select_output_command = select_output_command,
   }
 end
 
@@ -233,7 +310,7 @@ local function switch_output(device_name)
     return
   end
 
-  os.execute(string.format("SwitchAudioSource -t output -s %q >/dev/null 2>&1", device_name))
+  os.execute(select_output_command(device_name))
   refresh_main_icon()
   close_popup()
 end
