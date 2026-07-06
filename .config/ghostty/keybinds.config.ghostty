@@ -1,4 +1,4 @@
-keybind = global:super+grave_accent=toggle_quick_terminal
+keybind = global:super+backslash=toggle_quick_terminal
 keybind = super+ctrl+arrow_up=resize_split:up,25
 keybind = super+ctrl+arrow_down=resize_split:down,25
 keybind = super+ctrl+arrow_left=resize_split:left,25

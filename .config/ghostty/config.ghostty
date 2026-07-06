@@ -29,7 +29,7 @@ window-title-font-family = "Hack Nerd Font Mono"
 window-title-font-family = "D2CodingLigature Nerd Font Mono"
 
 quick-terminal-position = bottom
-quick-terminal-size = 90%
+quick-terminal-size = 100%
 quick-terminal-animation-duration = 0
 
 shell-integration = fish

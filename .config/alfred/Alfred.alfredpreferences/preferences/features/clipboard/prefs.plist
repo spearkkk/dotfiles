@@ -11,6 +11,8 @@
 		<key>string</key>
 		<string>C</string>
 	</dict>
+	<key>persistFor</key>
+	<integer>3</integer>
 	<key>snippetKeyword</key>
 	<string>ll</string>
 	<key>snippetsAtTop</key>

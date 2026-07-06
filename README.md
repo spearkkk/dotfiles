@@ -26,7 +26,6 @@ chmod +x ~/.config/sketchybar/plugins/*
 open -a Aerospace
 ```
 [] Set [wallpaper](https://basicappleguy.com/basicappleblog/on-wallpapers)
-[] Set [font](https://github.com/SoichiroYamane/sketchybar-app-font-bg)
 ```shell
 sketchybar --reload
 ```

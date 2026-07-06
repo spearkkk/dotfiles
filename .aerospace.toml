@@ -15,7 +15,7 @@ start-at-login = true
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 
-accordion-padding = 20
+accordion-padding = 0
 
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'
@@ -45,7 +45,7 @@ automatically-unhide-macos-hidden-apps = false
     inner.vertical =   4
     outer.left =       4
     outer.bottom =     4
-    outer.top =        [{ monitor."LG HDR 4K" = 52 }, { monitor."DELL P2723QE" = 52 }, 8]
+    outer.top =        [{ monitor."LG HDR 4K" = 48 }, { monitor."DELL P2723QE" = 48 }, 15]
     outer.right =      4
 
 # 'main' binding mode declaration

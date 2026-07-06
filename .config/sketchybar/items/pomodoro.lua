@@ -40,9 +40,10 @@ end
 
 local width = utils.icon_width(27, 45, 0.02025, 33)
 
-local pomodoro_work = Sbar.add("item", "pomodoro_work", "e", {
+local pomodoro_work = Sbar.add("item", "pomodoro_work", {
+  position                           = "e",
   icon                               = "􀠸",
-  width                              = width,
+  ["icon.font.size"]                  = settings.icon_size,
   ["icon.padding_left"]              = settings.outer_padding,
   ["icon.padding_right"]             = 0,
   ["label.drawing"]                  = false,
@@ -60,7 +61,8 @@ local pomodoro_work = Sbar.add("item", "pomodoro_work", "e", {
   ["popup.background.drawing"]       = true,
 })
 
-local pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", "popup.pomodoro_work", {
+local pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
+  position                = "popup.pomodoro_work",
   ["icon.drawing"]        = false,
   label                   = "",
   ["label.font.size"]     = 12,
@@ -70,9 +72,10 @@ local pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", "popup.pomod
   drawing                 = false,
 })
 
-local pomodoro_break = Sbar.add("item", "pomodoro_break", "e", {
+local pomodoro_break = Sbar.add("item", "pomodoro_break", {
+  position                           = "e",
   icon                               = "􀼙",
-  width                              = width,
+  ["icon.font.size"]                 = settings.icon_size,
   ["icon.padding_left"]              = settings.outer_padding,
   ["icon.padding_right"]             = 0,
   ["label.drawing"]                  = false,
@@ -90,7 +93,8 @@ local pomodoro_break = Sbar.add("item", "pomodoro_break", "e", {
   ["popup.background.drawing"]       = true,
 })
 
-local pomodoro_break_popup = Sbar.add("item", "pomodoro_break_popup", "popup.pomodoro_break", {
+local pomodoro_break_popup = Sbar.add("item", "pomodoro_break_popup", {
+  position                = "popup.pomodoro_break",
   ["icon.drawing"]        = false,
   label                   = "",
   ["label.font.size"]     = 12,
@@ -138,7 +142,7 @@ local function start_mode(m)
     pomodoro_break_popup:set({ drawing = false, label = "" })
   else
     local label = format_time(BREAK_SECS)
-    pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0c, ["popup.drawing"] = true })
+    pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
     pomodoro_break_popup:set({ drawing = true, label = label })
     pomodoro_work:set({ drawing = false, ["popup.drawing"] = false })
     pomodoro_work_popup:set({ drawing = false, label = "" })
@@ -184,9 +188,13 @@ load_state()
 if mode == "work" then
   pomodoro_work:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
   pomodoro_work_popup:set({ drawing = true })
+  pomodoro_break:set({ drawing = false, ["popup.drawing"] = false })
+  pomodoro_break_popup:set({ drawing = false, label = "" })
 elseif mode == "break" then
-  pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0c, ["popup.drawing"] = true })
+  pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
   pomodoro_break_popup:set({ drawing = true })
+  pomodoro_work:set({ drawing = false, ["popup.drawing"] = false })
+  pomodoro_work_popup:set({ drawing = false, label = "" })
 end
 
 utils.log("pomodoro: loaded, mode=" .. mode)

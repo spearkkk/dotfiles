@@ -134,7 +134,6 @@ set -l core_tools \
     "brew:font-symbols-only-nerd-font:true:" \
     "brew:neovim:false:" \
     "brew:tree:false:" \
-    "brew:tinty:false:tinted-theming/tinted" \
     "brew:btop:false:" \
     "brew:duf:false:" \
     "brew:k9s:false:" \
