@@ -2,13 +2,22 @@ local colors   = require("helpers.colors")
 local settings = require("helpers.settings")
 local utils    = require("helpers.utils")
 
-local WORK_SECS  = 25 * 60
-local BREAK_SECS = 5 * 60
 local pomo_dir   = (os.getenv("HOME") or "") .. "/.pomodoro"
 local state_file = pomo_dir .. "/pomo_state"
 
 local mode       = "none"
 local start_time = nil
+local tomatoes_done = 0
+local break_kind = "short"
+local pomodoro_work
+local pomodoro_work_popup
+local pomodoro_break
+local pomodoro_break_popup
+
+local INACTIVE_COLOR = colors.foreground
+local ACTIVE_WORK_COLOR = colors.base04
+local ACTIVE_SHORT_BREAK_COLOR = colors.base0d
+local ACTIVE_LONG_BREAK_COLOR = colors.base0e
 
 os.execute("mkdir -p " .. pomo_dir)
 
@@ -17,6 +26,8 @@ local function save_state()
   if not f then return end
   f:write(mode .. "\n")
   f:write(tostring(start_time or "") .. "\n")
+  f:write(tostring(tomatoes_done or 0) .. "\n")
+  f:write(tostring(break_kind or "short") .. "\n")
   f:close()
 end
 
@@ -25,11 +36,23 @@ local function load_state()
   if not f then return end
   local m = f:read("*l") or "none"
   local t = f:read("*l")
+  local tomatoes = f:read("*l")
+  local kind = f:read("*l")
   f:close()
   if m == "work" or m == "break" then
     mode = m
     start_time = tonumber(t)
+    tomatoes_done = math.max(0, tonumber(tomatoes) or 0)
+    if kind == "long" or kind == "short" then
+      break_kind = kind
+    else
+      break_kind = "short"
+    end
   end
+end
+
+local function shell_quote(value)
+  return "'" .. tostring(value or ""):gsub("'", [['"'"']]) .. "'"
 end
 
 local function format_time(secs)
@@ -38,9 +61,63 @@ local function format_time(secs)
   return string.format("%02d:%02d", m, s)
 end
 
-local width = utils.icon_width(27, 45, 0.02025, 33)
+local function break_duration()
+  if break_kind == "long" then
+    return settings.pomodoro_long_break_seconds
+  end
+  return settings.pomodoro_short_break_seconds
+end
 
-local pomodoro_work = Sbar.add("item", "pomodoro_work", {
+local function duration_for_mode(m)
+  if m == "work" then
+    return settings.pomodoro_work_seconds
+  end
+  return break_duration()
+end
+
+local function cycle_label()
+  return string.format("%d/%d", tomatoes_done, settings.pomodoro_long_break_every)
+end
+
+local function popup_label(remaining)
+  local prefix = string.format("[%s]", cycle_label())
+  if mode == "work" then
+    return string.format("%s %s", prefix, format_time(remaining))
+  elseif break_kind == "long" then
+    return string.format("%s %s(!)", prefix, format_time(remaining))
+  end
+  return string.format("%s %s", prefix, format_time(remaining))
+end
+
+local function notify(title, subtitle, message, sound)
+  local cmd = table.concat({
+    "osascript",
+    "-e", shell_quote("display notification " .. string.format("%q", message)
+      .. " with title " .. string.format("%q", title)
+      .. " subtitle " .. string.format("%q", subtitle)
+      .. " sound name " .. string.format("%q", sound)),
+  }, " ")
+  os.execute(cmd .. " >/dev/null 2>&1 &")
+end
+
+local function apply_mode_ui()
+  if mode == "work" then
+    local label = popup_label(settings.pomodoro_work_seconds)
+    pomodoro_work:set({ drawing = true, ["icon.color"] = ACTIVE_WORK_COLOR, ["popup.drawing"] = true })
+    pomodoro_work_popup:set({ drawing = true, label = label })
+    pomodoro_break:set({ drawing = false, ["icon.color"] = INACTIVE_COLOR, ["popup.drawing"] = false })
+    pomodoro_break_popup:set({ drawing = false, label = "" })
+  elseif mode == "break" then
+    local label = popup_label(break_duration())
+    local color = (break_kind == "long") and ACTIVE_LONG_BREAK_COLOR or ACTIVE_SHORT_BREAK_COLOR
+    pomodoro_break:set({ drawing = true, ["icon.color"] = color, ["popup.drawing"] = true })
+    pomodoro_break_popup:set({ drawing = true, label = label })
+    pomodoro_work:set({ drawing = false, ["icon.color"] = INACTIVE_COLOR, ["popup.drawing"] = false })
+    pomodoro_work_popup:set({ drawing = false, label = "" })
+  end
+end
+
+pomodoro_work = Sbar.add("item", "pomodoro_work", {
   position                           = "e",
   icon                               = "􀠸",
   ["icon.font.size"]                  = settings.icon_size,
@@ -61,7 +138,7 @@ local pomodoro_work = Sbar.add("item", "pomodoro_work", {
   ["popup.background.drawing"]       = true,
 })
 
-local pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
+pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
   position                = "popup.pomodoro_work",
   ["icon.drawing"]        = false,
   label                   = "",
@@ -72,7 +149,7 @@ local pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
   drawing                 = false,
 })
 
-local pomodoro_break = Sbar.add("item", "pomodoro_break", {
+pomodoro_break = Sbar.add("item", "pomodoro_break", {
   position                           = "e",
   icon                               = "􀼙",
   ["icon.font.size"]                 = settings.icon_size,
@@ -93,7 +170,7 @@ local pomodoro_break = Sbar.add("item", "pomodoro_break", {
   ["popup.background.drawing"]       = true,
 })
 
-local pomodoro_break_popup = Sbar.add("item", "pomodoro_break_popup", {
+pomodoro_break_popup = Sbar.add("item", "pomodoro_break_popup", {
   position                = "popup.pomodoro_break",
   ["icon.drawing"]        = false,
   label                   = "",
@@ -117,50 +194,76 @@ local function stop_timer()
   save_state()
   pomodoro_work:set({
     drawing            = true,
-    ["icon.color"]     = colors.foreground,
+    ["icon.color"]     = INACTIVE_COLOR,
     ["popup.drawing"]  = false,
   })
   pomodoro_work_popup:set({ drawing = false, label = "" })
   pomodoro_break:set({
     drawing            = false,
-    ["icon.color"]     = colors.foreground,
+    ["icon.color"]     = INACTIVE_COLOR,
     ["popup.drawing"]  = false,
   })
   pomodoro_break_popup:set({ drawing = false, label = "" })
   utils.log("pomodoro: stopped")
 end
 
-local function start_mode(m)
+local function start_mode(m, kind)
   mode = m
   start_time = os.time()
-  save_state()
-  if m == "work" then
-    local label = format_time(WORK_SECS)
-    pomodoro_work:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
-    pomodoro_work_popup:set({ drawing = true, label = label })
-    pomodoro_break:set({ drawing = false, ["popup.drawing"] = false })
-    pomodoro_break_popup:set({ drawing = false, label = "" })
-  else
-    local label = format_time(BREAK_SECS)
-    pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
-    pomodoro_break_popup:set({ drawing = true, label = label })
-    pomodoro_work:set({ drawing = false, ["popup.drawing"] = false })
-    pomodoro_work_popup:set({ drawing = false, label = "" })
+  if kind == "short" or kind == "long" then
+    break_kind = kind
+  elseif m == "break" then
+    break_kind = "short"
   end
-  utils.log("pomodoro: started " .. m)
+  save_state()
+  apply_mode_ui()
+  utils.log("pomodoro: started " .. m .. ", tomatoes=" .. tomatoes_done .. ", break_kind=" .. break_kind)
+end
+
+local function complete_work()
+  tomatoes_done = tomatoes_done + 1
+  local long_break = (tomatoes_done % settings.pomodoro_long_break_every) == 0
+  local next_break_kind = long_break and "long" or "short"
+  local break_mins = math.floor((long_break and settings.pomodoro_long_break_seconds or settings.pomodoro_short_break_seconds) / 60)
+  local sound = long_break and settings.pomodoro_sound_long_break or settings.pomodoro_sound_work_done
+  notify(
+    "Pomodoro",
+    tomatoes_done .. " tomato" .. ((tomatoes_done == 1) and "" or "es") .. " done",
+    (long_break and "Long" or "Short") .. " break: " .. break_mins .. " min",
+    sound
+  )
+  start_mode("break", next_break_kind)
+end
+
+local function complete_break()
+  local finished_long_break = break_kind == "long"
+  if finished_long_break then
+    tomatoes_done = 0
+  end
+  local work_mins = math.floor(settings.pomodoro_work_seconds / 60)
+  notify(
+    "Pomodoro",
+    "Break done",
+    "Work time: " .. work_mins .. " min",
+    settings.pomodoro_sound_break_done
+  )
+  start_mode("work")
 end
 
 local function on_routine()
   if mode == "none" then return end
-  local duration  = (mode == "work") and WORK_SECS or BREAK_SECS
+  local duration  = duration_for_mode(mode)
   local remaining = duration - (os.time() - (start_time or os.time()))
   if remaining <= 0 then
-    local next_mode = (mode == "work") and "break" or "work"
-    utils.log("pomodoro: " .. mode .. " done, switching to " .. next_mode)
-    start_mode(next_mode)
+    utils.log("pomodoro: " .. mode .. " done, tomatoes=" .. tomatoes_done .. ", break_kind=" .. break_kind)
+    if mode == "work" then
+      complete_work()
+    else
+      complete_break()
+    end
     return
   end
-  local label = format_time(remaining)
+  local label = popup_label(remaining)
   if mode == "work" then
     pomodoro_work_popup:set({ label = label })
   else
@@ -186,18 +289,12 @@ end
 -- Restore state from disk on load
 load_state()
 if mode == "work" then
-  pomodoro_work:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
-  pomodoro_work_popup:set({ drawing = true })
-  pomodoro_break:set({ drawing = false, ["popup.drawing"] = false })
-  pomodoro_break_popup:set({ drawing = false, label = "" })
+  apply_mode_ui()
 elseif mode == "break" then
-  pomodoro_break:set({ drawing = true, ["icon.color"] = colors.base0d, ["popup.drawing"] = true })
-  pomodoro_break_popup:set({ drawing = true })
-  pomodoro_work:set({ drawing = false, ["popup.drawing"] = false })
-  pomodoro_work_popup:set({ drawing = false, label = "" })
+  apply_mode_ui()
 end
 
-utils.log("pomodoro: loaded, mode=" .. mode)
+utils.log("pomodoro: loaded, mode=" .. mode .. ", tomatoes=" .. tomatoes_done .. ", break_kind=" .. break_kind)
 
 pomodoro_work:subscribe("routine", function(env) on_routine() end)
 pomodoro_break:subscribe("routine", function(env) on_routine() end)

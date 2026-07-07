@@ -33,5 +33,12 @@ M.text_size_small = 11
 M.update_freq_fast = 1
 M.update_freq_slow = 60
 M.cafe_max_awake_seconds = 24 * 60 * 60
+M.pomodoro_work_seconds = 25 * 60
+M.pomodoro_short_break_seconds = 5 * 60
+M.pomodoro_long_break_seconds = 15 * 60
+M.pomodoro_long_break_every = 4
+M.pomodoro_sound_work_done = "Glass"
+M.pomodoro_sound_break_done = "Ping"
+M.pomodoro_sound_long_break = "Hero"
 
 return M
