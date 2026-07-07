@@ -48,8 +48,8 @@ end)
 cafe:subscribe("mouse.clicked", function(env)
   local pid = caffeinate_pid()
   if pid == "" then
-    os.execute("nohup caffeinate -dimsu >/dev/null 2>&1 &")
-    utils.log("cafe: started caffeinate")
+    os.execute("nohup caffeinate -dimsu -t " .. settings.cafe_max_awake_seconds .. " >/dev/null 2>&1 &")
+    utils.log("cafe: started caffeinate, max_seconds=" .. settings.cafe_max_awake_seconds)
   else
     os.execute("kill " .. pid .. " >/dev/null 2>&1")
     utils.log("cafe: stopped caffeinate")

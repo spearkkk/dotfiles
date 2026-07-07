@@ -32,5 +32,6 @@ M.text_size_large = 14
 M.text_size_small = 11
 M.update_freq_fast = 1
 M.update_freq_slow = 60
+M.cafe_max_awake_seconds = 24 * 60 * 60
 
 return M
