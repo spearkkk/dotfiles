@@ -91,7 +91,10 @@ local function refresh(env)
 end
 
 for _, ref in ipairs(items) do
-  ref.item:subscribe({ "aerospace_workspace_change", "system_woke", "forced", "display_change", "routine" }, refresh)
+  ref.item:subscribe({ "aerospace_workspace_change", "system_woke", "forced", "display_change" }, refresh)
+  ref.item:subscribe("mouse.clicked", function(_)
+    refresh({ FOCUSED_WORKSPACE = ref.ws })
+  end)
 end
 
 refresh(nil)

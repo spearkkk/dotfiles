@@ -6,6 +6,7 @@ local utils    = require("helpers.utils")
 local EN_ICON = "A"
 local KO_ICON = "가"
 local FIXED_WIDTH = 24
+local UPDATE_FREQ = 5
 
 local function current_input_source()
   local out = utils.capture("defaults read com.apple.HIToolbox AppleSelectedInputSources 2>/dev/null")
@@ -34,7 +35,7 @@ end
 local input_source = Sbar.add("item", "input_source", {
   position = "right",
   width = FIXED_WIDTH,
-  update_freq = settings.update_freq_fast,
+  update_freq = UPDATE_FREQ,
   icon = {
     drawing = true,
     align = "center",

@@ -4,15 +4,7 @@ local utils    = require("helpers.utils")
 
 local ITEM = "front_app"
 local MAX_CHARS = 28
-local DEBOUNCE_MS_FRONT = 120
-local DEBOUNCE_MS_WORKSPACE = 160
 local EMPTY_WORKSPACE_LABEL = "∅ idle"
-
-local function focused_workspace_window_count()
-  local out = utils.capture("aerospace list-windows --workspace focused --count 2>/dev/null")
-  local n = tonumber((out or ""):match("%d+"))
-  return n or 0
-end
 
 local function current_front_app(env)
   local info = (env and env.INFO) or ""
@@ -22,11 +14,6 @@ local function current_front_app(env)
   end
 
   local app = utils.capture("lsappinfo info -only name $(lsappinfo front) 2>/dev/null | cut -d'\"' -f4 | xargs")
-  if app ~= "" then
-    return app
-  end
-
-  app = utils.capture("lsappinfo list 2>/dev/null | rg 'in front' | awk -F'\"' '{print $2}' | xargs")
   if app ~= "" then
     return app
   end
@@ -67,30 +54,23 @@ local front_app = Sbar.add("item", ITEM, {
 })
 
 local function refresh(env)
-  if focused_workspace_window_count() == 0 then
+  local app = current_front_app(env)
+  if app == "" or app == "-" then
     front_app:set({ label = EMPTY_WORKSPACE_LABEL })
     return
   end
-  front_app:set({ label = current_front_app(env) })
-end
-
-local function refresh_after(ms)
-  local sec = (tonumber(ms) or 0) / 1000
-  if sec > 0 then
-    os.execute(string.format("sleep %.3f", sec))
-  end
-  refresh(nil)
+  front_app:set({ label = app })
 end
 
 local function on_event(env)
   local sender = (env and env.SENDER) or ""
   if sender == "front_app_switched" then
-    refresh_after(DEBOUNCE_MS_FRONT)
+    refresh(env)
     return
   end
 
   if sender == "aerospace_workspace_change" or sender == "display_change" then
-    refresh_after(DEBOUNCE_MS_WORKSPACE)
+    refresh(nil)
     return
   end
 

@@ -5,6 +5,7 @@ local utils    = require("helpers.utils")
 local ITEM = "sound_output"
 local POPUP_SLOTS = 12
 local POPUP_TIMEOUT_SECONDS = 5
+local UPDATE_FREQ = 5
 local SA_BIN = utils.capture("command -v SwitchAudioSource 2>/dev/null")
 if SA_BIN == "" then
   SA_BIN = "/opt/homebrew/bin/SwitchAudioSource"
@@ -65,16 +66,16 @@ local function output_devices()
   return parse_lines(utils.capture(shell_quote(SA_BIN) .. " -t output -a 2>/dev/null"))
 end
 
-local function output_volume()
-  local v = tonumber(utils.capture("osascript -e 'output volume of (get volume settings)' 2>/dev/null") or "")
-  if not v then return 0 end
-  if v < 0 then return 0 end
-  if v > 100 then return 100 end
-  return math.floor(v)
-end
-
-local function output_muted()
-  return utils.capture("osascript -e 'output muted of (get volume settings)' 2>/dev/null") == "true"
+local function output_state()
+  local raw = utils.capture(
+    "osascript -e 'set v to get volume settings' -e 'return (output volume of v as text) & \",\" & (output muted of v as text)' 2>/dev/null"
+  )
+  local vol_s, muted_s = raw:match("([^,]+),([^,]+)")
+  local v = tonumber((vol_s or ""):match("%d+")) or 0
+  if v < 0 then v = 0 end
+  if v > 100 then v = 100 end
+  local muted = (muted_s or ""):gsub("%s+", "") == "true"
+  return math.floor(v), muted
 end
 
 local function set_output_device(name)
@@ -132,7 +133,7 @@ local sound_output = Sbar.add("item", ITEM, {
   ["popup.background.border_width"] = 0,
   ["popup.background.corner_radius"] = 4,
   ["popup.background.alpha"] = "0xCC",
-  update_freq             = 1,
+  update_freq             = UPDATE_FREQ,
 })
 
 for i = 1, POPUP_SLOTS do
@@ -206,8 +207,7 @@ end
 
 local function refresh_main()
   local dev = current_output_device()
-  local vol = output_volume()
-  local muted = output_muted()
+  local vol, muted = output_state()
 
   local preset = preset_for_device(dev)
   local is_internal = preset and preset.key == "macbook_pro"
@@ -251,7 +251,6 @@ sound_output:subscribe({ "volume_change", "routine", "forced", "system_woke" }, 
   refresh_main()
 
   if popup_open then
-    rebuild_popup()
     if os.time() >= popup_deadline then
       close_popup()
     end

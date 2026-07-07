@@ -14,7 +14,8 @@ local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/media_m
 local TICK_SECONDS = 1.2
 local SCROLL_PAUSE_SECONDS = 12
 local SCROLL_PAUSE_TICKS = math.floor(SCROLL_PAUSE_SECONDS / TICK_SECONDS + 0.5)
-local META_REFRESH_EVERY = 1
+local META_REFRESH_PLAYING_TICKS = 2
+local META_REFRESH_IDLE_TICKS = 8
 
 local function shell_quote(value)
   return "'" .. tostring(value or ""):gsub("'", [['"'"']]) .. "'"
@@ -167,6 +168,7 @@ local full_label = ""
 local current_key = ""
 local current_color = colors.base04
 local scroll_source = ""
+local scroll_chars = {}
 local scroll_len = 1
 local last_label = ""
 local last_color = ""
@@ -177,28 +179,34 @@ local hide_for_small_display = false
 
 local function rebuild_scroll_source()
   scroll_source = full_label .. SCROLL_SPACER
-  scroll_len = #utf8_chars(scroll_source)
+  scroll_chars = utf8_chars(scroll_source)
+  scroll_len = #scroll_chars
   if scroll_len < 1 then
     scroll_len = 1
+    scroll_chars = { "" }
   end
 end
+
+local function read_blocklist()
+  local blocklist = {}
+  local f = io.open(BLOCKLIST_PATH, "r")
+  if f then
+    for line in f:lines() do
+      local name = (line or ""):gsub("^%s+", ""):gsub("%s+$", "")
+      if name ~= "" and name:sub(1, 1) ~= "#" then
+        blocklist[name] = true
+      end
+    end
+    f:close()
+  end
+  return blocklist
+end
+
+local monitor_blocklist = read_blocklist()
 
 local function refresh_display_gate()
   local config_dir = os.getenv("CONFIG_DIR") or ((os.getenv("HOME") or "") .. "/.config/sketchybar")
   local target_id = capture(shell_quote(config_dir .. "/helpers/resolve_display.lua"))
-  local blocklist = {}
-  do
-    local f = io.open(BLOCKLIST_PATH, "r")
-    if f then
-      for line in f:lines() do
-        local name = (line or ""):gsub("^%s+", ""):gsub("%s+$", "")
-        if name ~= "" and name:sub(1, 1) ~= "#" then
-          blocklist[name] = true
-        end
-      end
-      f:close()
-    end
-  end
 
   if target_id ~= "" then
     media_label:set({ display = target_id })
@@ -223,7 +231,7 @@ local function refresh_display_gate()
     end
   end
 
-  hide_for_small_display = (target_name ~= "" and blocklist[target_name] == true)
+  hide_for_small_display = (target_name ~= "" and monitor_blocklist[target_name] == true)
 end
 
 local function set_visible(visible)
@@ -236,7 +244,6 @@ local function set_visible(visible)
 end
 
 local function refresh_meta()
-  refresh_display_gate()
   local info = nowplaying_info()
   if not info or tostring(info.title or "") == "" then
     current_color = colors.base04
@@ -275,6 +282,25 @@ local function refresh_meta()
   rebuild_scroll_source()
 end
 
+local function next_meta_refresh_ticks()
+  if is_playing then
+    return META_REFRESH_PLAYING_TICKS
+  end
+  return META_REFRESH_IDLE_TICKS
+end
+
+local function marquee_cached(start_idx, width)
+  if scroll_len <= width then
+    return scroll_source
+  end
+  local out = {}
+  for i = 0, width - 1 do
+    local idx = ((start_idx - 1 + i) % scroll_len) + 1
+    out[#out + 1] = scroll_chars[idx]
+  end
+  return joined(out)
+end
+
 local function render_tick(force)
   local hidden = hide_for_small_display
     or (full_label == "")
@@ -289,13 +315,13 @@ local function render_tick(force)
 
   local shown
   if not is_playing then
-    shown = marquee_text(scroll_source, 1, SCROLL_WINDOW)
+    shown = marquee_cached(1, SCROLL_WINDOW)
   else
     if scroll_pause_ticks > 0 then
       scroll_pause_ticks = scroll_pause_ticks - 1
-      shown = marquee_text(scroll_source, 1, SCROLL_WINDOW)
+      shown = marquee_cached(1, SCROLL_WINDOW)
     else
-      shown = marquee_text(scroll_source, scroll_index, SCROLL_WINDOW)
+      shown = marquee_cached(scroll_index, SCROLL_WINDOW)
       scroll_index = scroll_index + 1
       if scroll_index > scroll_len then
         scroll_index = 1
@@ -323,12 +349,22 @@ local function toggle_play_pause()
   end
 end
 
-local function on_media_tick(_)
-  if meta_counter <= 0 then
+local function on_media_tick(env)
+  local sender = (env and env.SENDER) or ""
+  if sender == "display_change" or sender == "system_woke" or sender == "forced" then
+    refresh_display_gate()
+  end
+
+  if sender == "media_change" then
     refresh_meta()
-    meta_counter = META_REFRESH_EVERY
+    meta_counter = next_meta_refresh_ticks()
   else
-    meta_counter = meta_counter - 1
+    if meta_counter <= 0 then
+      refresh_meta()
+      meta_counter = next_meta_refresh_ticks()
+    else
+      meta_counter = meta_counter - 1
+    end
   end
   render_tick(false)
 end
@@ -343,5 +379,6 @@ media_icon:subscribe("mouse.clicked", function(_)
   toggle_play_pause()
 end)
 
+refresh_display_gate()
 refresh_meta()
 render_tick(true)
