@@ -47,8 +47,8 @@ function show_welcome
     set_color normal
 
     time_and_date
-    echo ""
-    list_custom_functions
+    #    echo ""
+    #list_custom_functions
     echo ""
 end
 

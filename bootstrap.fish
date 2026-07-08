@@ -191,5 +191,21 @@ if $install_work
     log_success "✅ Work tools installation complete!"
 end
 
+# -------------------------
+#  Generate fish colors from Simhae palette
+# -------------------------
+set -l dotfiles_dir (cd (dirname (status --current-filename)); and pwd)
+set -l fish_color_gen "$dotfiles_dir/simhae/generate_fish_colors.sh"
+
+if test -x "$fish_color_gen"
+    if command bash "$fish_color_gen"
+        log_success "🎨 Generated fish colors from simhae-pelagic palette"
+    else
+        log_warn "Failed to generate fish colors: $fish_color_gen"
+    end
+else
+    log_warn "Fish color generator not found or not executable: $fish_color_gen"
+end
+
 # Exit quietly if non-interactive shell
 status is-interactive; or exit

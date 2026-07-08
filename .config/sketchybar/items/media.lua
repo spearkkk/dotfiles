@@ -175,7 +175,7 @@ local function set_visible(visible)
     return
   end
   media_label:set({ drawing = visible })
-  media_icon:set({ drawing = visible and is_playing })
+  media_icon:set({ drawing = visible })
   media_group:set({ drawing = visible })
   last_visible = visible
 end
@@ -312,9 +312,10 @@ local function render_tick(force)
     last_color = current_color
   end
 
+  media_icon:set({ ["icon.color"] = is_playing and colors.base0b or current_color })
+
   -- Make sure the first visible frame already uses the scroll-window-clamped label.
   set_visible(true)
-  media_icon:set({ drawing = is_playing })
 end
 
 local function on_media_tick(env)
