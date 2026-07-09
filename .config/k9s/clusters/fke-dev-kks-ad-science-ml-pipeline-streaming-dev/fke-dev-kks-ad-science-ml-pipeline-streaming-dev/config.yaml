@@ -1,0 +1,14 @@
+k9s:
+  cluster: fke-dev-kks-ad-science-ml-pipeline-streaming-dev
+  namespace:
+    active: rar-ff-beta
+    lockFavorites: false
+    favorites:
+      - rar-ff-beta
+      - all
+      - default
+  view:
+    active: v1/services rar-ff-beta
+  featureGates:
+    nodeShell: false
+  proxy: null
