@@ -8,10 +8,11 @@ PID_FILE="/tmp/sketchybar_media_daemon.pid"
 REQUEST_FILE="/tmp/sketchybar_media_refresh_request"
 NP_BIN="$(command -v nowplaying-cli 2>/dev/null || true)"
 JQ_BIN="$(command -v jq 2>/dev/null || true)"
-TIMEOUT_SECONDS=2
+TIMEOUT_SECONDS=4
 PLAYING_INTERVAL=3
 IDLE_INTERVAL=10
 ERROR_INTERVAL=15
+FAILURE_TOLERANCE=3
 
 cleanup() {
   if [ -f "$PID_FILE" ] && [ "$(cat "$PID_FILE" 2>/dev/null)" = "$$" ]; then
@@ -71,6 +72,10 @@ timeout_nowplaying() {
 }
 
 last_key=""
+consecutive_failures=0
+last_ok_title=""
+last_ok_artist=""
+last_ok_playing=false
 
 while true; do
   rm -f "$REQUEST_FILE"
@@ -91,24 +96,37 @@ while true; do
     if [ -n "$title" ]; then
       ok=true
       error=""
+      consecutive_failures=0
       case "$rate" in
         ''|0|0.0|null) playing=false ;;
         *) playing=true ;;
       esac
+      last_ok_title="$title"
+      last_ok_artist="$artist"
+      last_ok_playing="$playing"
       if [ "$playing" = true ]; then
         interval="$PLAYING_INTERVAL"
       else
         interval="$IDLE_INTERVAL"
       fi
     else
-      ok=false
-      title=""
-      artist=""
-      playing=false
-      if [ -z "$raw" ]; then
-        error="nowplaying-cli timed out or returned no data"
+      consecutive_failures=$((consecutive_failures + 1))
+      if [ "$consecutive_failures" -lt "$FAILURE_TOLERANCE" ] && [ -n "$last_ok_title" ]; then
+        ok=true
+        title="$last_ok_title"
+        artist="$last_ok_artist"
+        playing="$last_ok_playing"
+        error="temporary nowplaying-cli failure (holding last good value)"
       else
-        error="no media"
+        ok=false
+        title=""
+        artist=""
+        playing=false
+        if [ -z "$raw" ]; then
+          error="nowplaying-cli timed out or returned no data"
+        else
+          error="no media"
+        fi
       fi
       interval="$IDLE_INTERVAL"
     fi

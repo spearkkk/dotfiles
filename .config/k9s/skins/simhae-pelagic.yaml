@@ -1,0 +1,94 @@
+k9s:
+  body:
+    fgColor: "#C6D8E4"        # base05
+    bgColor: "#0A1F2E"        # base00
+    logoColor: "#7896CC"      # base0D
+
+  prompt:
+    fgColor: "#C6D8E4"        # base05
+    bgColor: "#142C3E"        # base01
+    suggestColor: "#50C4C0"   # base0C
+
+  help:
+    fgColor: "#C6D8E4"        # base05
+    bgColor: "#0A1F2E"        # base00
+    indicator:
+      fgColor: "#0A1F2E"      # base00
+      bgColor: "#C8AE6A"      # base0A
+
+  frame:
+    title:
+      fgColor: "#C6D8E4"      # base05
+      bgColor: "#0A1F2E"      # base00
+      highlightColor: "#C8AE6A" # base0A
+      counterColor: "#7896CC" # base0D
+      filterColor: "#68BE92"  # base0B
+    border:
+      fgColor: "#4A6E86"      # base04
+      focusColor: "#C8AE6A"   # base0A
+    menu:
+      fgColor: "#C6D8E4"      # base05
+      keyColor: "#C8AE6A"     # base0A
+      numKeyColor: "#50C4C0"  # base0C
+    crumbs:
+      fgColor: "#C6D8E4"      # base05
+      bgColor: "#142C3E"      # base01
+      activeColor: "#68BE92"  # base0B
+    status:
+      newColor: "#7896CC"     # base0D
+      modifyColor: "#C8AE6A"  # base0A
+      addColor: "#68BE92"     # base0B
+      errorColor: "#C47A72"   # base08
+      highlightcolor: "#C8AE6A" # base0A
+      killColor: "#9A7EC8"    # base0E
+      completedColor: "#4A6E86" # base04
+
+  views:
+    charts:
+      bgColor: "#0A1F2E"      # base00
+      chartBgColor: "#142C3E" # base01
+      dialBgColor: "#142C3E"  # base01
+      defaultDialColors:
+        - "#9A7EC8"           # base0E
+        - "#C8945A"           # base09
+      defaultChartColors:
+        - "#9A7EC8"           # base0E
+        - "#C8945A"           # base09
+      resourceColors:
+        cpu:
+          - "#7896CC"         # base0D
+          - "#C8AE6A"         # base0A
+        mem:
+          - "#50C4C0"         # base0C
+          - "#9A7EC8"         # base0E
+
+    table:
+      fgColor: "#C6D8E4"      # base05
+      bgColor: "#0A1F2E"      # base00
+      cursorFgColor: "#0A1F2E" # base00
+      cursorBgColor: "#C8AE6A" # base0A
+      markColor: "#C8AE6A"    # base0A
+      header:
+        fgColor: "#C6D8E4"    # base05
+        bgColor: "#142C3E"    # base01
+        sorterColor: "#68BE92" # base0B
+
+    xray:
+      fgColor: "#C6D8E4"      # base05
+      bgColor: "#0A1F2E"      # base00
+      cursorColor: "#C8AE6A"  # base0A
+      cursorTextColor: "#0A1F2E" # base00
+      graphicColor: "#9A7EC8" # base0E
+      showIcons: false
+
+    yaml:
+      keyColor: "#7896CC"     # base0D
+      colonColor: "#4A6E86"   # base04
+      valueColor: "#C6D8E4"   # base05
+
+    logs:
+      fgColor: "#C6D8E4"      # base05
+      bgColor: "#0A1F2E"      # base00
+      indicator:
+        fgColor: "#0A1F2E"    # base00
+        bgColor: "#7896CC"    # base0D

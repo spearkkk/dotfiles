@@ -5,6 +5,7 @@ local config_dir = home .. "/.config/sketchybar"
 
 local media_daemon = config_dir .. "/helpers/media_daemon.sh"
 os.execute("pkill -f " .. string.format("%q", media_daemon) .. " >/dev/null 2>&1")
+os.execute("rm -f /tmp/sketchybar_media_daemon.pid >/dev/null 2>&1")
 os.execute(string.format("%q", media_daemon) .. " >/dev/null 2>&1 &")
 
 package.path = config_dir .. "/?.lua;" .. config_dir .. "/?/init.lua;" .. package.path

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+set -u
+
+REQUEST_FILE="/tmp/sketchybar_media_refresh_request"
+NP_BIN="$(command -v nowplaying-cli 2>/dev/null || true)"
+
+usage() {
+  cat <<'USAGE'
+Usage: mediactl <toggle|next|prev|play|pause>
+USAGE
+}
+
+notify_media_update() {
+  touch "$REQUEST_FILE" 2>/dev/null || true
+  sketchybar --trigger media_change >/dev/null 2>&1 || true
+}
+
+run_nowplaying() {
+  local cmd="$1"
+
+  if [ -z "$NP_BIN" ]; then
+    return 127
+  fi
+
+  "$NP_BIN" "$cmd" >/dev/null 2>&1
+}
+
+cmd="${1:-toggle}"
+
+case "$cmd" in
+  toggle)
+    run_nowplaying togglePlayPause || true
+    ;;
+  next)
+    run_nowplaying next || true
+    ;;
+  prev|previous)
+    run_nowplaying previous || true
+    ;;
+  play)
+    run_nowplaying play || true
+    ;;
+  pause)
+    run_nowplaying pause || true
+    ;;
+  -h|--help|help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "mediactl: unknown command '$cmd'" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
+
+# Always ask media pipeline to refresh, ignore failures.
+notify_media_update
