@@ -1,13 +1,15 @@
 local colors   = require("helpers.colors")
 local settings = require("helpers.settings")
 local utils    = require("helpers.utils")
+local display  = require("helpers.lib.display")
+local blocklist = require("helpers.lib.blocklist")
 
 local ITEM_LABEL = "media_label"
 local ITEM_ICON = "media_icon"
 local ITEM_GROUP = "media_group"
 local CACHE_TSV = "/tmp/sketchybar_media.tsv"
 local REQUEST_FILE = "/tmp/sketchybar_media_refresh_request"
-local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/media_monitor_blocklist"
+local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/display_blocklist"
 local LABEL_WIDTH = 200
 local SCROLL_WINDOW = 24
 local SCROLL_SPACER = "    "
@@ -136,23 +138,7 @@ local paused_since = 0
 local routine_counter = 0
 local hide_for_blocked_display = false
 
-local function read_blocklist()
-  local out = {}
-  local f = io.open(BLOCKLIST_PATH, "r")
-  if not f then
-    return out
-  end
-  for line in f:lines() do
-    local name = (line or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if name ~= "" and name:sub(1, 1) ~= "#" then
-      out[name] = true
-    end
-  end
-  f:close()
-  return out
-end
-
-local monitor_blocklist = read_blocklist()
+local monitor_blocklist = blocklist.read(BLOCKLIST_PATH)
 
 local function rebuild_scroll_source()
   scroll_source = full_label .. SCROLL_SPACER
@@ -180,13 +166,8 @@ local function set_visible(visible)
   last_visible = visible
 end
 
-local function capture(cmd)
-  return utils.capture(cmd)
-end
-
 local function refresh_display_gate()
-  local config_dir = os.getenv("CONFIG_DIR") or ((os.getenv("HOME") or "") .. "/.config/sketchybar")
-  local target_id = capture(shell_quote(config_dir .. "/helpers/resolve_display.lua"))
+  local target_id = display.resolve_target_id()
 
   if target_id ~= "" then
     media_label:set({ display = target_id })
@@ -196,20 +177,7 @@ local function refresh_display_gate()
     media_icon:set({ display = "all" })
   end
 
-  local target_name = ""
-  if target_id ~= "" then
-    local monitors = capture("aerospace list-monitors 2>/dev/null")
-    for line in (monitors .. "\n"):gmatch("([^\n]*)\n") do
-      local id, name = line:match("^%s*([^|]+)%s*|%s*(.-)%s*$")
-      if id and name then
-        id = id:gsub("%s+", "")
-        if id == target_id then
-          target_name = name
-          break
-        end
-      end
-    end
-  end
+  local target_name = display.monitor_name_by_id(target_id)
 
   hide_for_blocked_display = (target_name ~= "" and monitor_blocklist[target_name] == true)
 end
