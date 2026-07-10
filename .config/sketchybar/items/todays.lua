@@ -16,8 +16,6 @@ local BLINK_BG_ALPHA_BRIGHT = 34
 local BLINK_BORDER_ALPHA_DIM = 55
 local BLINK_BORDER_ALPHA_BRIGHT = 100
 
-local default_border_color = utils.set_alpha(colors.base04, 90)
-
 local row_items = {}
 local popup_open = false
 local hide_for_blocked_display = false
@@ -172,8 +170,8 @@ todays = Sbar.add("item", ITEM, {
     padding_right = 6,
     height = settings.defaults.bg_height + 4,
     corner_radius = settings.defaults.corner_radius,
-    border_width = 2,
-    border_color = default_border_color,
+    border_width = 0,
+    border_color = colors.base08,
     y_offset = settings.defaults.bg_y_offset,
   },
   update_freq = settings.update_freq_fast,
@@ -285,7 +283,8 @@ local function apply_style()
   end
 
   local label_color = colors.foreground
-  local border_color = default_border_color
+  local border_color = colors.base08
+  local border_width = 0
   local bg_color = colors.background_alt
   local state = state_for_event(next_event)
   local is_near_3 = false
@@ -293,6 +292,7 @@ local function apply_style()
   if state == "ongoing" then
     bg_color = utils.set_alpha(colors.base08, 26)
     border_color = colors.base08
+    border_width = 2
   else
     local nowm = now_minutes()
     local startm = to_minutes(next_event.start) or nowm
@@ -300,13 +300,10 @@ local function apply_style()
     if diff <= 3 and diff >= 0 then
       is_near_3 = true
       bg_color = utils.set_alpha(colors.base0a, BLINK_BG_ALPHA_BRIGHT)
-      border_color = colors.base0a
     elseif diff <= 10 and diff >= 0 then
       bg_color = utils.set_alpha(colors.base0a, 26)
-      border_color = colors.base0a
     elseif diff <= 30 and diff >= 0 then
       bg_color = utils.set_alpha(colors.base0b, 24)
-      border_color = colors.base0b
     end
   end
 
@@ -314,6 +311,7 @@ local function apply_style()
     blink_phase = not blink_phase
     bg_color = utils.set_alpha(colors.base0a, blink_phase and BLINK_BG_ALPHA_BRIGHT or BLINK_BG_ALPHA_DIM)
     border_color = utils.set_alpha(colors.base0a, blink_phase and BLINK_BORDER_ALPHA_BRIGHT or BLINK_BORDER_ALPHA_DIM)
+    border_width = 2
   else
     blink_phase = false
   end
@@ -339,6 +337,7 @@ local function apply_style()
     icon = "􀖇",
     ["icon.color"] = icon_color,
     ["label.color"] = label_color,
+    ["background.border_width"] = border_width,
     ["background.border_color"] = border_color,
     ["background.color"] = bg_color,
   })
