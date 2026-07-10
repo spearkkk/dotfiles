@@ -20,11 +20,8 @@ trap cleanup EXIT INT TERM
 if [ -f "$PID_FILE" ]; then
   old_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
   if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
-    kill "$old_pid" 2>/dev/null || exit 0
-    for _ in 1 2 3 4 5; do
-      kill -0 "$old_pid" 2>/dev/null || break
-      sleep 0.1
-    done
+    # Single-instance guard: keep the existing daemon and exit quickly.
+    exit 0
   fi
 fi
 

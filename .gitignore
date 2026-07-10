@@ -261,6 +261,7 @@ Temporary Items
 
 # Local K9s runtime state (machine/context specific)
 .config/k9s/clusters/
+.config/k9s/clusters/**
 # iCloud generated files
 *.icloud
 
