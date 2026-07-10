@@ -5,7 +5,7 @@ local display = require("helpers.lib.display")
 local blocklist = require("helpers.lib.blocklist")
 
 local ITEM = "todays"
-local CACHE_FILE = "/tmp/sketchybar_todays.cache"
+local CACHE_FILE = "/tmp/sketchybar_todays_v2.cache"
 local REQUEST_FILE = "/tmp/sketchybar_todays_refresh_request"
 local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/display_blocklist"
 local LABEL_MAX_CHARS = 20
@@ -45,6 +45,10 @@ local function to_minutes(hhmm)
     return nil
   end
   return tonumber(h) * 60 + tonumber(m)
+end
+
+local function is_hhmm(v)
+  return tostring(v or ""):match("^%d%d:%d%d$") ~= nil
 end
 
 local function now_minutes()
@@ -92,7 +96,7 @@ end
 local function split_trailing_paren_suffix(s)
   s = tostring(s or "")
   if s == "" or s:sub(-1) ~= ")" then
-    return s, nil
+    return s, ""
   end
 
   local depth = 0
@@ -111,33 +115,18 @@ local function split_trailing_paren_suffix(s)
   end
 
   if not open_idx or open_idx <= 2 then
-    return s, nil
+    return s, ""
   end
   if s:sub(open_idx - 1, open_idx - 1) ~= " " then
-    return s, nil
+    return s, ""
   end
 
   local base = trim(s:sub(1, open_idx - 2))
   local suffix = trim(s:sub(open_idx + 1, #s - 1))
   if base == "" or suffix == "" then
-    return s, nil
+    return s, ""
   end
   return base, suffix
-end
-
-local function normalize_event(title, calendar)
-  local clean_title = trim(title)
-  local clean_cal = trim(calendar)
-  local base, suffix = split_trailing_paren_suffix(clean_title)
-
-  if clean_cal == "" and suffix then
-    clean_title = base
-    clean_cal = suffix
-  elseif clean_cal ~= "" and suffix == clean_cal then
-    clean_title = base
-  end
-
-  return clean_title, clean_cal
 end
 
 local monitor_blocklist = blocklist.read(BLOCKLIST_PATH)
@@ -230,33 +219,39 @@ local function read_cache()
   local first = f:read("*l") or ""
   local header = split_tabs(first)
   local ok = (header[2] == "true")
-  if ok and trim(header[3] or "") ~= "" and trim(header[5] or "") ~= "" then
-    next_event = {
-      start = trim(header[3]),
-      ["end"] = trim(header[4]),
-      title = trim(header[5]),
-      calendar = "",
-    }
-  end
 
   for line in f:lines() do
     if trim(line) ~= "" then
       local cols = split_tabs(line)
-      local event_title, event_calendar = normalize_event(cols[3], cols[4])
-      events[#events + 1] = {
-        start = trim(cols[1]),
-        ["end"] = trim(cols[2]),
-        title = event_title,
-        calendar = event_calendar,
-      }
+      local c1 = trim(cols[1])
+      local c2 = trim(cols[2])
+      local c3 = trim(cols[3])
+      local c4 = trim(cols[4])
+
+      if is_hhmm(c1) and is_hhmm(c2) and c3 ~= "" then
+        local title = c3
+        local calendar = c4 or ""
+        if calendar == "" then
+          title, calendar = split_trailing_paren_suffix(title)
+        end
+
+        events[#events + 1] = {
+          start = c1,
+          ["end"] = c2,
+          title = title,
+          calendar = calendar,
+        }
+      end
     end
   end
   f:close()
 
-  if next_event then
+  if ok then
+    local nowm = now_minutes()
     for _, evt in ipairs(events) do
-      if evt.start == next_event.start and evt["end"] == next_event["end"] and evt.title == next_event.title then
-        next_event.calendar = evt.calendar or ""
+      local endm = to_minutes(evt["end"])
+      if endm and endm > nowm then
+        next_event = evt
         break
       end
     end

@@ -258,6 +258,9 @@ Temporary Items
 .apdisk
 
 ### macOS Patch ###
+
+# Local K9s runtime state (machine/context specific)
+.config/k9s/clusters/
 # iCloud generated files
 *.icloud
 
