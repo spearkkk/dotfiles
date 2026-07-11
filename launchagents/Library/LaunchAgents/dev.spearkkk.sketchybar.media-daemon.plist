@@ -8,7 +8,8 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/al02494219/.config/sketchybar/helpers/media_daemon.sh</string>
+    <string>-lc</string>
+    <string>exec ~/.config/sketchybar/helpers/media_daemon.sh</string>
   </array>
 
   <key>EnvironmentVariables</key>
@@ -24,9 +25,9 @@
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/Users/al02494219/Library/Logs/dev.spearkkk.sketchybar.media-daemon.log</string>
+  <string>/tmp/dev.spearkkk.sketchybar.media-daemon.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/al02494219/Library/Logs/dev.spearkkk.sketchybar.media-daemon.err.log</string>
+  <string>/tmp/dev.spearkkk.sketchybar.media-daemon.err.log</string>
 </dict>
 </plist>
