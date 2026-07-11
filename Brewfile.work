@@ -1,0 +1,4 @@
+cask "lens"
+cask "miro"
+cask "slack"
+brew "git-lfs"

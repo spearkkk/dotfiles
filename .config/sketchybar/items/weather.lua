@@ -11,37 +11,46 @@ local UPDATE_FREQ = 600
 local STACK_WIDTH = 16
 local STACK_RIGHT_GAP = 0
 
-local API_KEY = "73a4c1b756384c228e9142307250307"
-
 local day_icons = {
-  ["1000"] = "􀆮", ["1003"] = "􀇕", ["1006"] = "􀇃", ["1009"] = "􀇃",
-  ["1030"] = "􀇋", ["1063"] = "􀇅", ["1066"] = "􀇏", ["1069"] = "􀇑",
-  ["1072"] = "􀇅", ["1087"] = "􀇓", ["1114"] = "􀇏", ["1117"] = "􀇦",
-  ["1135"] = "􀇋", ["1147"] = "􀇋", ["1150"] = "􀇅", ["1153"] = "􀇅",
-  ["1168"] = "􀇅", ["1171"] = "􀇅", ["1180"] = "􀇇", ["1183"] = "􀇇",
-  ["1186"] = "􀇇", ["1189"] = "􀇉", ["1192"] = "􀇉", ["1195"] = "􀇉",
-  ["1198"] = "􀇇", ["1201"] = "􀇉", ["1204"] = "􀇑", ["1207"] = "􀇑",
-  ["1210"] = "􀇏", ["1213"] = "􀇏", ["1216"] = "􀇏", ["1219"] = "􀇏",
-  ["1222"] = "􀇏", ["1225"] = "􀇏", ["1237"] = "􀇍", ["1240"] = "􀇗",
-  ["1243"] = "􀇗", ["1246"] = "􀇗", ["1249"] = "􀇑", ["1252"] = "􀇑",
-  ["1255"] = "􀇏", ["1258"] = "􀇏", ["1261"] = "􀇍", ["1264"] = "􀇍",
-  ["1273"] = "􀇟", ["1276"] = "􀇟", ["1279"] = "􀇏", ["1282"] = "􀇏",
+  clear = "􀆮",
+  partly_cloudy = "􀇕",
+  cloudy = "􀇃",
+  fog = "􀇋",
+  drizzle = "􀇅",
+  rain = "􀇇",
+  heavy_rain = "􀇉",
+  snow = "􀇏",
+  thunder = "􀇓",
+  hail = "􀇑",
 }
 
 local night_icons = {
-  ["1000"] = "􀇁", ["1003"] = "􀇛", ["1006"] = "􀇃", ["1009"] = "􀇃",
-  ["1030"] = "􀇋", ["1063"] = "􀇝", ["1066"] = "􀇏", ["1069"] = "􀇑",
-  ["1072"] = "􀇝", ["1087"] = "􀇓", ["1114"] = "􀇏", ["1117"] = "􀇦",
-  ["1135"] = "􀇋", ["1147"] = "􀇋", ["1150"] = "􀇝", ["1153"] = "􀇝",
-  ["1168"] = "􀇝", ["1171"] = "􀇝", ["1180"] = "􀇝", ["1183"] = "􀇝",
-  ["1186"] = "􀇝", ["1189"] = "􀇝", ["1192"] = "􀇝", ["1195"] = "􀇝",
-  ["1198"] = "􀇝", ["1201"] = "􀇝", ["1204"] = "􀇑", ["1207"] = "􀇑",
-  ["1210"] = "􀇏", ["1213"] = "􀇏", ["1216"] = "􀇏", ["1219"] = "􀇏",
-  ["1222"] = "􀇏", ["1225"] = "􀇏", ["1237"] = "􀇍", ["1240"] = "􀇝",
-  ["1243"] = "􀇝", ["1246"] = "􀇝", ["1249"] = "􀇑", ["1252"] = "􀇑",
-  ["1255"] = "􀇏", ["1258"] = "􀇏", ["1261"] = "􀇍", ["1264"] = "􀇍",
-  ["1273"] = "􀇟", ["1276"] = "􀇟", ["1279"] = "􀇏", ["1282"] = "􀇏",
+  clear = "􀇁",
+  partly_cloudy = "􀇛",
+  cloudy = "􀇃",
+  fog = "􀇋",
+  drizzle = "􀇝",
+  rain = "􀇝",
+  heavy_rain = "􀇝",
+  snow = "􀇏",
+  thunder = "􀇓",
+  hail = "􀇑",
 }
+
+local function weather_icon_key(code)
+  if type(code) ~= "number" then return "cloudy" end
+  if code == 0 then return "clear" end
+  if code == 1 or code == 2 then return "partly_cloudy" end
+  if code == 3 then return "cloudy" end
+  if code == 45 or code == 48 then return "fog" end
+  if code >= 51 and code <= 57 then return "drizzle" end
+  if code == 61 or code == 63 or code == 80 or code == 81 then return "rain" end
+  if code == 65 or code == 66 or code == 67 or code == 82 then return "heavy_rain" end
+  if code >= 71 and code <= 77 or code == 85 or code == 86 then return "snow" end
+  if code == 95 then return "thunder" end
+  if code == 96 or code == 99 then return "hail" end
+  return "cloudy"
+end
 
 local weather_icon = Sbar.add("item", "weather_icon", {
   position = "right",
@@ -92,14 +101,15 @@ local weather_temp = Sbar.add("item", "weather_temp", {
 
 local function weather_status()
   local loc = utils.capture("curl -fsS ipinfo.io/loc 2>/dev/null")
-  if loc == "" then
+  local latitude, longitude = loc:match("^%s*(-?%d+%.?%d*)%s*,%s*(-?%d+%.?%d*)%s*$")
+  if not latitude or not longitude then
     return nil
   end
 
   local query = string.format(
-    "curl -fsS 'http://api.weatherapi.com/v1/current.json?key=%s&q=%s' | jq -r '.current.condition.code, .current.temp_c, .current.is_day' 2>/dev/null",
-    API_KEY,
-    loc
+    "curl -fsS 'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&current=temperature_2m,weather_code,is_day' | jq -r '.current.weather_code, .current.temperature_2m, .current.is_day' 2>/dev/null",
+    latitude,
+    longitude
   )
   local raw = utils.capture(query)
   local code, temp_str, is_day = raw:match("([^\n]*)\n([^\n]*)\n([^\n]*)")
@@ -113,7 +123,7 @@ local function weather_status()
   end
 
   local icons = (is_day == "1") and day_icons or night_icons
-  local icon = icons[code] or "􀇃"
+  local icon = icons[weather_icon_key(tonumber(code))] or day_icons.cloudy
 
   local icon_color
   if is_day == "1" then

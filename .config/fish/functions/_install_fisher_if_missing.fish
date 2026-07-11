@@ -19,8 +19,11 @@ function _install_fisher_if_missing \
     # Install fisher if not present
     if not type -q fisher
         log_info "Installing fisher..."
-        curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher
-        if test $status -ne 0
+        if not curl -fsSL https://git.io/fisher | source
+            log_error "Failed to install fisher."
+            return 1
+        end
+        if not fisher install jorgebucaran/fisher
             log_error "Failed to install fisher."
             return 1
         end
@@ -37,6 +40,7 @@ function _install_fisher_if_missing \
 
     if test $status -eq 0
         log_success "Fisher plugin $plugin installed successfully."
+        return 0
     else
         log_error "Failed to install fisher plugin $plugin."
         return 1

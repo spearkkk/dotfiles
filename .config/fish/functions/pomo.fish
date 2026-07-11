@@ -1,11 +1,21 @@
-function pomo
-  set work_time 25
-  set break_time 5
+function pomo --description "Control the SketchyBar Pomodoro timer"
+    set -l action toggle
+    if test (count $argv) -gt 0
+        set action $argv[1]
+    end
 
-  if count $argv >/dev/null
-    set work_time $argv[1]
-    set break_time $argv[2]
-  end
-
-  _pomodoro_toggle _pomodoro_break _pomodoro_work _pomodoro_work $work_time $break_time
+    switch $action
+        case start work break stop toggle
+            if not type -q sketchybar
+                echo "pomo: sketchybar is not installed or not on PATH" >&2
+                return 1
+            end
+            sketchybar --trigger pomodoro_change ACTION=$action
+        case -h --help help
+            echo "Usage: pomo [start|work|break|stop|toggle]"
+        case '*'
+            echo "pomo: unknown action '$action'" >&2
+            echo "Usage: pomo [start|work|break|stop|toggle]" >&2
+            return 2
+    end
 end

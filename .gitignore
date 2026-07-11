@@ -383,5 +383,7 @@ GitHub.sublime-settings
 # End of https://www.toptal.com/developers/gitignore/api/osx,macos,fish,intellij+all,sublimetext,java,kotlin,pycharm+all,go,rust,lua,c++,git
 
 **env.sh
+# Alfred workflow sources contain caches, bundled dependencies, and local state.
+# Track reviewed .alfredworkflow exports under alfred/workflows/ instead.
 .config/alfred/Alfred.alfredpreferences/workflows/**
 .gitconfig-work

@@ -188,6 +188,8 @@ Sbar.add("bracket", "pomodoro_group", { "pomodoro_break", "pomodoro_work" }, {
   ["background.drawing"] = false,
 })
 
+Sbar.add("event", "pomodoro_change")
+
 local function stop_timer()
   mode = "none"
   start_time = nil
@@ -286,6 +288,26 @@ local function on_click(item_mode, env)
   end
 end
 
+local function on_command(env)
+  local action = (env.ACTION or "toggle"):lower()
+
+  if action == "start" or action == "work" then
+    start_mode("work")
+  elseif action == "break" then
+    start_mode("break")
+  elseif action == "stop" then
+    stop_timer()
+  elseif action == "toggle" then
+    if mode == "work" then
+      stop_timer()
+    else
+      start_mode("work")
+    end
+  else
+    utils.log("pomodoro: ignored unknown command " .. action)
+  end
+end
+
 -- Restore state from disk on load
 load_state()
 if mode == "work" then
@@ -300,3 +322,4 @@ pomodoro_work:subscribe("routine", function(env) on_routine() end)
 pomodoro_break:subscribe("routine", function(env) on_routine() end)
 pomodoro_work:subscribe("mouse.clicked", function(env) on_click("work", env) end)
 pomodoro_break:subscribe("mouse.clicked", function(env) on_click("break", env) end)
+pomodoro_work:subscribe("pomodoro_change", on_command)

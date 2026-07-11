@@ -9,18 +9,6 @@ if test -f ~/.config/fish/conf.d/logger.fish
     source ~/.config/fish/conf.d/logger.fish
 end
 
-if test -f ~/.config/fish/functions/_install_if_missing.fish
-    source ~/.config/fish/functions/_install_if_missing.fish
-end
-
-if test -f ~/.config/fish/functions/_tap_if_missing.fish
-    source ~/.config/fish/functions/_tap_if_missing.fish
-end
-
-if test -f ~/.config/fish/functions/_install_mise_if_missing.fish
-    source ~/.config/fish/functions/_install_mise_if_missing.fish
-end
-
 if test -f ~/.config/fish/functions/_install_fisher_if_missing.fish
     source ~/.config/fish/functions/_install_fisher_if_missing.fish
 end
@@ -45,6 +33,8 @@ end
 
 set install_personal false
 set install_work false
+set install_launchagents false
+set -l dotfiles_dir (cd (dirname (status --current-filename)); and pwd)
 
 for arg in $argv
     switch $arg
@@ -52,14 +42,13 @@ for arg in $argv
             set install_personal true
         case --work
             set install_work true
+        case --launchagents
+            set install_launchagents true
         case '*'
             log_warn "Unknown argument: $arg"
     end
 end
 
-# -------------------------
-#  Function: Unified package installer
-# -------------------------
 function install_package
     set -l entry $argv[1]
     set -l parts (string split ":" $entry)
@@ -73,27 +62,15 @@ function install_package
     set -l name $parts[2]
     
     switch $manager
-        case "brew"
-            # Format: brew:name:is_cask:tap
-            set -l is_cask false
-            set -l tap ""
-            if test (count $parts) -ge 3; set is_cask $parts[3]; end
-            if test (count $parts) -ge 4; set tap $parts[4]; end
-            _install_if_missing brew $name $is_cask $tap
-            
-        case "mise"
-            # Format: mise:name:version (version optional)
-            set -l version ""
-            if test (count $parts) -ge 3; set version $parts[3]; end
-            _install_mise_if_missing $name $version
-            
         case "fisher"
             # Format: fisher:plugin_name
-            _install_fisher_if_missing $name
+            _install_fisher_if_missing "$name"
+            return $status
             
         case "mas"
             # Format: mas:app_id
-            _install_mas_if_missing $name
+            _install_mas_if_missing "$name"
+            return $status
             
         case '*'
             log_warn "Unknown package manager: $manager for $name"
@@ -101,83 +78,80 @@ function install_package
     end
 end
 
+function install_brew_bundle
+    set -l label $argv[1]
+    set -l brewfile $argv[2]
+
+    if not type -q brew
+        log_error "Homebrew is required to install $label."
+        return 1
+    end
+
+    if not test -f "$brewfile"
+        log_error "Brewfile not found: $brewfile"
+        return 1
+    end
+
+    log_info "Installing $label from $brewfile..."
+    if brew bundle install --file "$brewfile"
+        log_success "✅ $label installation complete!"
+        return 0
+    end
+
+    log_error "$label installation failed."
+    return 1
+end
+
+function install_group
+    set -l label $argv[1]
+    set -l entries $argv[2..-1]
+    set -l failures
+
+    for entry in $entries
+        if not install_package "$entry"
+            set -a failures "$entry"
+        end
+    end
+
+    if test (count $failures) -gt 0
+        log_error "$label installation failed:"
+        for entry in $failures
+            log_error "  $entry"
+        end
+        return 1
+    end
+
+    log_success "✅ $label installation complete!"
+    return 0
+end
+
 log_info "🔧 Bootstrapping dotfiles environment..."
 
-# Define core tools with format: manager:name:extra_args
 set -l core_tools \
-    "brew:mise:false:" \
-    "brew:fd:false:" \
-    "brew:ripgrep:false:" \
-    "brew:starship:false:" \
-    "brew:zoxide:false:" \
-    "brew:font-hack-nerd-font:true:" \
-    "brew:mas:false:" \
-    "brew:aerospace:true:nikitabobko/tap" \
-    "brew:sketchybar:false:felixkratz/formulae" \
-    "brew:sf-symbols:true:" \
-    "brew:borders:false:felixkratz/formulae" \
-    "brew:eza:false:" \
-    "brew:bat:false:" \
-    "brew:deepl:true:" \
-    "brew:wakatime:true:" \
-    "brew:uutils-coreutils:false:" \
-    "brew:macism:false:laishulu/homebrew" \
-    "brew:lua:false:" \
-    "brew:lazygit:false:" \
-    "brew:yazi:false:" \
-    "brew:ffmpeg:false:" \
-    "brew:sevenzip:false:" \
-    "brew:jq:false:" \
-    "brew:poppler:false:" \
-    "brew:imagemagick:false:" \
-    "brew:resvg:false:" \
-    "brew:font-symbols-only-nerd-font:true:" \
-    "brew:neovim:false:" \
-    "brew:tree:false:" \
-    "brew:btop:false:" \
-    "brew:duf:false:" \
-    "brew:k9s:false:" \
-    "brew:1password:true:" \
-    "brew:1password-cli:true:" \
-    "brew:alfred:true:" \
-    "brew:appcleaner:true:" \
-    "brew:bettertouchtool:true:" \
-    "brew:contexts:true:" \
-    "brew:font-sf-pro:true:" \
-    "brew:google-chrome:true:" \
-    "brew:keka:true:" \
-    "brew:monitorcontrol:true:" \
-    "brew:obsidian:true:" \
-    "brew:sublime-text:true:" \
-    "brew:uv:false:" \
     "fisher:PatrickF1/fzf.fish" \
     "mas:553245401" \    # Friendly Streaming
     "mas:1398373917" \   # UpNote
     "mas:904280696"      # Things
 
-set -l work_tools \
-    "brew:lens:true:" \
-    "brew:miro:true:" \
-    "brew:slack:true:" \
-    "brew:git-lfs:false:" 
+set -l personal_tools
+set -l failed_groups
 
-set -l personal_tools 
-
-for entry in $core_tools
-    install_package $entry
+if not install_brew_bundle "Core Homebrew packages" "$dotfiles_dir/Brewfile"
+    set -a failed_groups "Core Homebrew packages"
 end
 
-log_success "✅ Core tools installation complete!"
+if not install_group "Core non-Homebrew tools" $core_tools
+    set -a failed_groups "Core non-Homebrew tools"
+end
 
 # -------------------------
 #  Personal Tools (Optional)
 # -------------------------
 if $install_personal
     log_info "🎨 Installing personal tools..."
-    for entry in $personal_tools
-        install_package $entry
+    if not install_group "Personal tools" $personal_tools
+        set -a failed_groups "Personal tools"
     end
-    log_success "✅ Personal tools installation complete!"
 end
 
 # -------------------------
@@ -185,16 +159,14 @@ end
 # -------------------------
 if $install_work
     log_info "💼 Installing work tools..."
-    for entry in $work_tools
-        install_package $entry
+    if not install_brew_bundle "Work Homebrew packages" "$dotfiles_dir/Brewfile.work"
+        set -a failed_groups "Work Homebrew packages"
     end
-    log_success "✅ Work tools installation complete!"
 end
 
 # -------------------------
 #  Generate fish colors from Simhae palette
 # -------------------------
-set -l dotfiles_dir (cd (dirname (status --current-filename)); and pwd)
 set -l fish_color_gen "$dotfiles_dir/simhae/generate_fish_colors.sh"
 
 if test -x "$fish_color_gen"
@@ -202,10 +174,33 @@ if test -x "$fish_color_gen"
         log_success "🎨 Generated fish colors from simhae-pelagic palette"
     else
         log_warn "Failed to generate fish colors: $fish_color_gen"
+        set -a failed_groups "Fish color generation"
     end
 else
     log_warn "Fish color generator not found or not executable: $fish_color_gen"
+    set -a failed_groups "Fish color generation"
 end
 
-# Exit quietly if non-interactive shell
-status is-interactive; or exit
+if test (count $failed_groups) -gt 0
+    log_error "Bootstrap completed with failures: "(string join ", " $failed_groups)
+    exit 1
+end
+
+if $install_launchagents
+    set -l launchagents_bootstrap "$dotfiles_dir/launchagents/bootstrap.fish"
+    if not test -x "$launchagents_bootstrap"
+        log_error "LaunchAgent bootstrap script is missing or not executable: $launchagents_bootstrap"
+        exit 1
+    end
+
+    log_info "Registering SketchyBar LaunchAgents..."
+    if not command fish "$launchagents_bootstrap"
+        log_error "Failed to register SketchyBar LaunchAgents."
+        exit 1
+    end
+end
+
+log_success "✅ Bootstrap completed successfully!"
+
+# Exit quietly if non-interactive shell.
+status is-interactive; or exit 0

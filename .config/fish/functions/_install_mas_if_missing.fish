@@ -21,6 +21,7 @@ function _install_mas_if_missing
     echo "[INFO ] Installing App Store app: $app_id"
     if mas install $app_id
         echo "[ OK  ] Successfully installed app: $app_id"
+        return 0
     else
         echo "[ERROR] Failed to install app: $app_id"
         return 1

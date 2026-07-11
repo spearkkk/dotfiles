@@ -208,10 +208,6 @@ if.app-id = 'com.jetbrains.intellij'
 run = ['move-node-to-workspace W']
 
 [[on-window-detected]]
-if.app-id = 'com.googlecode.iterm2'
-run = ['move-node-to-workspace Q']
-
-[[on-window-detected]]
 if.app-id = 'com.openai.codex'
 run = ['move-node-to-workspace E']
 

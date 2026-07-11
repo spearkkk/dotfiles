@@ -2,8 +2,16 @@
 (^|/)\.gitignore$
 (^|/)\.DS_Store$
 (^|/)README\.md$
+(^|/)DOTFILES_IMPROVEMENT_PLAN\.md$
 (^|/)bootstrap\.fish$
 (^|/)install\.sh$
+(^|/)macos-defaults\.sh$
+(^|/)Brewfile$
+(^|/)Brewfile\.work$
+(^|/)nvim\.log$
+(^|/)tests(/|$)
+(^|/)\.github(/|$)
+(^|/)alfred(/|$)
 (^|/)simhae(/|$)
 (^|/)personal(/|$)
 (^|/)\.config/\.DS_Store$
