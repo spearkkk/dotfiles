@@ -1,4 +1,4 @@
-function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--styles=bold,italic,underline] <text...>"
+function __dot_style --description "Styled echo: __dot_style --color <fg> [--background <bg>] [--styles=bold,italic,underline] <text...>"
     set -l fg ''
     set -l bg ''
     set -l styles
@@ -7,6 +7,7 @@ function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--s
 
     set -l valid_colors black red green yellow blue magenta cyan white \
         brblack brred brgreen bryellow brblue brmagenta brcyan brwhite
+    set -l valid_styles bold underline italic
 
     while test $i -le (count $argv)
         set -l arg $argv[$i]
@@ -40,7 +41,7 @@ function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--s
     end
 
     if test -z "$fg"
-        echo "Usage: _c --color <fg> [--background <bg>] [--styles=bold,underline,italic] <text...>"
+        echo "Usage: __dot_style --color <fg> [--background <bg>] [--styles=bold,underline,italic] <text...>"
         return 1
     end
 
@@ -52,6 +53,13 @@ function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--s
     if test -n "$bg"; and not contains -- $bg $valid_colors
         echo "Invalid background color: $bg"
         return 1
+    end
+
+    for style in $styles
+        if not contains -- $style $valid_styles
+            echo "Invalid style: $style"
+            return 1
+        end
     end
 
     set -l sequence (set_color $fg)
@@ -72,8 +80,6 @@ function _c --description "Styled echo: _c --color <fg> [--background <bg>] [--s
     end
 
     echo -en "$sequence"
-    for word in $args
-        echo -n "$word "
-    end
+    echo -n (string join " " -- $args)
     echo -e "\e[0m"
 end

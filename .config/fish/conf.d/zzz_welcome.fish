@@ -4,7 +4,7 @@ if not status is-interactive
     return
 end
 
-function time_and_date
+function __dot_welcome_time_and_date
     set_color cyan
     set -l kst_date (date "+%Y-%m-%d (%A) %H:%M")
     echo "🇰🇷 $kst_date"
@@ -14,7 +14,7 @@ function time_and_date
     set_color normal
 end
 
-function list_custom_functions
+function __dot_welcome_list_custom_functions
     set_color yellow
     echo "🛠️  Custom Fish Functions:"
     set_color normal
@@ -39,17 +39,20 @@ function list_custom_functions
     end
 end
 
-function show_welcome
+function __dot_welcome_show
     set_color green
     echo "────────────────────────────────────────────────────────"
     echo "🌊 Welcome back, $USER — Ready to dive in with Fish"
     echo "────────────────────────────────────────────────────────"
     set_color normal
 
-    time_and_date
+    __dot_welcome_time_and_date
     #    echo ""
-    #list_custom_functions
+    #__dot_welcome_list_custom_functions
     echo ""
 end
 
-show_welcome
+__dot_welcome_show
+functions -e __dot_welcome_time_and_date
+functions -e __dot_welcome_list_custom_functions
+functions -e __dot_welcome_show

@@ -6,7 +6,7 @@ local utils    = require("helpers.utils")
 local EN_ICON = "A"
 local KO_ICON = "가"
 local FIXED_WIDTH = 24
-local UPDATE_FREQ = 5
+local UPDATE_FREQ = 1
 
 local function current_input_source()
   local out = utils.capture("defaults read com.apple.HIToolbox AppleSelectedInputSources 2>/dev/null")
