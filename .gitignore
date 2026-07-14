@@ -389,3 +389,4 @@ GitHub.sublime-settings
 # Track reviewed .alfredworkflow exports under alfred/workflows/ instead.
 .config/alfred/Alfred.alfredpreferences/workflows/**
 .gitconfig-work
+work/

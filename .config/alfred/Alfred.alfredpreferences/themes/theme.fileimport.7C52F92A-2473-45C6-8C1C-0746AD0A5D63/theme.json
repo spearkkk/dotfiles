@@ -27,12 +27,12 @@
       "iconSize" : 48
     },
     "search" : {
-      "backgroundSelected" : "#0A1F2EFF",
+      "backgroundSelected" : "#C8945AFF",
       "paddingHorizontal" : 4,
       "spacing" : 5,
       "text" : {
         "size" : 18,
-        "colorSelected" : "#C6D8E4FF",
+        "colorSelected" : "#071420FF",
         "font" : "Monaco",
         "color" : "#C6D8E4FF"
       },

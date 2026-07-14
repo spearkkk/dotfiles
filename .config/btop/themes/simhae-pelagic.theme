@@ -1,0 +1,81 @@
+# Theme: Simhae Pelagic
+# Palette source: simhae/simhae-pelagic.yaml
+
+# Main bg
+theme[main_bg]="#0A1F2E"
+
+# Main text color
+theme[main_fg]="#C6D8E4"
+
+# Title color for boxes
+theme[title]="#D6E2E8"
+
+# Highlight color for keyboard shortcuts
+theme[hi_fg]="#50C4C0"
+
+# Background color of selected item in processes box
+theme[selected_bg]="#1C3A50"
+
+# Foreground color of selected item in processes box
+theme[selected_fg]="#ECF0F4"
+
+# Color of inactive/disabled text
+theme[inactive_fg]="#4A6E86"
+
+# Misc colors for processes box including mini cpu graphs, details memory graph and details status text
+theme[proc_misc]="#7896CC"
+
+# Cpu box outline color
+theme[cpu_box]="#24425C"
+
+# Memory/disks box outline color
+theme[mem_box]="#24425C"
+
+# Net up/down box outline color
+theme[net_box]="#24425C"
+
+# Processes box outline color
+theme[proc_box]="#24425C"
+
+# Box divider line and small boxes line color
+theme[div_line]="#24425C"
+
+# Temperature graph colors
+theme[temp_start]="#68BE92"
+theme[temp_mid]="#C8AE6A"
+theme[temp_end]="#C47A72"
+
+# CPU graph colors
+theme[cpu_start]="#68BE92"
+theme[cpu_mid]="#C8AE6A"
+theme[cpu_end]="#C47A72"
+
+# Mem/Disk free meter
+theme[free_start]="#80CCAA"
+theme[free_mid]="#C8AE6A"
+theme[free_end]="#C47A72"
+
+# Mem/Disk cached meter
+theme[cached_start]="#50C4C0"
+theme[cached_mid]="#7896CC"
+theme[cached_end]="#9A7EC8"
+
+# Mem/Disk available meter
+theme[available_start]="#68BE92"
+theme[available_mid]="#50C4C0"
+theme[available_end]="#7896CC"
+
+# Mem/Disk used meter
+theme[used_start]="#68BE92"
+theme[used_mid]="#C8945A"
+theme[used_end]="#C47A72"
+
+# Download graph colors
+theme[download_start]="#7896CC"
+theme[download_mid]="#50C4C0"
+theme[download_end]="#68BE92"
+
+# Upload graph colors
+theme[upload_start]="#9A7EC8"
+theme[upload_mid]="#C8945A"
+theme[upload_end]="#C47A72"
