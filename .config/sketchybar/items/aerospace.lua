@@ -2,7 +2,7 @@ local colors   = require("helpers.colors")
 local settings = require("helpers.settings")
 local utils    = require("helpers.utils")
 
-local KEYS = { "1", "2", "3", "9", "Q", "W", "E", "M", "`" }
+local KEYS = { "Q", "W", "E", "R", "`" }
 
 local LEFT_START = settings.outer_padding
 local CELL_GAP = 2
@@ -41,14 +41,10 @@ local function add_ws_item(idx, ws_id)
   local pad = ((idx == 1) and LEFT_START or CELL_GAP) + 2
 
   local icon_map = {
-    ["1"] = "􀃊 ",
-    ["2"] = "􀃌 ",
-    ["3"] = "􀃎 ",
-    ["9"] = "􀃚 ",
     ["Q"] = "􀂴 ",
     ["W"] = "􀃀 ",
     ["E"] = "􀂜 ",
-    ["M"] = "􀂬 ",
+    ["R"] = "􀂶 ",
     ["`"] = "􀓔 ",
   }
   local icon = icon_map[ws_id] or ws_id

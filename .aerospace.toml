@@ -6,7 +6,7 @@ after-startup-command = [
     'exec-and-forget sketchybar'
 ]
 
-exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE']
+exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE; /opt/homebrew/bin/hs -c "AerospaceWorkspaceChanged([[$AEROSPACE_FOCUSED_WORKSPACE]])"']
 
 start-at-login = true
 
@@ -56,40 +56,24 @@ automatically-unhide-macos-hidden-apps = false
   alt-comma = 'layout accordion horizontal vertical'
 
   # See: https://nikitabobko.github.io/AeroSpace/commands#focus
-  alt-h = 'focus left'
-  alt-j = 'focus down'
-  alt-k = 'focus up'
-  alt-l = 'focus right'
-
-  # See: https://nikitabobko.github.io/AeroSpace/commands#move
-  alt-shift-h = 'move left'
-  alt-shift-j = 'move down'
-  alt-shift-k = 'move up'
-  alt-shift-l = 'move right'
+  alt-leftSquareBracket = 'focus left'
+  alt-rightSquareBracket = 'focus right'
 
   # See: https://nikitabobko.github.io/AeroSpace/commands#resize
   alt-minus = 'resize smart -150'
   alt-equal = 'resize smart +150'
 
   # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-  alt-1 = 'workspace 1'
-  alt-2 = 'workspace 2'
-  alt-3 = 'workspace 3'
-  alt-9 = 'workspace 9'
-  alt-m = 'workspace M'
   alt-q = 'workspace Q'
   alt-w = 'workspace W'
   alt-e = 'workspace E'
+  alt-r = 'workspace R'
   alt-backtick = 'workspace "`"'
 
-  alt-shift-1 = 'move-node-to-workspace --focus-follows-window 1'
-  alt-shift-2 = 'move-node-to-workspace --focus-follows-window 2'
-  alt-shift-3 = 'move-node-to-workspace --focus-follows-window 3'
-  alt-shift-9 = 'move-node-to-workspace --focus-follows-window 9'
-  alt-shift-m = 'move-node-to-workspace --focus-follows-window M'
   alt-shift-q = 'move-node-to-workspace --focus-follows-window Q'
   alt-shift-w = 'move-node-to-workspace --focus-follows-window W'
   alt-shift-e = 'move-node-to-workspace --focus-follows-window E'
+  alt-shift-r = 'move-node-to-workspace --focus-follows-window R'
   alt-shift-backtick = 'move-node-to-workspace --focus-follows-window "`"'
 
   alt-shift-f = 'fullscreen'
@@ -104,6 +88,7 @@ automatically-unhide-macos-hidden-apps = false
 
   # See: https://nikitabobko.github.io/AeroSpace/commands#mode
   alt-shift-semicolon = 'mode service'
+  alt-shift-a = 'mode arrange'
 
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
@@ -116,42 +101,32 @@ automatically-unhide-macos-hidden-apps = false
   # sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
   #s = ['layout sticky tiling', 'mode main']
 
-  alt-shift-h = ['join-with left', 'mode main']
-  alt-shift-j = ['join-with down', 'mode main']
-  alt-shift-k = ['join-with up', 'mode main']
-  alt-shift-l = ['join-with right', 'mode main']
-
   # down = 'volume down'
   # up = 'volume up'
   # shift-down = ['volume set 0', 'mode main']
 
-[mode.workspace.binding]
+# 'arrange' binding mode declaration: move a window within its workspace, or join it with a neighbor.
+# See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
+[mode.arrange.binding]
   esc = 'mode main'
 
-  # See: https://nikitabobko.github.io/AeroSpace/commands#workspace
-  1 = ['workspace 1', 'mode main']
-  2 = ['workspace 2', 'mode main']
-  3 = ['workspace 3', 'mode main']
-  9 = ['workspace 9', 'mode main']
-  m = ['workspace M', 'mode main']
-  q = ['workspace Q', 'mode main']
-  w = ['workspace W', 'mode main']
-  e = ['workspace E', 'mode main']
-  backtick = ['workspace "`"', 'mode main']
+  # See: https://nikitabobko.github.io/AeroSpace/commands#move
+  h = 'move left'
+  j = 'move down'
+  k = 'move up'
+  l = 'move right'
 
-  shift-1 = ['move-node-to-workspace --focus-follows-window 1', 'mode main']
-  shift-2 = ['move-node-to-workspace --focus-follows-window 2', 'mode main']
-  shift-3 = ['move-node-to-workspace --focus-follows-window 3', 'mode main']
-  shift-9 = ['move-node-to-workspace --focus-follows-window 9', 'mode main']
-  shift-m = ['move-node-to-workspace --focus-follows-window M', 'mode main']
-  shift-q = ['move-node-to-workspace --focus-follows-window Q', 'mode main']
-  shift-w = ['move-node-to-workspace --focus-follows-window W', 'mode main']
-  shift-e = ['move-node-to-workspace --focus-follows-window E', 'mode main']
-  shift-backtick = ['move-node-to-workspace --focus-follows-window "`"', 'mode main']
+  # See: https://nikitabobko.github.io/AeroSpace/commands#join-with
+  shift-h = 'join-with left'
+  shift-j = 'join-with down'
+  shift-k = 'join-with up'
+  shift-l = 'join-with right'
 
-[[on-window-detected]]
-if.app-id = 'com.linguee.DeepLCopyTranslator'
-run = ['layout floating']
+  # See: https://nikitabobko.github.io/AeroSpace/commands#focus
+  ctrl-h = 'focus left'
+  ctrl-j = 'focus down'
+  ctrl-k = 'focus up'
+  ctrl-l = 'focus right'
 
 [[on-window-detected]]
 if.app-id = 'com.runningwithcrayons.Alfred-Preferences'
@@ -165,13 +140,6 @@ run = ['layout floating']
 if.app-id = 'us.zoom.xos'
 run = ['layout floating']
 
-[[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.agimnkijcaahngcdmfeangaknmldooml'
-run = ['layout floating']
-
-[[on-window-detected]]
-if.app-id = 'com.google.Chrome.app.cinhimbnkkaeohfgghhklpknlkffjgod'
-run = ['layout floating']
 
 [[on-window-detected]]
 if.app-id = 'com.culturedcode.ThingsMac'
@@ -183,25 +151,25 @@ run = ['layout floating']
 
 [[on-window-detected]]
 if.app-id = 'com.kakao.KakaoTalkMac'
-run = ['layout floating', 'move-node-to-workspace M']
+run = ['layout floating', 'move-node-to-workspace R']
 
 [[on-window-detected]]
 if.app-id = 'ru.keepcoder.Telegram'
-run = ['layout floating', 'move-node-to-workspace M']
+run = ['layout floating', 'move-node-to-workspace R']
 
 [[on-window-detected]]
 if.app-id = 'net.whatsapp.WhatsApp'
-run = ['layout floating', 'move-node-to-workspace M']
+run = ['layout floating', 'move-node-to-workspace R']
 
 
 [[on-window-detected]]
 if.app-id = 'jp.naver.line.mac'
-run = ['move-node-to-workspace M']
+run = ['move-node-to-workspace R']
 
 
 [[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
-run = ['move-node-to-workspace M']
+run = ['move-node-to-workspace R']
 
 [[on-window-detected]]
 if.app-id = 'com.jetbrains.intellij'
@@ -209,19 +177,19 @@ run = ['move-node-to-workspace W']
 
 [[on-window-detected]]
 if.app-id = 'com.openai.codex'
-run = ['move-node-to-workspace E']
+run = ['move-node-to-workspace W']
 
 [[on-window-detected]]
 if.app-id = 'com.sublimetext.3'
-run = ['move-node-to-workspace E']
+run = ['layout tiling', 'move-node-to-workspace W']
 
 [[on-window-detected]]
 if.app-id = 'com.sublimetext.4'
-run = ['move-node-to-workspace E']
+run = ['layout tiling', 'move-node-to-workspace W']
 
 [[on-window-detected]]
-if.app-id = 'com.oecoway.friendlynetflix'
-run = ['layout floating', 'move-node-to-workspace E']
+if.app-id = 'app.zen-browser.zen'
+run = ['move-node-to-workspace E']
 
 [[on-window-detected]]
 if.app-id="com.mitchellh.ghostty"
