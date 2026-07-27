@@ -40,6 +40,5 @@ macos-auto-secure-input = true
 confirm-close-surface = false
 
 
-config-file = ?auto/theme.ghostty
 config-file = ?themes/simhae-pelagic.ghostty
 config-file = ?keybinds.config.ghostty
