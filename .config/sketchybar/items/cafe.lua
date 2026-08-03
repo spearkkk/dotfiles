@@ -35,7 +35,7 @@ local cafe = Sbar.add("item", "cafe", {
   ["icon.padding_right"] = settings.inner_padding,
   ["label.drawing"]      = false,
   ["background.drawing"] = false,
-  update_freq            = 10,
+  update_freq            = 2,
 })
 
 utils.log("cafe: loaded")

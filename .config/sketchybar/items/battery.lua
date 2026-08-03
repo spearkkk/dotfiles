@@ -74,7 +74,7 @@ local battery_percent = Sbar.add("item", "battery_percent", {
   padding_left = 0,
   padding_right = -STACK_WIDTH + STACK_RIGHT_GAP,
   y_offset = BOTTOM_Y,
-  update_freq = UPDATE_FREQ,
+  update_freq = 0,
   icon = {
     drawing = false,
   },
@@ -112,4 +112,3 @@ end
 update_battery()
 
 battery_icon:subscribe({ "routine", "forced", "system_woke", "power_source_change" }, update_battery)
-battery_percent:subscribe({ "routine", "forced", "system_woke", "power_source_change" }, update_battery)

@@ -6,7 +6,7 @@ local TOP_Y = settings.double_line_bottom_y
 local BOTTOM_Y = settings.double_line_top_y
 local ICON_SIZE = settings.text_size_small - 1
 local TEMP_SIZE = settings.text_size_large 
-local UPDATE_FREQ = 600
+local UPDATE_FREQ = 1800
 
 local STACK_WIDTH = 16
 local STACK_RIGHT_GAP = 0
@@ -82,7 +82,7 @@ local weather_temp = Sbar.add("item", "weather_temp", {
   padding_left = 0,
   padding_right = -STACK_WIDTH + STACK_RIGHT_GAP,
   y_offset = BOTTOM_Y,
-  update_freq = UPDATE_FREQ,
+  update_freq = 0,
   icon = {
     drawing = false,
   },
@@ -177,4 +177,3 @@ end
 update_weather()
 
 weather_icon:subscribe({ "routine", "forced", "system_woke", "wifi_change" }, update_weather)
-weather_temp:subscribe({ "routine", "forced", "system_woke", "wifi_change" }, update_weather)

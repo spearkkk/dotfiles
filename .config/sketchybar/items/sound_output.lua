@@ -5,7 +5,7 @@ local utils    = require("helpers.utils")
 local ITEM = "sound_output"
 local POPUP_SLOTS = 12
 local POPUP_TIMEOUT_SECONDS = 5
-local UPDATE_FREQ = 5
+local UPDATE_FREQ = 10
 local SA_BIN = utils.capture("command -v SwitchAudioSource 2>/dev/null")
 if SA_BIN == "" then
   SA_BIN = "/opt/homebrew/bin/SwitchAudioSource"
