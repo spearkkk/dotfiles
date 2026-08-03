@@ -42,6 +42,15 @@ local function current_focused_screen()
   return (win and win:screen()) or hs.screen.mainScreen()
 end
 
+local function refresh_after_layout_change()
+  hs.timer.doAfter(0.05, function()
+    refresh_dimming(current_focused_screen())
+  end)
+  hs.timer.doAfter(0.20, function()
+    refresh_dimming(current_focused_screen())
+  end)
+end
+
 hs.window.filter.default:subscribe(hs.window.filter.windowFocused, function(win)
   refresh_dimming(win and win:screen())
 end)
@@ -60,6 +69,13 @@ screen_watcher:start()
 hs.urlevent.bind("dimset", function(_, params)
   enabled = (params and params.state) ~= "off"
   refresh_dimming(current_focused_screen())
+end)
+
+-- hammerspoon://dimrefresh -- refresh after external window-manager changes
+-- that may not emit a focused-window event, such as moving the current
+-- AeroSpace workspace to another monitor.
+hs.urlevent.bind("dimrefresh", function()
+  refresh_after_layout_change()
 end)
 
 refresh_dimming(current_focused_screen())

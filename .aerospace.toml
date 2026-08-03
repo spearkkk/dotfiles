@@ -6,7 +6,7 @@ after-startup-command = [
     'exec-and-forget sketchybar'
 ]
 
-exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE; /opt/homebrew/bin/hs -c "AerospaceWorkspaceChanged([[$AEROSPACE_FOCUSED_WORKSPACE]])"']
+exec-on-workspace-change = ['/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE']
 
 start-at-login = true
 
@@ -55,10 +55,6 @@ automatically-unhide-macos-hidden-apps = false
   alt-slash = 'layout tiles horizontal vertical'
   alt-comma = 'layout accordion horizontal vertical'
 
-  # See: https://nikitabobko.github.io/AeroSpace/commands#focus
-  alt-leftSquareBracket = 'focus left'
-  alt-rightSquareBracket = 'focus right'
-
   # See: https://nikitabobko.github.io/AeroSpace/commands#resize
   alt-minus = 'resize smart -150'
   alt-equal = 'resize smart +150'
@@ -81,10 +77,9 @@ automatically-unhide-macos-hidden-apps = false
   # alt-cmd-h = 'move-workspace-to-monitor left'
   # alt-cmd-l = 'move-workspace-to-monitor right'
 
-  # See: https://nikitabobko.github.io/AeroSpace/commands#workspace-back-and-forth
-  alt-tab = 'workspace-back-and-forth'
   # See: https://nikitabobko.github.io/AeroSpace/commands#move-workspace-to-monitor
-  alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+  alt-shift-leftSquareBracket = ['move-workspace-to-monitor --wrap-around prev', 'exec-and-forget open -g hammerspoon://dimrefresh']
+  alt-shift-rightSquareBracket = ['move-workspace-to-monitor --wrap-around next', 'exec-and-forget open -g hammerspoon://dimrefresh']
 
   # See: https://nikitabobko.github.io/AeroSpace/commands#mode
   alt-shift-semicolon = 'mode service'

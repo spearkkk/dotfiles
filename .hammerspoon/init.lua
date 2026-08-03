@@ -1,3 +1,3 @@
 require("hs.ipc")
-require("aerospace_toast")
+require("aerospace_alt_tab")
 require("inactive_display_dim")
