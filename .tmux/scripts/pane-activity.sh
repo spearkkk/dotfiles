@@ -15,9 +15,9 @@ last_cmd="$2"
 duration_ms="$3"
 
 case "$cmd" in
-  claude*) printf '󰧑 클로드'; exit 0 ;;
-  codex*)  printf '󰧑 코덱스'; exit 0 ;;
-  gemini*) printf '󰧑 젬미니'; exit 0 ;;
+  claude*) printf '#[fg=#9A7EC8]󰧑#[fg=#C6D8E4] 클로드'; exit 0 ;;
+  codex*)  printf '#[fg=#9A7EC8]󰧑#[fg=#C6D8E4] 코덱스'; exit 0 ;;
+  gemini*) printf '#[fg=#9A7EC8]󰧑#[fg=#C6D8E4] 젬미니'; exit 0 ;;
 esac
 
 format_duration() {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Full-width divider for status-format[0]: kube context on the left, dashes
-# filling the rest. Kept as a script (rather than an inline #() command)
+# Full-width divider for status-format[0]: kube context on the left, pane
+# divider characters filling the rest. Kept as a script (rather than an inline #() command)
 # because tmux runs status-format strings through strftime first, which
 # mangles a literal "%*s" in the config file.
 #
@@ -45,7 +45,7 @@ if $is_prod; then
   tail_style="$prod_style"
 else
   label_style='#[fg=#C6D8E4]'
-  dash_style='#[fg=#4A6E86]'
+  dash_style='#[fg=#24425C]'
   tail_style='#[fg=#C6D8E4]'
 fi
 
@@ -57,6 +57,6 @@ right_label=""
 
 dash_count=$(( width - ${#label} - ${#right_label} ))
 (( dash_count < 0 )) && dash_count=0
-dashes=$(printf '%*s' "$dash_count" '' | tr ' ' '-')
+dashes=$(printf '%*s' "$dash_count" '' | tr ' ' '═')
 
 printf '%s%s%s%s%s%s' "$label_style" "$label" "$dash_style" "$dashes" "$tail_style" "$right_label"
