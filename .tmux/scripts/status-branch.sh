@@ -4,9 +4,9 @@
 # Truncate only when too long; do not pad short branch labels to fixed width.
 target_dir="${1:-$PWD}"
 width="${2:-32}"
-default_style='#[fg=#C6D8E4,bg=#0A1F2E]'
+default_style='#[fg=#C6D8E4,bg=#1C3A50]'
 important_style='#[fg=#0A1F2E,bg=#68BE92,bold]'
-reset='#[fg=#C6D8E4,bg=#142C3E]'
+reset='#[fg=#C6D8E4,bg=#1C3A50]'
 
 if [[ -d "$target_dir" ]]; then
   branch="$(git -C "$target_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"

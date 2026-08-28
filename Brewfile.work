@@ -1,3 +1,4 @@
 cask "lens"
 cask "slack"
 brew "git-lfs"
+brew "gradle"

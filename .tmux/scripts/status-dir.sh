@@ -4,8 +4,8 @@
 # since the current/deepest directory name is the useful part.
 path="$1"
 width="${2:-32}"
-style='#[fg=#C6D8E4,bg=#0A1F2E]'
-reset='#[fg=#C6D8E4,bg=#142C3E]'
+style='#[fg=#C6D8E4,bg=#1C3A50]'
+reset='#[fg=#C6D8E4,bg=#1C3A50]'
 
 path="${path/#$HOME/~}"
 len=${#path}

@@ -13,6 +13,10 @@ opt.autoindent = true -- copy indent from current line when starting new one
 
 opt.wrap = false
 
+-- Keep folds available, but open files with all folds expanded by default.
+opt.foldlevel = 99
+opt.foldlevelstart = 99
+
 -- search settings
 opt.ignorecase = true -- ignore case when searching
 opt.smartcase = true -- if you include mixed case in your search, assumes you want case-sensitive

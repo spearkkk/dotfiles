@@ -18,7 +18,7 @@ content_width=$((width - 2))
 if [[ "$client_prefix" == "1" ]]; then
   line_style='#[fg=#0A1F2E,bg=#7896CC]'
 else
-  line_style='#[fg=#C6D8E4,bg=#142C3E]'
+  line_style='#[fg=#C6D8E4,bg=#1C3A50]'
 fi
 
 format_duration() {

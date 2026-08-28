@@ -388,5 +388,6 @@ GitHub.sublime-settings
 # Alfred workflow sources contain caches, bundled dependencies, and local state.
 # Track reviewed .alfredworkflow exports under alfred/workflows/ instead.
 .config/alfred/Alfred.alfredpreferences/workflows/**
+.config/alfred/Alfred.alfredpreferences/remote/**
 .gitconfig-work
 work/
