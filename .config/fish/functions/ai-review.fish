@@ -1,6 +1,6 @@
 function __ai_review_usage
     echo "Usage:"
-    echo "  ai-review [--all] [agent[:model] ...] [--worktree PATH] [--target SESSION:WINDOW] [--wait|--no-wait]"
+    echo "  ai-review [--all] [agent[:model] ...] [--worktree PATH] [--kind KIND] [--focus TEXT] [--target SESSION:WINDOW] [--wait|--no-wait]"
     echo "  ai-review collect [GROUP_OR_RUN_ID]"
     echo "  ai-review list"
     echo "  ai-review kill [GROUP_ID]"
@@ -10,6 +10,8 @@ function __ai_review_usage
     echo "  ai-review claude codex"
     echo "  ai-review codex:<model> claude:<model>"
     echo "  ai-review --all --worktree /path/to/repo"
+    echo "  ai-review --all --worktree /path/to/repo --kind spec"
+    echo "  ai-review --all --worktree /path/to/repo --kind architecture --focus 'dependency direction and failure modes'"
     echo "  ai-review --all --target wk:ai --no-wait"
     echo
     echo "Default reviewers:"
@@ -23,7 +25,7 @@ function __ai_review_default_reviewers
         for value in $AI_REVIEW_REVIEWERS
             for reviewer in (string split ' ' -- $value)
                 switch $reviewer
-                    case '' gemini 'gemini:*'
+                    case ''
                         continue
                     case '*'
                         printf '%s\n' $reviewer
@@ -35,6 +37,119 @@ function __ai_review_default_reviewers
 
     echo codex
     echo claude
+end
+
+
+function __ai_review_valid_kind --argument-names kind
+    contains -- $kind auto code spec architecture plan docs synthesis mixed
+end
+
+function __ai_review_classify_path --argument-names path
+    set -l lower (string lower -- $path)
+
+    switch $lower
+        case '*architecture*' '*design*' '*adr*'
+            echo architecture
+        case '*spec.md' '*/spec.md' '*specs/*' '*requirements*' '*acceptance*'
+            echo spec
+        case '*plan*' '*migration*'
+            echo plan
+        case 'readme.md' '*/readme.md' '*runbook*' '*docs/*' '*.md'
+            echo docs
+        case '*.fish' '*.sh' '*.py' '*.js' '*.ts' '*.tsx' '*.jsx' '*.java' '*.kt' '*.go' '*.rs' '*.rb' '*.lua' '*.vim'
+            echo code
+        case '*'
+            echo docs
+    end
+end
+
+function __ai_review_detect_kind_from_paths
+    if test (count $argv) -eq 0
+        echo mixed
+        return
+    end
+
+    set -l kinds
+    for path in $argv
+        set -a kinds (__ai_review_classify_path $path)
+    end
+
+    set -l unique
+    for kind in $kinds
+        contains -- $kind $unique; or set -a unique $kind
+    end
+
+    if test (count $unique) -eq 1
+        echo $unique[1]
+    else
+        echo mixed
+    end
+end
+
+function __ai_review_render_output_contract
+    echo "## Output Contract"
+    echo
+    echo "Return only the final review as markdown using this shape:"
+    echo
+    echo "## Review Target"
+    echo "[Code / Spec / Architecture / Plan / Docs / Review Synthesis / Mixed]"
+    echo
+    echo "## Verdict"
+    echo "[Accept / Request changes / Block / Insufficient evidence]"
+    echo
+    echo "## Main Risks"
+    echo "- ..."
+    echo
+    echo "## Findings"
+    echo "- [severity] [anchor] Finding, evidence, impact"
+    echo
+    echo "## Evidence Gaps"
+    echo "- ..."
+    echo
+    echo "## Recommended Next Actions"
+    echo "- ..."
+    echo
+    echo "Anchors are file:line for code; section, requirement, heading, or quoted claim for specs/docs; decision, boundary, dependency, data flow, or failure mode for architecture; step number for plans; reviewer name plus claim for synthesis."
+end
+
+function __ai_review_render_kind_guidance --argument-names kind
+    echo "## Review Focus"
+    echo
+
+    switch $kind
+        case code
+            echo "- Requirements fit"
+            echo "- Behavior changes and regressions"
+            echo "- Error handling, security, and compatibility"
+            echo "- Missing or weak tests"
+        case spec
+            echo "- Problem clarity, scope, and acceptance criteria"
+            echo "- Ambiguity, edge cases, and contradictions"
+            echo "- whether the doc is understandable without opening tickets"
+        case architecture
+            echo "- Boundaries and dependency direction"
+            echo "- Data flow and coupling"
+            echo "- Failure modes, operability, and migration path"
+        case plan
+            echo "- Sequence and hidden dependencies"
+            echo "- Testability and rollback"
+            echo "- Risk and whether steps prove completion"
+        case docs
+            echo "- Reader context and durable explanation"
+            echo "- Stale ticket dependency"
+            echo "- Missing assumptions and unsafe or ambiguous guidance"
+            echo "- Consistency with repository behavior"
+        case synthesis
+            echo "- Evidence quality"
+            echo "- Conflicting claims and duplicate findings"
+            echo "- Hallucinated files or lines"
+            echo "- Actionable next steps"
+        case mixed '*'
+            echo "- Review the highest-risk layer first"
+            echo "- Architecture/spec before plan"
+            echo "- Plan before code details"
+            echo "- Blocking correctness before style"
+    end
 end
 
 function __ai_review_agent_command --argument-names agent model
@@ -64,21 +179,40 @@ function __ai_review_write_state --argument-names run_dir run_id group_id agent 
     end >$run_dir/state.fish
 end
 
-function __ai_review_build_request --argument-names request_file agent model origin_pane current_command worktree
+function __ai_review_build_request --argument-names request_file agent model origin_pane current_command worktree review_kind focus branch head_sha generated_at
     begin
         echo "# AI Review Request"
         echo
-        echo "Review the work from another AI agent."
+        echo "Review the work from another AI agent. This request is self-contained; do not assume you have loaded the reviewers skill."
+        echo
+        echo "## Metadata"
         echo
         echo "- Reviewer: $agent"
         test -n "$model"; and echo "- Model: $model"
         echo "- Source pane: $origin_pane"
         echo "- Source command: $current_command"
         echo "- Worktree: $worktree"
+        echo "- Branch: $branch"
+        echo "- HEAD: $head_sha"
+        echo "- Review Kind: $review_kind"
+        if test -n "$focus"
+            echo "- Focus: $focus"
+        else
+            echo "- Focus: -"
+        end
+        echo "- Generated At: $generated_at"
         echo
-        echo "Focus on bugs, behavioral regressions, unsafe assumptions, and missing tests."
-        echo "Do not edit files. Write findings first with file/line references where possible."
-        echo "Return only the final review as markdown."
+        echo "## Reviewer Role"
+        echo
+        echo "Review only. Do not edit files."
+        echo "Do not run expensive, credential-heavy, deployment, staging, production, or state-changing commands."
+        echo "Treat claimed tests, reviewer agreement, and AI confidence as claims, not evidence."
+        echo "Prefer Insufficient evidence over forced approval when source material or proof is missing."
+        echo "Report blocking correctness issues before style or preference."
+        echo
+        __ai_review_render_kind_guidance $review_kind
+        echo
+        __ai_review_render_output_contract
         echo
 
         if command git -C $worktree rev-parse --is-inside-work-tree >/dev/null 2>&1
@@ -126,7 +260,7 @@ function __ai_review_write_runner --argument-names run_file agent model request_
 
         switch $agent
             case codex
-                printf 'codex exec --skip-git-repo-check'
+                printf 'codex exec --skip-git-repo-check --sandbox read-only'
                 test -n "$model"; and printf ' --model %s' (string escape -- $model)
                 printf ' --output-last-message %s - < %s > %s 2>| tee %s\n' \
                     (string escape -- $result_file) \
@@ -207,6 +341,30 @@ function __ai_review_group_file --argument-names state_root id
     return 1
 end
 
+
+function __ai_review_write_manifest --argument-names manifest_file group_id state_root origin_pane target worktree branch head_sha review_kind focus generated_at
+    begin
+        echo "# AI Review Harness Manifest"
+        echo
+        echo "- Group ID: $group_id"
+        echo "- Generated At: $generated_at"
+        echo "- State Root: $state_root"
+        echo "- Origin Pane: $origin_pane"
+        echo "- Target: $target"
+        echo "- Worktree: $worktree"
+        echo "- Branch: $branch"
+        echo "- HEAD: $head_sha"
+        echo "- Review Kind: $review_kind"
+        if test -n "$focus"
+            echo "- Focus: $focus"
+        else
+            echo "- Focus: -"
+        end
+        echo
+        echo "## Runs"
+    end >$manifest_file
+end
+
 function __ai_review_build_summary --argument-names group_file paste
     source $group_file
 
@@ -245,6 +403,27 @@ function __ai_review_build_summary --argument-names group_file paste
         echo "공통으로 지적된 문제, reviewer 간 의견 충돌, 실제로 반영해야 할 수정사항, 무시해도 되는 피드백을 구분해서 종합해줘."
         echo "필요하면 우선순위를 나누고, 파일/라인 근거가 있는 항목을 먼저 다뤄줘."
         echo
+        if set -q __ai_review_manifest_file
+            echo "- Manifest: $__ai_review_manifest_file"
+        end
+        if set -q __ai_review_worktree
+            echo "- Worktree: $__ai_review_worktree"
+        end
+        if set -q __ai_review_branch
+            echo "- Branch: $__ai_review_branch"
+        end
+        if set -q __ai_review_head_sha
+            echo "- HEAD: $__ai_review_head_sha"
+        end
+        if set -q __ai_review_review_kind
+            echo "- Review Kind: $__ai_review_review_kind"
+        end
+        if set -q __ai_review_focus; and test -n "$__ai_review_focus"
+            echo "- Focus: $__ai_review_focus"
+        else
+            echo "- Focus: -"
+        end
+        echo
         cat $result_file
     end >$prompt_file
 
@@ -269,6 +448,8 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
     set -l timeout 1800
     set -l id
     set -l expect
+    set -l review_kind auto
+    set -l focus ''
 
     for arg in $argv
         if test -n "$expect"
@@ -279,6 +460,10 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
                     set worktree $arg
                 case timeout
                     set timeout $arg
+                case kind
+                    set review_kind $arg
+                case focus
+                    set focus $arg
             end
             set expect
             continue
@@ -310,6 +495,10 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
                 set paste no-paste
             case --timeout
                 set expect timeout
+            case --kind
+                set expect kind
+            case --focus
+                set expect focus
             case codex claude 'codex:*' 'claude:*'
                 set -a reviewers $arg
             case '*'
@@ -319,6 +508,16 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
                     set -a reviewers $arg
                 end
         end
+    end
+
+    if test -n "$expect"
+        echo "missing value for --$expect" >&2
+        return 2
+    end
+
+    if not __ai_review_valid_kind $review_kind
+        echo "unknown review kind: $review_kind" >&2
+        return 2
     end
 
     mkdir -p $state_root/runs $state_root/groups
@@ -384,6 +583,23 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
         return 1
     end
     set worktree (cd $worktree; and pwd -P)
+
+    set -l changed_paths
+    set -l branch '-'
+    set -l head_sha '-'
+    if command git -C $worktree rev-parse --is-inside-work-tree >/dev/null 2>&1
+        set changed_paths (command git -C $worktree diff --name-only)
+        set -a changed_paths (command git -C $worktree diff --cached --name-only)
+        set branch (command git -C $worktree branch --show-current)
+        test -n "$branch"; or set branch detached
+        set head_sha (command git -C $worktree rev-parse --short HEAD)
+    end
+
+    if test "$review_kind" = auto
+        set review_kind (__ai_review_detect_kind_from_paths $changed_paths)
+    end
+
+    set -l generated_at (date '+%Y-%m-%dT%H:%M:%S%z')
     set -l current_command (tmux display-message -p -t $origin_pane '#{pane_current_command}')
 
     if test -z "$target"
@@ -423,6 +639,8 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
     set -l group_id (date +%Y%m%d-%H%M%S)-$state_key
     set -l group_dir $state_root/groups/$group_id
     mkdir -p $group_dir
+    set -l manifest_file $group_dir/manifest.md
+    __ai_review_write_manifest $manifest_file $group_id $state_root $origin_pane $target $worktree $branch $head_sha $review_kind $focus $generated_at
 
     set -l run_ids
     for reviewer in $reviewers
@@ -441,7 +659,7 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
         set -l stderr_file $run_dir/stderr.txt
         set -l exit_file $run_dir/exit-code.txt
         set -l run_file $run_dir/run.fish
-        __ai_review_build_request $request_file $agent $model $origin_pane $current_command $worktree
+        __ai_review_build_request $request_file $agent $model $origin_pane $current_command $worktree $review_kind $focus $branch $head_sha $generated_at
 
         set -l review_pane (tmux split-window -P -F '#{pane_id}' -t $target -h -c $worktree)
         if test -n "$model"
@@ -452,6 +670,22 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
 
         __ai_review_write_runner $run_file $agent $model $request_file $result_file $stdout_file $stderr_file $exit_file $worktree
         __ai_review_write_state $run_dir $run_id $group_id $agent $model $origin_pane $review_pane $target $worktree running
+        begin
+            echo
+            if test -n "$model"
+                echo "### $agent:$model"
+            else
+                echo "### $agent"
+            end
+            echo
+            echo "- Run ID: $run_id"
+            echo "- Request: $request_file"
+            echo "- Result: $result_file"
+            echo "- Stdout: $stdout_file"
+            echo "- Stderr: $stderr_file"
+            echo "- Exit Code: $exit_file"
+            echo "- Pane: $review_pane"
+        end >>$manifest_file
         tmux send-keys -t $review_pane "fish "(string escape -- $run_file) C-m
         set -a run_ids $run_id
     end
@@ -463,6 +697,13 @@ function ai-review --description 'Orchestrate AI CLI reviewers in tmux panes'
         printf 'set -g __ai_review_state_root %s\n' (string escape -- $state_root)
         printf 'set -g __ai_review_origin_pane %s\n' (string escape -- $origin_pane)
         printf 'set -g __ai_review_target %s\n' (string escape -- $target)
+        printf 'set -g __ai_review_worktree %s\n' (string escape -- $worktree)
+        printf 'set -g __ai_review_manifest_file %s\n' (string escape -- $manifest_file)
+        printf 'set -g __ai_review_review_kind %s\n' (string escape -- $review_kind)
+        printf 'set -g __ai_review_focus %s\n' (string escape -- $focus)
+        printf 'set -g __ai_review_branch %s\n' (string escape -- $branch)
+        printf 'set -g __ai_review_head_sha %s\n' (string escape -- $head_sha)
+        printf 'set -g __ai_review_generated_at %s\n' (string escape -- $generated_at)
         printf 'set -g __ai_review_run_ids'
         for run_id in $run_ids
             printf ' %s' (string escape -- $run_id)

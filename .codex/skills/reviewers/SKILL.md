@@ -9,13 +9,24 @@ description: Use when reviewing AI-generated code, specs, architecture, implemen
 
 Review AI-generated work as independent verification, not consensus-building. Confidence, claimed tests, and other reviewers' approvals are inputs to check, not evidence.
 
+## Harness Contract
+
+The review policy lives here, but external reviewer CLIs may not load this skill.
+Therefore ai-review.fish must embed the essential review contract in every
+generated request: review kind, focus, role constraints, output shape, worktree,
+branch, HEAD, and evidence expectations.
+
+Use --kind when the target is not an obvious code diff. Use --focus when the user
+asks for a specific review angle. Treat --kind auto as a hint and verify the
+generated request classified the target reasonably.
+
 ## Required Orchestration
 
 The default path is external review orchestration through `ai-review.fish`.
 
 | Situation | Required action |
 |---|---|
-| User asks this agent to review AI-generated work | Run `ai-review --all --worktree PATH` before giving a verdict |
+| User asks this agent to review AI-generated work | Run `ai-review --all --worktree PATH --kind auto` before giving a verdict |
 | A previous ai-review group is still running | Run `ai-review collect [GROUP_OR_RUN_ID]` and wait for results |
 | Prompt is already an `# AI Review Request` from ai-review | Do not recurse; act as that assigned reviewer |
 | Not inside tmux or `ai-review` is unavailable | Report that orchestration cannot run; do not do a solo final review unless the user explicitly overrides |
@@ -33,9 +44,16 @@ Reviewer panes must start in the real repository/worktree being reviewed, not a 
 From non-fish shells, use fish without overriding XDG or zoxide paths:
 
 ```sh
-fish -lc 'ai-review --all --worktree /path/to/repo'
+fish -lc 'ai-review --all --worktree /path/to/repo --kind auto'
+fish -lc 'ai-review --all --worktree /path/to/repo --kind architecture --focus "dependency direction and failure modes"'
 fish -lc 'ai-review collect'
 ```
+
+When running from a plain shell pane, prefer `--no-paste` and read the generated summary prompt path manually. Use paste mode only when the origin pane is an AI prompt that should receive the aggregate prompt.
+
+Review artifacts are written under `/tmp/ai-review`. Use the group manifest, `reviews.md`, `summary-prompt.md`, and per-run `request.md`, `result.md`, `stdout.txt`, and `stderr.txt` files when diagnosing reviewer behavior.
+
+Do not blindly trust `--kind auto`; verify the generated request before relying on the review.
 
 Pass `--worktree` explicitly whenever the origin pane might not already be in the target repository; otherwise reviewer panes inherit the origin pane's current directory. Do not set `XDG_DATA_HOME` or `_ZO_DATA_DIR` just to run `ai-review`; that hides environment problems and can make reviewer panes inherit the wrong runtime state. If sandbox restrictions prevent fish, zoxide, tmux, or Codex from writing normal state, run `ai-review` from an unsandboxed tmux shell instead of redirecting state to temporary XDG paths. `ai-review` creates tmux panes for each configured reviewer, captures their outputs, and returns an aggregate prompt. The final answer should synthesize those reviewer results using this skill's contract.
 
@@ -55,6 +73,7 @@ First classify the artifact, then emphasize the matching risks.
 | Spec | Problem clarity, scope, acceptance criteria, ambiguity, missing edge cases, contradictions |
 | Architecture | Boundaries, dependency direction, data flow, coupling, failure modes, operability, migration path |
 | Plan | Sequence, testability, hidden dependencies, rollback, risk, whether steps prove completion |
+| Docs | Reader context, durable explanation, stale ticket dependency, unsafe or ambiguous guidance |
 | Reviewer synthesis | Evidence quality, conflicting claims, duplicate findings, hallucinated files/lines, actionable items |
 
 If the target is mixed, review the highest-risk layer first: architecture/spec before plan, plan before code details, blocking correctness before style.
@@ -65,7 +84,7 @@ Every review must use this shape:
 
 ```markdown
 ## Review Target
-[Code / Spec / Architecture / Plan / Review Synthesis / Mixed]
+[Code / Spec / Architecture / Plan / Docs / Review Synthesis / Mixed]
 
 ## Verdict
 [Accept / Request changes / Block / Insufficient evidence]
@@ -83,7 +102,7 @@ Every review must use this shape:
 - ...
 ```
 
-Anchors are file:line for code, section/requirement/decision for specs and architecture, step number for plans, reviewer name plus claim for synthesis.
+Anchors are file:line for code, section/requirement/heading or quoted claim for specs/docs, decision or boundary for architecture, step number for plans, reviewer name plus claim for synthesis.
 
 ## Review Rules
 
