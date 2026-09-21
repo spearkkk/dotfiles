@@ -1,0 +1,1 @@
+../../../.codex/skills/reviewers/SKILL.md

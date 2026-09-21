@@ -391,3 +391,4 @@ GitHub.sublime-settings
 .config/alfred/Alfred.alfredpreferences/remote/**
 .gitconfig-work
 work/
+profiles/work/

@@ -1,0 +1,82 @@
+# Generated from: share/themes/simhae/palette.yaml
+# Main palette: pelagic
+# Do not edit manually. Regenerate with: setup/set-theme.sh
+
+k9s:
+  body:
+    fgColor: "#C6D8E4"
+    bgColor: "#0A1F2E"
+    logoColor: "#7896CC"
+  prompt:
+    fgColor: "#C6D8E4"
+    bgColor: "#142C3E"
+    suggestColor: "#50C4C0"
+  help:
+    fgColor: "#C6D8E4"
+    bgColor: "#0A1F2E"
+    indicator:
+      fgColor: "#0A1F2E"
+      bgColor: "#C8AE6A"
+  frame:
+    title:
+      fgColor: "#C6D8E4"
+      bgColor: "#0A1F2E"
+      highlightColor: "#C8AE6A"
+      counterColor: "#7896CC"
+      filterColor: "#68BE92"
+    border:
+      fgColor: "#4A6E86"
+      focusColor: "#C8AE6A"
+    menu:
+      fgColor: "#C6D8E4"
+      keyColor: "#C8AE6A"
+      numKeyColor: "#50C4C0"
+    crumbs:
+      fgColor: "#C6D8E4"
+      bgColor: "#142C3E"
+      activeColor: "#68BE92"
+    status:
+      newColor: "#7896CC"
+      modifyColor: "#C8AE6A"
+      addColor: "#68BE92"
+      errorColor: "#C47A72"
+      highlightcolor: "#C8AE6A"
+      killColor: "#9A7EC8"
+      completedColor: "#4A6E86"
+  views:
+    charts:
+      bgColor: "#0A1F2E"
+      chartBgColor: "#142C3E"
+      dialBgColor: "#142C3E"
+      defaultDialColors:
+        - "#9A7EC8"
+        - "#C8945A"
+      defaultChartColors:
+        - "#9A7EC8"
+        - "#C8945A"
+      resourceColors:
+        cpu:
+          - "#7896CC"
+          - "#C8AE6A"
+        mem:
+          - "#50C4C0"
+          - "#9A7EC8"
+    table:
+      fgColor: "#C6D8E4"
+      bgColor: "#0A1F2E"
+      cursorFgColor: "#0A1F2E"
+      cursorBgColor: "#C8AE6A"
+      markColor: "#C8AE6A"
+      header:
+        fgColor: "#C6D8E4"
+        bgColor: "#142C3E"
+        sorterColor: "#68BE92"
+    xray:
+      fgColor: "#C6D8E4"
+      bgColor: "#0A1F2E"
+      cursorColor: "#C8AE6A"
+      cursorTextColor: "#0A1F2E"
+    yaml:
+      keyColor: "#7896CC"
+      colonColor: "#4A6E86"
+      valueColor: "#C6D8E4"

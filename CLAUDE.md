@@ -1,6 +1,10 @@
-# Claude Code Instructions
+# dotfiles - Claude Guide
 
-Read and follow `AGENTS.md` as the project-level agent guide.
+This repository is the active dotfiles source.
 
-Keep only Claude Code-specific instructions here. Shared behavior, commands,
-conventions, landmines, and AI attribution rules belong in `AGENTS.md`.
+- `home/` contains base files intended to land under `~/` via Stow.
+- `profiles/<name>/home/` contains optional profile overlays applied after `home/`.
+- `setup/` contains scripts used to install, generate, or apply settings.
+- `share/` contains resources that are not installed directly.
+- Do not include secrets or company-internal details in tracked files.
+- Treat `profiles/work/` as local-only unless explicitly approved for tracking.
