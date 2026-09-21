@@ -46,27 +46,45 @@ return {
         },
       })
 
-      local function mise_tool_path(tool, version, executable)
-        local fallback = vim.fn.expand("~/.local/share/mise/installs/" .. tool .. "/" .. version .. "/bin/" .. executable)
+      local function mise_executable(executable)
         local mise = vim.fn.exepath("mise")
 
-        if mise == "" then
-          return fallback
+        if mise ~= "" then
+          local path = vim.fn.systemlist({ mise, "which", executable })[1]
+          if vim.v.shell_error == 0 and path ~= nil and path ~= "" then
+            return path
+          end
         end
 
-        local install_path = vim.fn.systemlist({ mise, "where", tool .. "@" .. version })[1]
-        if vim.v.shell_error ~= 0 or install_path == nil or install_path == "" then
-          return fallback
+        local path = vim.fn.exepath(executable)
+        if path ~= "" then
+          return path
         end
 
-        return install_path .. "/bin/" .. executable
+        return executable
       end
 
       vim.lsp.config("jdtls", {
         cmd = {
           "jdtls",
           "--java-executable",
-          mise_tool_path("java", "temurin-23.0.2+7", "java"),
+          mise_executable("java"),
+        },
+        settings = {
+          java = {
+            maven = {
+              downloadSources = true,
+            },
+            eclipse = {
+              downloadSources = true,
+            },
+            contentProvider = {
+              preferred = "fernflower",
+            },
+            configuration = {
+              updateBuildConfiguration = "interactive",
+            },
+          },
         },
       })
 
