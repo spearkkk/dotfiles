@@ -41,7 +41,7 @@ return {
           { "name", "asc" },
         },
         is_always_hidden = function(name, bufnr)
-          return name == ".DS_Store"
+          return name == ".DS_Store" or name == ".."
         end,
       },
       preview_win = {
