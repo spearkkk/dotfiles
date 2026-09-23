@@ -6,7 +6,25 @@ return {
       "williamboman/mason.nvim",
     },
     config = function()
-      local function executable_from_mise(executable)
+      local function java_major_version(java)
+        local output = vim.fn.systemlist({ java, "-version" })
+        if vim.v.shell_error ~= 0 then
+          return nil
+        end
+
+        local version = table.concat(output, "\n"):match('version "([^"]+)"')
+        if version == nil then
+          return nil
+        end
+
+        if vim.startswith(version, "1.") then
+          return tonumber(version:match("^1%.(%d+)"))
+        end
+
+        return tonumber(version:match("^(%d+)"))
+      end
+
+      local function current_mise_executable(executable)
         local mise = vim.fn.exepath("mise")
 
         if mise ~= "" then
@@ -22,6 +40,27 @@ return {
         end
 
         return executable
+      end
+
+      local function java_for_jdtls()
+        local candidates = {
+          current_mise_executable("java"),
+        }
+
+        vim.list_extend(candidates, vim.fn.glob(vim.fn.expand("~") .. "/.local/share/mise/installs/java/*/bin/java", false, true))
+
+        local best_java = nil
+        local best_major = 0
+
+        for _, java in ipairs(candidates) do
+          local major = java_major_version(java)
+          if major ~= nil and major >= 21 and major > best_major then
+            best_java = java
+            best_major = major
+          end
+        end
+
+        return best_java or candidates[1]
       end
 
       local function mason_executable(executable)
@@ -62,7 +101,7 @@ return {
         cmd = {
           mason_executable("jdtls"),
           "--java-executable",
-          executable_from_mise("java"),
+          java_for_jdtls(),
           "-data",
           workspace_dir,
         },
