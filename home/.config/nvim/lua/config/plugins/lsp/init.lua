@@ -46,48 +46,6 @@ return {
         },
       })
 
-      local function mise_executable(executable)
-        local mise = vim.fn.exepath("mise")
-
-        if mise ~= "" then
-          local path = vim.fn.systemlist({ mise, "which", executable })[1]
-          if vim.v.shell_error == 0 and path ~= nil and path ~= "" then
-            return path
-          end
-        end
-
-        local path = vim.fn.exepath(executable)
-        if path ~= "" then
-          return path
-        end
-
-        return executable
-      end
-
-      vim.lsp.config("jdtls", {
-        cmd = {
-          "jdtls",
-          "--java-executable",
-          mise_executable("java"),
-        },
-        settings = {
-          java = {
-            maven = {
-              downloadSources = true,
-            },
-            eclipse = {
-              downloadSources = true,
-            },
-            contentProvider = {
-              preferred = "fernflower",
-            },
-            configuration = {
-              updateBuildConfiguration = "interactive",
-            },
-          },
-        },
-      })
-
       require("mason-lspconfig").setup({
         ensure_installed = {
           "lua_ls",
@@ -101,7 +59,9 @@ return {
           "lemminx",
           "jdtls",
         },
-        automatic_enable = true,
+        automatic_enable = {
+          exclude = { "jdtls" },
+        },
       })
 
       vim.api.nvim_create_autocmd("LspAttach", {
@@ -110,7 +70,7 @@ return {
           local telescope = require("telescope.builtin")
 
           vim.keymap.set("n", "K", vim.lsp.buf.hover, vim.tbl_extend("force", opts, { desc = "LSP hover" }))
-          vim.keymap.set("n", "gd", telescope.lsp_definitions, vim.tbl_extend("force", opts, { desc = "Go to definition" }))
+          vim.keymap.set("n", "gd", vim.lsp.buf.definition, vim.tbl_extend("force", opts, { desc = "Go to definition" }))
           vim.keymap.set("n", "gr", telescope.lsp_references, vim.tbl_extend("force", opts, { desc = "Go to references" }))
           vim.keymap.set("n", "gI", telescope.lsp_implementations, vim.tbl_extend("force", opts, { desc = "Go to implementation" }))
           vim.keymap.set("n", "gy", telescope.lsp_type_definitions, vim.tbl_extend("force", opts, { desc = "Go to type definition" }))
