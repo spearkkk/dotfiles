@@ -50,15 +50,21 @@ fish setup/bootstrap.fish --profile work
 - `home/`: base dotfiles whose contents should appear under `~/` on every Mac.
 - `profiles/<name>/home/`: optional profile overlay applied after `home/`.
 - `profiles/<name>/setup/`: profile-owned install or post-stow steps.
+- `profiles/<name>/setup/templates/home/`: initial file templates copied under
+  `~/` only when the destination does not already exist.
 - `setup/`: base install/apply/generator scripts.
 - `setup/Brewfile`: common Homebrew, cask, and MAS apps.
 - `setup/launchagents/`: LaunchAgent load/status/teardown helpers.
 - `share/`: resources, source assets, exports, and documentation that are not installed directly.
 
+Executable helpers used internally by a profile belong under that profile's
+`home/.local/libexec/`; user-facing commands belong under `home/.local/bin/`.
+
 ## Profiles
 
 Profiles are mutually exclusive overlays. Applying one profile removes other
-known profile overlays first, then links the selected profile.
+known profile overlays first, then links the selected profile. Profile setup
+templates initialize missing files but do not overwrite existing user files.
 
 ```fish
 fish setup/profile.fish personal

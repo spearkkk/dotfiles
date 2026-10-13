@@ -44,6 +44,7 @@ function cw --description 'Create/reuse a tmux window with a profile context'
                 echo "       cw --list"
                 echo
                 echo "CONTEXT values and init hooks are provided by the active profile."
+                echo "If a context provides a default session, pass -s to override it."
                 return
             case '*'
                 if test -z "$context"
@@ -90,6 +91,8 @@ function cw --description 'Create/reuse a tmux window with a profile context'
 
     if not tmux has-session -t "$session" 2>/dev/null
         echo "tmux session not found: $session" >&2
+        echo "Create it with: tmux new -s $session" >&2
+        echo "Or target another existing session with: cw $context -s SESSION" >&2
         return 1
     end
 
