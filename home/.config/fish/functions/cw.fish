@@ -26,6 +26,7 @@ function cw --description 'Create/reuse a tmux window with a profile context'
     set -l session
     set -l expecting_session 0
     set -l list_only 0
+    set -l current_pane 0
 
     for arg in $argv
         if test $expecting_session -eq 1
@@ -39,8 +40,11 @@ function cw --description 'Create/reuse a tmux window with a profile context'
                 set expecting_session 1
             case -l --list list
                 set list_only 1
+            case -P --pane current-pane
+                set current_pane 1
             case -h --help
                 echo "Usage: cw CONTEXT [-s|--session SESSION]"
+                echo "       cw CONTEXT --pane"
                 echo "       cw --list"
                 echo
                 echo "CONTEXT values and init hooks are provided by the active profile."
@@ -78,9 +82,24 @@ function cw --description 'Create/reuse a tmux window with a profile context'
     set -l cwd (__cw_get cwd $spec)
     set -l init (__cw_get init $spec)
     set -l default_session (__cw_get session $spec)
+    set -l pane_init (__cw_get pane_init $spec)
 
     test -z "$title"; and set title "$context"
     test -z "$cwd"; and set cwd ~
+
+    if test $current_pane -eq 1
+        if not set -q TMUX_PANE
+            echo "cw --pane requires running inside tmux" >&2
+            return 1
+        end
+        if test -z "$pane_init"; or not functions -q "$pane_init"
+            echo "cw --pane is not supported for context: $context" >&2
+            return 1
+        end
+        $pane_init $spec
+        return $status
+    end
+
     test -z "$session"; and set session "$default_session"
     test -z "$session"; and set session (__cw_session)
 
