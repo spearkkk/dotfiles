@@ -218,6 +218,16 @@ if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
     mark_fail "tmux pane attention test failed"
 end
 
+log_step "Neovim tooling"
+if not bash "$repo_root/setup/tests/nvim-tooling.test.sh"
+    mark_fail "Neovim tooling test failed"
+end
+
+log_step "Artifact preview"
+if not bash "$repo_root/setup/tests/openit.test.sh"
+    mark_fail "Artifact preview test failed"
+end
+
 if type -q luac
     log_step "Lua syntax"
     check_files lua luac -p \

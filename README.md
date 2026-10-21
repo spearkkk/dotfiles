@@ -60,6 +60,10 @@ fish setup/bootstrap.fish --profile work
 Executable helpers used internally by a profile belong under that profile's
 `home/.local/libexec/`; user-facing commands belong under `home/.local/bin/`.
 
+`openit <artifact>` opens AI-generated output for review. Text artifacts open
+in Neovim (in a new window when called from tmux), while HTML, PDF, images, and
+HTTP(S) URLs open in a new Google Chrome window.
+
 ## Profiles
 
 Profiles are mutually exclusive overlays. Applying one profile removes other

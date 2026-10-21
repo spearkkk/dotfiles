@@ -1,3 +1,5 @@
+local tooling = require("config.tooling")
+
 return {
   {
     "nvim-treesitter/nvim-treesitter",
@@ -6,34 +8,7 @@ return {
     config = function()
       local treesitter = require("nvim-treesitter")
 
-      local langs = {
-        "lua",
-        "vim",
-        "vimdoc",
-        "query",
-        "bash",
-        "fish",
-        "json",
-        "yaml",
-        "toml",
-        "markdown",
-        "markdown_inline",
-        "gitignore",
-        "dockerfile",
-        "groovy",
-        "java",
-        "scala",
-        "python",
-        "go",
-        "rust",
-        "javascript",
-        "typescript",
-        "tsx",
-        "html",
-        "css",
-        "xml",
-        "sql",
-      }
+      local langs = tooling.treesitter
 
       treesitter.install(langs)
 
