@@ -17,8 +17,6 @@ case $operation in
   *) usage ;;
 esac
 
-[ -n "${TMUX:-}" ] || exit 0
-
 release_lock() {
   [ "$lock_held" -eq 1 ] || return
   tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :

@@ -173,9 +173,11 @@ export FAKE_CLIENTS='focused|@1|%1|0'
 run_controller command-done %404 || fail stale_pane_noop "missing pane was not a no-op"
 assert_not_called stale_pane_noop 'set-option '
 
+export FAKE_PANES=$'@1|%1\n@1|%2'
+export FAKE_CLIENTS='focused,UTF-8|@1|%1|0'
 : >"$FAKE_CALL_LOG"
-env -u TMUX "$controller" command-done %2 >/dev/null 2>&1 || fail outside_tmux "outside tmux was not a no-op"
-[ ! -s "$FAKE_CALL_LOG" ] || fail outside_tmux "outside tmux called tmux"
+env -u TMUX "$controller" acknowledge-visible >/dev/null 2>&1 || fail server_hook_acknowledges "server hook exited unexpectedly"
+assert_called server_hook_acknowledges 'set-option .*%1 -u @attention_state|set-option .*%1 .* -u .*@attention_state'
 
 env TMUX=1 "$controller" invalid-operation >/dev/null 2>&1
 [ "$?" -eq 64 ] || fail invalid_operation "expected status 64"
@@ -227,6 +229,12 @@ env HOME="$fish_home" FISH_HELPER_LOG="$fish_log" TMUX=1 TMUX_PANE=%9 TMUX_ATTEN
   fish --no-config --interactive --command "source '$fish_config'; set -g CMD_DURATION 10000; emit fish_postexec" \
   >"$tmpdir/stdout" 2>"$tmpdir/stderr"
 [ "$(cat "$fish_log")" = 'command-done|%9' ] || fail fish_bridge "expected command-done|%9, got [$(cat "$fish_log")]"
+
+: >"$fish_log"
+env -u TMUX -u TMUX_PANE HOME="$fish_home" FISH_HELPER_LOG="$fish_log" \
+  fish --no-config --interactive --command "source '$fish_config'; set -g CMD_DURATION 10000; emit fish_postexec" \
+  >"$tmpdir/stdout" 2>"$tmpdir/stderr"
+[ ! -s "$fish_log" ] || fail fish_outside_tmux "fish outside tmux called the controller"
 
 # Hooks enqueue controller operations instead of mutating semantic state.
 tmux_config="$repo_root/home/.tmux.conf"
