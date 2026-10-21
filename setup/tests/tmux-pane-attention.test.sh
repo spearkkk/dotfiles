@@ -168,12 +168,12 @@ assert_called waiting_to_idle '-u @attention_state'
 reconcile 'Idle' waiting '' stale_waiting
 assert_called stale_waiting '-u @attention_state'
 
-export FAKE_PANES=$'@1|%1\n@1|%2'
+export FAKE_PANES=$'@0|%0\n@1|%1\n@2|%2'
 export FAKE_CLIENTS='focused|@1|%1|0'
 run_controller command-done %404 || fail stale_pane_noop "missing pane was not a no-op"
 assert_not_called stale_pane_noop 'set-option '
 
-export FAKE_PANES=$'@1|%1\n@1|%2'
+export FAKE_PANES=$'@0|%0\n@1|%1\n@2|%2'
 export FAKE_CLIENTS='focused,UTF-8|@1|%1|0'
 : >"$FAKE_CALL_LOG"
 env -u TMUX "$controller" acknowledge-visible >/dev/null 2>&1 || fail server_hook_acknowledges "server hook exited unexpectedly"
@@ -231,9 +231,9 @@ env HOME="$fish_home" FISH_HELPER_LOG="$fish_log" TMUX=1 TMUX_PANE=%9 TMUX_ATTEN
 [ "$(cat "$fish_log")" = 'command-done|%9' ] || fail fish_bridge "expected command-done|%9, got [$(cat "$fish_log")]"
 
 : >"$fish_log"
-env -u TMUX -u TMUX_PANE HOME="$fish_home" FISH_HELPER_LOG="$fish_log" \
+env -u TMUX -u TMUX_PANE HOME="$fish_home" FISH_HELPER_LOG="$fish_log" TMUX_ATTENTION_MIN_SECONDS=10 \
   fish --no-config --interactive --command "source '$fish_config'; set -g CMD_DURATION 10000; emit fish_postexec" \
-  >"$tmpdir/stdout" 2>"$tmpdir/stderr"
+  >"$tmpdir/stdout" 2>"$tmpdir/stderr" || fail fish_outside_tmux "fish exited unsuccessfully"
 [ ! -s "$fish_log" ] || fail fish_outside_tmux "fish outside tmux called the controller"
 
 # Hooks enqueue controller operations instead of mutating semantic state.
