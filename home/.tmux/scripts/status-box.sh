@@ -4,11 +4,9 @@ set -euo pipefail
 mode="${1:-top}"
 width="${2:-80}"
 session="${3:-}"
-window="${4:-}"
-windows="${5:-}"
-pane_id="${6:-}"
-window_id="${7:-}"
-client_prefix="${8:-0}"
+pane_id="${4:-}"
+window_id="${5:-}"
+client_prefix="${6:-0}"
 
 [[ "$width" =~ ^[0-9]+$ ]] || width=80
 (( width < 8 )) && width=8
@@ -19,7 +17,9 @@ border="#4A6E86"
 inactive_fg="${border}"
 accent="#68BE92"
 dark="#0A1F2E"
-selected="${bg}"
+current_bg="#50C4C0"
+done_bg="#9A7EC8"
+waiting_bg="#C8AE6A"
 
 tmux_option_value() {
   local scope="$1"
@@ -79,7 +79,6 @@ if is_prod_context "$kube_context" || is_prod_aws_profile "$aws_profile"; then
   fg="#0A1F2E"
   border="#0A1F2E"
   inactive_fg="#1C3A50"
-  selected="${bg}"
 fi
 
 if [[ "$client_prefix" == "1" ]]; then
@@ -87,15 +86,16 @@ if [[ "$client_prefix" == "1" ]]; then
   fg="#C6D8E4"
   border="#C6D8E4"
   inactive_fg="#4A6E86"
-  selected="${bg}"
 fi
 
 style_border="#[fg=${border},bg=${bg}]"
 style_text="#[fg=${fg},bg=${bg}]"
 style_inactive="#[fg=${inactive_fg},bg=${bg}]"
 style_title="#[fg=${fg},bg=${bg},bold]"
-style_current="#[fg=${fg},bg=${selected},bold]"
+style_current="#[fg=${dark},bg=${current_bg},bold]"
 style_chip="#[fg=${bg},bg=${fg},bold]"
+style_done="#[fg=${dark},bg=${done_bg},bold]"
+style_waiting="#[fg=${dark},bg=${waiting_bg},bold]"
 
 strip_styles() {
   local value="$1"
@@ -130,32 +130,36 @@ truncate_tail() {
 
 window_index_icon() {
   case "$1" in
-    0) printf '#[underscore]0#[nounderscore]' ;;
-    1) printf '#[underscore]1#[nounderscore]' ;;
-    2) printf '#[underscore]2#[nounderscore]' ;;
-    3) printf '#[underscore]3#[nounderscore]' ;;
-    4) printf '#[underscore]4#[nounderscore]' ;;
-    5) printf '#[underscore]5#[nounderscore]' ;;
-    6) printf '#[underscore]6#[nounderscore]' ;;
-    7) printf '#[underscore]7#[nounderscore]' ;;
-    8) printf '#[underscore]8#[nounderscore]' ;;
-    9) printf '#[underscore]9#[nounderscore]' ;;
+    [0-9]) printf '#[underscore]%s#[nounderscore]' "$1" ;;
     *) printf '%s' "$1" ;;
   esac
 }
 
-format_window_item() {
-  local item="$1"
-  local index name icon
+window_attention_state() {
+  local target_window_id="$1"
+  local pane_rows="$2"
+  local target_window_active="$3"
+  local target_window_zoomed="$4"
+  local row_window_id pane_id pane_active attention_state
+  local result="normal"
 
-  if [[ "$item" == *:* ]]; then
-    index="${item%%:*}"
-    name="${item#*:}"
-    icon="$(window_index_icon "$index")"
-    printf '[%s·%s]' "$icon" "$name"
-  else
-    printf '%s' "$item"
+  if [[ "$target_window_active" == "1" && "$target_window_zoomed" != "1" ]]; then
+    printf '%s' "$result"
+    return
   fi
+
+  while IFS='|' read -r row_window_id pane_id pane_active attention_state; do
+    [[ "$row_window_id" == "$target_window_id" ]] || continue
+    [[ "$target_window_active" == "1" && "$pane_active" == "1" ]] && continue
+
+    if [[ "$attention_state" == "waiting" ]]; then
+      result="waiting"
+    elif [[ "$attention_state" == "done" && "$result" == "normal" ]]; then
+      result="done"
+    fi
+  done <<<"$pane_rows"
+
+  printf '%s' "$result"
 }
 
 pad_line() {
@@ -185,22 +189,37 @@ case "$mode" in
     pad_line "$left" "$right" "─"
     ;;
   middle)
-    nav="${windows:-}"
-    nav="${nav//, / }"
-    nav="${nav%,}"
-    nav="${nav%" "}"
+    window_rows="$(tmux list-windows -t "$session" -F '#{window_id}|#{window_index}|#{window_active}|#{window_zoomed_flag}|#{window_name}' 2>/dev/null || true)"
+    pane_rows="$(tmux list-panes -s -t "$session" -F '#{window_id}|#{pane_id}|#{pane_active}|#{@attention_state}' 2>/dev/null || true)"
 
     styled_nav=""
-    for item in $nav; do
-      if [[ "$item" == __CURRENT__* ]]; then
-        item="${item#__CURRENT__}"
-        item="$(format_window_item "$item")"
-        styled_nav+="${style_current}${item}${style_text}"
+    while IFS='|' read -r item_window_id index window_active window_zoomed name; do
+      [[ -n "$item_window_id" ]] || continue
+      attention="$(window_attention_state "$item_window_id" "$pane_rows" "$window_active" "$window_zoomed")"
+      marker=""
+      attention_style=""
+      case "$attention" in
+        waiting) marker="?"; attention_style="$style_waiting" ;;
+        done) marker="✓"; attention_style="$style_done" ;;
+      esac
+
+      if [[ "$window_active" == "1" ]]; then
+        icon="$(window_index_icon "$index")"
+        styled_nav+="${style_current}[${icon}·${name}"
+        if [[ -n "$marker" ]]; then
+          styled_nav+="${marker}"
+        fi
+        styled_nav+="]${style_text}"
       else
-        item="$(format_window_item "$item")"
-        styled_nav+="${style_inactive}${item}"
+        icon="$(window_index_icon "$index")"
+        item="[${icon}·${name}${marker}]"
+        if [[ -n "$attention_style" ]]; then
+          styled_nav+="${attention_style}${item}"
+        else
+          styled_nav+="${style_inactive}${item}"
+        fi
       fi
-    done
+    done <<<"$window_rows"
     nav="${styled_nav}"
 
     context_line=""

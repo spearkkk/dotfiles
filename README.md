@@ -104,3 +104,26 @@ make -C setup/launchagents bootstrap
 make -C setup/launchagents status
 fish setup/check.fish
 ```
+
+## tmux attention status
+
+The tmux window list shows unread attention from background panes:
+
+- `?` means a background Codex pane title contains `Action Required | `.
+- `✓` means a general command ran for at least 10 seconds and completed, or a
+  background Codex pane changed from a spinner title to an idle title.
+- A marker is cleared when its pane or window receives focus.
+
+Set a different general-command threshold in fish before starting commands:
+
+```fish
+set -gx TMUX_ATTENTION_MIN_SECONDS 30
+```
+
+Codex markers depend on its current braille-spinner titles and the
+`Action Required | ` segment; arbitrary TUIs waiting for input are not detected.
+Reload tmux after applying the dotfiles:
+
+```fish
+tmux source-file ~/.tmux.conf
+```

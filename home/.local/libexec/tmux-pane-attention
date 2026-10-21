@@ -1,0 +1,213 @@
+#!/bin/sh
+
+operation=${1:-}
+target=${2:-}
+lock_name=tmux-pane-attention-lock
+lock_held=0
+status_dirty=0
+
+usage() {
+  printf '%s\n' 'usage: tmux-pane-attention reconcile-title <pane-id> | reconcile-all | acknowledge-visible | command-done <pane-id>' >&2
+  exit 64
+}
+
+case $operation in
+  reconcile-title|command-done) [ -n "$target" ] || usage ;;
+  reconcile-all|acknowledge-visible) ;;
+  *) usage ;;
+esac
+
+[ -n "${TMUX:-}" ] || exit 0
+
+release_lock() {
+  [ "$lock_held" -eq 1 ] || return
+  tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :
+  lock_held=0
+}
+
+trap release_lock 0 1 2 15
+tmux wait-for -L "$lock_name" >/dev/null 2>&1 || exit 0
+lock_held=1
+
+pane_rows=
+visible_panes=
+
+pane_exists() {
+  wanted=$1
+  while IFS='|' read -r row_window row_pane; do
+    [ "$row_pane" = "$wanted" ] && return 0
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
+is_visible() {
+  wanted=$1
+  while IFS= read -r row_pane; do
+    [ "$row_pane" = "$wanted" ] && return 0
+  done <<EOF
+$visible_panes
+EOF
+  return 1
+}
+
+add_visible() {
+  pane_exists "$1" || return
+  is_visible "$1" && return
+  if [ -n "$visible_panes" ]; then
+    visible_panes="$visible_panes
+$1"
+  else
+    visible_panes=$1
+  fi
+}
+
+snapshot_visibility() {
+  pane_rows=$(tmux list-panes -a -F '#{window_id}|#{pane_id}' 2>/dev/null) || return 1
+  client_rows=$(tmux list-clients -F '#{client_name}|#{client_flags}|#{window_id}|#{pane_id}|#{window_zoomed_flag}' 2>/dev/null) || return 1
+  visible_panes=
+
+  while IFS='|' read -r client_name flags client_window client_pane zoomed; do
+    case ",$flags," in
+      *,focused,*) ;;
+      *) continue ;;
+    esac
+    if [ "$zoomed" = 1 ]; then
+      add_visible "$client_pane"
+      continue
+    fi
+    while IFS='|' read -r pane_window pane_id; do
+      [ "$pane_window" = "$client_window" ] && add_visible "$pane_id"
+    done <<EOF
+$pane_rows
+EOF
+  done <<EOF
+$client_rows
+EOF
+}
+
+unset_pane_option() {
+  tmux set-option -p -t "$1" -u "$2" >/dev/null 2>&1 || :
+}
+
+set_pane_option() {
+  tmux set-option -p -t "$1" "$2" "$3" >/dev/null 2>&1 || :
+}
+
+unset_attention_state() {
+  if tmux set-option -p -t "$1" -u @attention_state >/dev/null 2>&1; then
+    status_dirty=1
+  fi
+}
+
+set_attention_state() {
+  if tmux set-option -p -t "$1" @attention_state "$2" >/dev/null 2>&1; then
+    status_dirty=1
+  fi
+}
+
+refresh_status() {
+  [ "$status_dirty" -eq 1 ] || return
+  while IFS='|' read -r client_name flags client_window client_pane zoomed; do
+    [ -n "$client_name" ] || continue
+    tmux refresh-client -S -t "$client_name" >/dev/null 2>&1 || :
+  done <<EOF
+$client_rows
+EOF
+}
+
+pane_option() {
+  tmux show-options -pqv -t "$1" "$2" 2>/dev/null || :
+}
+
+classify_title() {
+  title=$1
+  lower=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')
+  case $lower in
+    *"action required | "*) printf '%s\n' waiting; return ;;
+  esac
+  case $title in
+    ⠋\ *|⠙\ *|⠹\ *|⠸\ *|⠼\ *|⠴\ *|⠦\ *|⠧\ *|⠇\ *|⠏\ *) printf '%s\n' working ;;
+    *) printf '%s\n' idle ;;
+  esac
+}
+
+reconcile_one() {
+  pane_id=$1
+  pane_exists "$pane_id" || return
+  unset_pane_option "$pane_id" @attention_reconcile_pending
+  current_title=$(tmux display-message -p -t "$pane_id" '#{pane_title}' 2>/dev/null) || return
+  title_state=$(classify_title "$current_title")
+  codex_state=$(pane_option "$pane_id" @attention_codex_state)
+  attention_state=$(pane_option "$pane_id" @attention_state)
+
+  case $title_state in
+    working)
+      [ "$codex_state" = working ] || set_pane_option "$pane_id" @attention_codex_state working
+      [ "$attention_state" = waiting ] && unset_attention_state "$pane_id"
+      ;;
+    waiting)
+      if [ "$codex_state" != waiting ]; then
+        set_pane_option "$pane_id" @attention_codex_state waiting
+        if is_visible "$pane_id"; then
+          unset_attention_state "$pane_id"
+        else
+          set_attention_state "$pane_id" waiting
+        fi
+      fi
+      ;;
+    idle)
+      if [ "$codex_state" = working ]; then
+        unset_pane_option "$pane_id" @attention_codex_state
+        if is_visible "$pane_id"; then
+          unset_attention_state "$pane_id"
+        else
+          set_attention_state "$pane_id" done
+        fi
+      elif [ "$codex_state" = waiting ]; then
+        unset_pane_option "$pane_id" @attention_codex_state
+        [ "$attention_state" = waiting ] && unset_attention_state "$pane_id"
+      elif [ "$attention_state" = waiting ]; then
+        unset_attention_state "$pane_id"
+      fi
+      ;;
+  esac
+}
+
+acknowledge_visible() {
+  while IFS= read -r pane_id; do
+    [ -n "$pane_id" ] && unset_attention_state "$pane_id"
+  done <<EOF
+$visible_panes
+EOF
+}
+
+snapshot_visibility || exit 0
+
+case $operation in
+  reconcile-title) reconcile_one "$target" ;;
+  reconcile-all)
+    while IFS='|' read -r pane_window pane_id; do
+      [ -n "$pane_id" ] || continue
+      unset_pane_option "$pane_id" @attention_codex_working
+      reconcile_one "$pane_id"
+    done <<EOF
+$pane_rows
+EOF
+    acknowledge_visible
+    ;;
+  acknowledge-visible) acknowledge_visible ;;
+  command-done)
+    pane_exists "$target" || exit 0
+    if is_visible "$target"; then
+      unset_attention_state "$target"
+    else
+      set_attention_state "$target" done
+    fi
+    ;;
+esac
+
+release_lock
+refresh_status
+exit 0

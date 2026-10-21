@@ -213,6 +213,11 @@ check_files sh bash -n \
     "$repo_root/home" \
     "$repo_root/profiles"
 
+log_step "tmux pane attention"
+if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
+    mark_fail "tmux pane attention test failed"
+end
+
 if type -q luac
     log_step "Lua syntax"
     check_files lua luac -p \
