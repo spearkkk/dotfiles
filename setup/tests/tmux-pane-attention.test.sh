@@ -83,6 +83,11 @@ case ${1:-} in
     ;;
   set-option)
     [ "${FAKE_MUTATION_FAIL:-0}" != 1 ] || exit 1
+    case "$*" in
+      *'-u @attention_state')
+        [ "${FAKE_MISSING_ATTENTION_UNSET_FAIL:-0}" != 1 ] || [ -n "${FAKE_ATTENTION_STATE:-}" ] || exit 1
+        ;;
+    esac
     ;;
   refresh-client)
     ;;
@@ -236,7 +241,56 @@ grep -q 'client-focus-in.*acknowledge-visible' "$tmux_config" || fail focus_hook
 grep -q 'after-select-window.*acknowledge-visible' "$tmux_config" || fail window_hook "missing window acknowledgement"
 grep -q 'after-select-pane.*acknowledge-visible' "$tmux_config" || fail pane_hook "missing pane acknowledgement"
 grep -q 'after-resize-pane.*acknowledge-visible' "$tmux_config" || fail resize_hook "missing resize acknowledgement"
-grep -q 'pane-exited.*reconcile-all' "$tmux_config" || fail pane_exit_hook "missing window attention reconciliation after pane exit"
+grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
+grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
+if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
+  fail tilish_enforce "Tilish must use its full default enforcement hook, not an explicit enforcement override"
+fi
+grep -q "set -g @tilish-createauto 'off'" "$tmux_config" || fail tilish_createauto "Tilish auto split direction is not disabled"
+grep -q 'bind-key -n M-\[ previous-window' "$tmux_config" || fail previous_window_binding "Alt-[ binding changed"
+grep -q 'bind-key -n M-\] next-window' "$tmux_config" || fail next_window_binding "Alt-] binding changed"
+for binding in \
+  'bind-key -r h select-pane -L' \
+  'bind-key -r j select-pane -D' \
+  'bind-key -r k select-pane -U' \
+  'bind-key -r l select-pane -R'; do
+  grep -qF "$binding" "$tmux_config" || fail prefix_pane_bindings "missing required prefix pane binding: $binding"
+done
+for binding in \
+  'bind-key -r ㅗ select-pane -L' \
+  'bind-key -r ㅓ select-pane -D' \
+  'bind-key -r ㅏ select-pane -U' \
+  'bind-key -r ㅣ select-pane -R' \
+  'bind-key ㅋ resize-pane -Z'; do
+  grep -qF "$binding" "$tmux_config" || fail korean_pane_bindings "missing required Korean pane binding: $binding"
+done
+if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-[hjklz][[:space:]]' "$tmux_config"; then
+  fail tilish_binding_owner "duplicate native Tilish navigation or zoom binding remains"
+fi
+
+tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)
+attention_exit_count=$(grep -cF 'set-hook -ag pane-exited' "$tmux_config" || true)
+kill_hook_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*after-kill-pane' "$tmux_config" || true)
+expected_kill_hook_declarations=$(cat <<'EXPECTED_HOOKS'
+set-hook -gu after-kill-pane
+set-hook -g after-kill-pane[0] 'select-layout ; select-layout -E'
+set-hook -g after-kill-pane[1] 'run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-all"'
+EXPECTED_HOOKS
+)
+[ "$tpm_count" -eq 1 ] || fail tpm_loader_count "expected exactly one TPM loader, found $tpm_count"
+[ "$attention_exit_count" -eq 1 ] || fail pane_exit_hook_count "expected exactly one appended pane-exited hook, found $attention_exit_count"
+[ "$kill_hook_declarations" = "$expected_kill_hook_declarations" ] || \
+  fail kill_pane_hook_declarations "after-kill-pane declarations are not the exact reset, [0], [1] sequence: $kill_hook_declarations"
+tpm_line=$(grep -nF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" | cut -d: -f1)
+attention_exit_line=$(grep -nF 'set-hook -ag pane-exited' "$tmux_config" | cut -d: -f1)
+kill_hook_clear_line=$(grep -nFx 'set-hook -gu after-kill-pane' "$tmux_config" | cut -d: -f1)
+[ "$attention_exit_count" -eq 1 ] && \
+  sed -n "${attention_exit_line},$((attention_exit_line + 1))p" "$tmux_config" | grep -q 'reconcile-all' || \
+  fail pane_exit_hook_command "appended pane-exited hook does not reconcile attention"
+[ "$tpm_count" -eq 1 ] && [ "$attention_exit_count" -eq 1 ] && [ "$attention_exit_line" -gt "$tpm_line" ] || \
+  fail pane_exit_hook_order "attention pane-exited hook is not appended after TPM"
+[ -n "$kill_hook_clear_line" ] && [ "$kill_hook_clear_line" -gt "$tpm_line" ] || \
+  fail kill_pane_hook_order "after-kill-pane reset and exact indexed hooks are not after TPM"
 grep -q 'pane-moved.*reconcile-all' "$tmux_config" || fail pane_move_hook "missing window attention reconciliation after pane move"
 grep -q 'status-format\[2\].*#{W:' "$tmux_config" || fail native_window_loop "middle status does not use native W: loop"
 grep -q 'window-status-current-format.*bg=#50C4C0' "$tmux_config" || fail native_current_style "current window style is not native"
@@ -259,17 +313,79 @@ assert_called reconcile_all '%1 -u @attention_state'
 assert_called reconcile_all '%2 -u @attention_state'
 assert_called reconcile_all 'set-option -wu -t @1 @attention_window_state'
 
+# A pane-exited hook can run after the final attention-marked pane is gone.
+# Even when unsetting absent pane options fails, every current window must be
+# synchronized so a stale aggregate is removed.
+export FAKE_PANES=$'@1|%1\n@1|%2'
+export FAKE_CLIENTS='focused|@1|%1|0'
+export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+export FAKE_MISSING_ATTENTION_UNSET_FAIL=1
+run_controller reconcile-all || fail stale_window_aggregate "controller exited $?"
+assert_called stale_window_aggregate 'set-option -p -t %1 -u @attention_state'
+assert_called stale_window_aggregate 'set-option -wu -t @1 @attention_window_state'
+unset FAKE_MISSING_ATTENTION_UNSET_FAIL
+
 # Parse the complete tmux configuration in an isolated server.
 if [ -z "$real_tmux" ]; then
   fail tmux_config_parse "tmux is not installed"
 else
   integration_home="$tmpdir/integration-home"
-  mkdir -p "$integration_home/.local/libexec"
+  mkdir -p "$integration_home/.local/libexec" "$integration_home/.tmux/plugins/tpm"
   ln -s "$controller" "$integration_home/.local/libexec/tmux-pane-attention"
+  cat >"$integration_home/.tmux/plugins/tpm/tpm" <<'FAKE_TPM'
+#!/bin/sh
+tmux set-hook -g pane-exited 'select-layout; select-layout -E'
+tmux set-hook -g after-kill-pane[2] 'display-message stale-hook'
+FAKE_TPM
+  chmod +x "$integration_home/.tmux/plugins/tpm/tpm"
   env HOME="$integration_home" PATH="$real_path" "$real_tmux" -L "$socket_name" -f /dev/null \
     new-session -d -s attention-test 'sleep 30' || \
     fail tmux_config_parse "could not start isolated server"
-  "$real_tmux" -L "$socket_name" source-file "$tmux_config" >/dev/null 2>&1 || true
+  source_output=$("$real_tmux" -L "$socket_name" source-file "$tmux_config" 2>&1)
+  source_status=$?
+  if [ "$source_status" -ne 0 ]; then
+    fail tmux_config_parse "could not source isolated tmux configuration (exit $source_status): $source_output"
+  fi
+  pane_exit_hooks=$(
+    "$real_tmux" -L "$socket_name" show-hooks -g pane-exited 2>/dev/null
+  )
+  pane_exit_hook_count=$(printf '%s\n' "$pane_exit_hooks" | grep -Ec '^pane-exited\[[0-9]+\] ' || true)
+  [ "$pane_exit_hook_count" -eq 2 ] || \
+    fail pane_exit_hook_integration "expected exactly two pane-exited hooks: $pane_exit_hooks"
+  if [ "$pane_exit_hook_count" -eq 2 ]; then
+    first_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '1p')
+    second_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '2p')
+    case $first_pane_exit_hook in
+      'pane-exited[0] '*'select-layout ; select-layout -E'*) ;;
+      *) fail pane_exit_hook_integration "first pane-exited hook is not Tilish full layout enforcement: $pane_exit_hooks" ;;
+    esac
+    case $second_pane_exit_hook in
+      'pane-exited[1] '*'tmux-pane-attention reconcile-all'*) ;;
+      *) fail pane_exit_hook_integration "second pane-exited hook is not attention reconciliation: $pane_exit_hooks" ;;
+    esac
+  fi
+  pane_kill_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-kill-pane 2>/dev/null)
+  expected_pane_kill_hooks=$(cat <<EXPECTED_HOOKS
+after-kill-pane[0] select-layout ; select-layout -E
+after-kill-pane[1] run-shell -b "$integration_home/.local/libexec/tmux-pane-attention reconcile-all"
+EXPECTED_HOOKS
+)
+  [ "$pane_kill_hooks" = "$expected_pane_kill_hooks" ] || \
+    fail kill_pane_hook_integration "expected exactly two exact after-kill-pane hooks: $pane_kill_hooks"
+  attention_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
+  "$real_tmux" -L "$socket_name" set-option -w -t "$attention_window" @attention_window_state waiting
+  waiting_format=$("$real_tmux" -L "$socket_name" display-message -p -t "$attention_window" '#{E:window-status-format}')
+  case $waiting_format in
+    *'#[fg=#0A1F2E,bg=#C8AE6A,bold]'*) ;;
+    *) fail attention_waiting_format "missing complete waiting style token: $waiting_format" ;;
+  esac
+  "$real_tmux" -L "$socket_name" set-option -w -t "$attention_window" @attention_window_state done
+  done_format=$("$real_tmux" -L "$socket_name" display-message -p -t "$attention_window" '#{E:window-status-format}')
+  case $done_format in
+    *'#[fg=#0A1F2E,bg=#9A7EC8,bold]'*) ;;
+    *) fail attention_done_format "missing complete done style token: $done_format" ;;
+  esac
   pane_id=$("$real_tmux" -L "$socket_name" display-message -p '#{pane_id}')
   "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T '⠋ Working'
   "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T 'Action Required | review'
