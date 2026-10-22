@@ -1,0 +1,11 @@
+brew "cocoapods"
+brew "supabase"
+
+cask "android-platform-tools"
+cask "android-studio"
+cask "flutter"
+cask "home-assistant"
+cask "iina"
+cask "pdf-expert"
+cask "telegram"
+cask "whatsapp"
