@@ -35,4 +35,9 @@ if [ -n "${TMUX:-}" ]; then
   exec tmux new-window -n "view:$artifact_name" -c "$artifact_dir" nvim -- "$artifact_path"
 fi
 
-exec nvim -- "$artifact_path"
+attached_session=$(tmux list-sessions -F '#{session_name}:#{session_attached}' 2>/dev/null | awk -F: '$2 > 0 { print $1; exit }')
+if [ -n "$attached_session" ]; then
+  exec tmux new-window -t "$attached_session" -n "view:$artifact_name" -c "$artifact_dir" nvim -- "$artifact_path"
+fi
+
+exec open -na "Ghostty" --args -e nvim -- "$artifact_path"

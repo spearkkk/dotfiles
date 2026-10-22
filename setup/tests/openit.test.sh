@@ -45,7 +45,7 @@ assert_line $'tmux\tnew-window\t-n\tview:notes.md\t-c\t'"$tmpdir/artifacts"$'\tn
 : >"$log_file"
 env -u TMUX PATH="$fake_bin:/usr/bin:/bin" OPENIT_TEST_LOG="$log_file" \
   "$openit" "$tmpdir/artifacts/notes.md"
-assert_line $'nvim\t--\t'"$tmpdir/artifacts/notes.md"
+assert_line $'open\t-na\tGhostty\t--args\t-e\tnvim\t--\t'"$tmpdir/artifacts/notes.md"
 
 for artifact in report.html screenshot.png; do
   : >"$log_file"
