@@ -10,3 +10,9 @@ keybind = alt+ㅓ=esc:j
 keybind = alt+ㅏ=esc:k
 keybind = alt+ㅣ=esc:l
 keybind = alt+ㅋ=esc:z
+
+# Korean 2-set input source variants for tmux pane movement.
+keybind = alt+shift+ㅗ=esc:H
+keybind = alt+shift+ㅓ=esc:J
+keybind = alt+shift+ㅏ=esc:K
+keybind = alt+shift+ㅣ=esc:L

@@ -240,6 +240,7 @@ case $operation in
   reconcile-all)
     while IFS='|' read -r pane_window pane_id; do
       [ -n "$pane_id" ] || continue
+      mark_window_dirty "$pane_id"
       unset_pane_option "$pane_id" @attention_codex_working
       reconcile_one "$pane_id"
     done <<EOF

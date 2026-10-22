@@ -218,6 +218,11 @@ if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
     mark_fail "tmux pane attention test failed"
 end
 
+log_step "tmux pane movement"
+if not bash "$repo_root/setup/tests/tmux-move-pane.test.sh"
+    mark_fail "tmux pane movement test failed"
+end
+
 log_step "Personal Brewfile"
 if not bash "$repo_root/setup/tests/personal-brewfile.test.sh"
     mark_fail "personal Brewfile test failed"
