@@ -29,6 +29,7 @@ lock_held=1
 
 pane_rows=
 visible_panes=
+dirty_windows=
 
 pane_exists() {
   wanted=$1
@@ -59,6 +60,25 @@ $1"
   else
     visible_panes=$1
   fi
+}
+
+mark_window_dirty() {
+  wanted=$1
+  while IFS='|' read -r row_window row_pane; do
+    [ "$row_pane" = "$wanted" ] || continue
+    case "
+$dirty_windows
+" in
+      *"
+$row_window
+"*) ;;
+      *) dirty_windows="${dirty_windows}${dirty_windows:+
+}$row_window" ;;
+    esac
+    return
+  done <<EOF
+$pane_rows
+EOF
 }
 
 snapshot_visibility() {
@@ -97,13 +117,44 @@ set_pane_option() {
 unset_attention_state() {
   if tmux set-option -p -t "$1" -u @attention_state >/dev/null 2>&1; then
     status_dirty=1
+    mark_window_dirty "$1"
   fi
 }
 
 set_attention_state() {
   if tmux set-option -p -t "$1" @attention_state "$2" >/dev/null 2>&1; then
     status_dirty=1
+    mark_window_dirty "$1"
   fi
+}
+
+sync_window_attention() {
+  while IFS= read -r window_id; do
+    [ -n "$window_id" ] || continue
+
+    desired=
+    states=$(tmux list-panes -t "$window_id" -F '#{@attention_state}' 2>/dev/null) || continue
+    while IFS= read -r state; do
+      case $state in
+        waiting) desired=waiting; break ;;
+        done) [ -n "$desired" ] || desired=done ;;
+      esac
+    done <<EOF
+$states
+EOF
+
+    current=$(tmux show-options -wqv -t "$window_id" @attention_window_state 2>/dev/null) || current=
+    [ "$current" = "$desired" ] && continue
+
+    if [ -n "$desired" ]; then
+      tmux set-option -w -t "$window_id" @attention_window_state "$desired" >/dev/null 2>&1 || :
+    else
+      tmux set-option -wu -t "$window_id" @attention_window_state >/dev/null 2>&1 || :
+    fi
+    status_dirty=1
+  done <<EOF
+$dirty_windows
+EOF
 }
 
 refresh_status() {
@@ -207,6 +258,7 @@ EOF
     ;;
 esac
 
+sync_window_attention
 release_lock
 refresh_status
 exit 0

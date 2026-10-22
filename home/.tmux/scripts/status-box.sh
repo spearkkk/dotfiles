@@ -128,40 +128,6 @@ truncate_tail() {
   fi
 }
 
-window_index_icon() {
-  case "$1" in
-    [0-9]) printf '#[underscore]%s#[nounderscore]' "$1" ;;
-    *) printf '%s' "$1" ;;
-  esac
-}
-
-window_attention_state() {
-  local target_window_id="$1"
-  local pane_rows="$2"
-  local target_window_active="$3"
-  local target_window_zoomed="$4"
-  local row_window_id pane_id pane_active attention_state
-  local result="normal"
-
-  if [[ "$target_window_active" == "1" && "$target_window_zoomed" != "1" ]]; then
-    printf '%s' "$result"
-    return
-  fi
-
-  while IFS='|' read -r row_window_id pane_id pane_active attention_state; do
-    [[ "$row_window_id" == "$target_window_id" ]] || continue
-    [[ "$target_window_active" == "1" && "$pane_active" == "1" ]] && continue
-
-    if [[ "$attention_state" == "waiting" ]]; then
-      result="waiting"
-    elif [[ "$attention_state" == "done" && "$result" == "normal" ]]; then
-      result="done"
-    fi
-  done <<<"$pane_rows"
-
-  printf '%s' "$result"
-}
-
 pad_line() {
   local left="$1"
   local right="$2"
@@ -188,62 +154,15 @@ case "$mode" in
     right="${style_border}╮"
     pad_line "$left" "$right" "─"
     ;;
-  middle)
-    window_rows="$(tmux list-windows -t "$session" -F '#{window_id}|#{window_index}|#{window_active}|#{window_zoomed_flag}|#{window_name}' 2>/dev/null || true)"
-    pane_rows="$(tmux list-panes -s -t "$session" -F '#{window_id}|#{pane_id}|#{pane_active}|#{@attention_state}' 2>/dev/null || true)"
-
-    styled_nav=""
-    while IFS='|' read -r item_window_id index window_active window_zoomed name; do
-      [[ -n "$item_window_id" ]] || continue
-      attention="$(window_attention_state "$item_window_id" "$pane_rows" "$window_active" "$window_zoomed")"
-      marker=""
-      attention_style=""
-      case "$attention" in
-        waiting) marker="?"; attention_style="$style_waiting" ;;
-        done) marker="✓"; attention_style="$style_done" ;;
-      esac
-
-      if [[ "$window_active" == "1" ]]; then
-        icon="$(window_index_icon "$index")"
-        styled_nav+="${style_current}[${icon}·${name}"
-        if [[ -n "$marker" ]]; then
-          styled_nav+="${marker}"
-        fi
-        styled_nav+="]${style_text}"
-      else
-        icon="$(window_index_icon "$index")"
-        item="[${icon}·${name}${marker}]"
-        if [[ -n "$attention_style" ]]; then
-          styled_nav+="${attention_style}${item}"
-        else
-          styled_nav+="${style_inactive}${item}"
-        fi
-      fi
-    done <<<"$window_rows"
-    nav="${styled_nav}"
-
+  middle-left)
+    printf '%s│ %s#[push-default]' "$style_border" "$style_inactive"
+    ;;
+  middle-right)
     context_line=""
     short_kube="$(short_kube_context "$kube_context")"
     [[ -n "$short_kube" ]] && context_line+="${style_chip} ${short_kube} ${style_text}"
     [[ -n "$aws_profile" ]] && context_line+="${style_chip} ${aws_profile} ${style_text}"
-
-    inner_width=$((width - 4))
-    (( inner_width < 1 )) && inner_width=1
-
-    context_len="$(visible_len "$context_line")"
-    nav_width=$((inner_width - context_len))
-    if [[ -n "$context_line" ]]; then
-      nav_width=$((nav_width - 1))
-    fi
-    (( nav_width < 1 )) && nav_width=1
-
-    body="${style_text}${nav}"
-    body="$(truncate_tail "$body" "$nav_width")"
-    body_len="$(visible_len "$body")"
-    pad_count=$((inner_width - body_len - context_len))
-    (( pad_count < 0 )) && pad_count=0
-
-    printf '%s│ %s%*s%s %s│' "$style_border" "$body" "$pad_count" '' "$context_line" "$style_border"
+    printf '#[pop-default]%s%s %s│' "$style_text" "$context_line" "$style_border"
     ;;
   bottom)
     filler="$(printf '%*s' "$((width - 2))" '' | tr ' ' '─')"

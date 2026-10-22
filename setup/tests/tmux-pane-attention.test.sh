@@ -54,6 +54,7 @@ case ${1:-} in
     ;;
   list-panes)
     case "$*" in
+      *@attention_state*) printf '%s\n' "${FAKE_AGGREGATE_PANES:-}" ;;
       *pane_active*) printf '%s\n' "${FAKE_RENDER_PANES:-}" ;;
       *) printf '%s\n' "${FAKE_PANES:-}" ;;
     esac
@@ -72,6 +73,7 @@ case ${1:-} in
   show-options|show-option)
     case $last in
       @attention_state) value=${FAKE_ATTENTION_STATE:-} ;;
+      @attention_window_state) value=${FAKE_ATTENTION_WINDOW_STATE:-} ;;
       @attention_codex_state) value=${FAKE_CODEX_STATE:-} ;;
       @attention_reconcile_pending) value=${FAKE_PENDING:-} ;;
       *) exit 1 ;;
@@ -115,8 +117,10 @@ run_controller command-done %2 || fail unzoomed_visible "controller exited $?"
 assert_not_called unzoomed_visible 'set-option .*%2 .*@attention_state done'
 
 export FAKE_CLIENTS='focused,UTF-8|@1|%1|1'
+export FAKE_AGGREGATE_PANES='done'
 run_controller command-done %2 || fail zoomed_hidden_done "controller exited $?"
 assert_called zoomed_hidden_done 'set-option .*%2 .*@attention_state done'
+assert_called zoomed_hidden_done 'set-option -w -t @1 @attention_window_state done'
 
 export FAKE_CLIENTS=$'focused|@1|%1|1\nfocused|@2|%3|0'
 run_controller acknowledge-visible || fail multi_client_union "controller exited $?"
@@ -147,6 +151,9 @@ export FAKE_NAMED_CLIENTS=$'/dev/ttys001|UTF-8|@1|%1|0\n/dev/ttys002|UTF-8|@2|%2
 reconcile 'Action Required | repo' '' working waiting
 assert_called waiting 'set-option .*%3 .*@attention_codex_state waiting'
 assert_called waiting 'set-option .*%3 .*@attention_state waiting'
+export FAKE_AGGREGATE_PANES=$'done\nwaiting'
+run_controller reconcile-title %3 || fail waiting_window_state "controller exited $?"
+assert_called waiting_window_state 'set-option -w -t @2 @attention_window_state waiting'
 assert_called waiting 'refresh-client -S -t /dev/ttys001'
 assert_called waiting 'refresh-client -S -t /dev/ttys002'
 unset FAKE_NAMED_CLIENTS
@@ -187,33 +194,18 @@ env TMUX=1 FAKE_MUTATION_FAIL=1 FAKE_PANES='@2|%3' FAKE_CLIENTS='' \
   "$controller" command-done %3 >/dev/null 2>&1 || true
 assert_called lock_release '^wait-for -U tmux-pane-attention-lock$'
 
-# The renderer reads stored pane state only. A zoomed current window can show
-# hidden sibling attention, but it must retain the current-window color.
-export FAKE_RENDER_PANES=$'@1|%1|1|\n@1|%2|0|waiting\n@2|%3|1|done\n@3|%4|1|done\n@3|%5|0|waiting'
-export FAKE_WINDOWS=$'@1|a|1|1|main\n@2|b|0|0|build\n@3|c|0|0|mixed'
+# The renderer only draws the dynamic frame and context. Window navigation is
+# a native tmux format so selecting a window never waits on a #() command.
 : >"$FAKE_CALL_LOG"
-renderer_output=$("$renderer" middle 100 attention %1 @1 0)
-plain_renderer_output=$(printf '%s' "$renderer_output" | sed 's/#\[[^]]*\]//g')
-[ "$(grep -c '^list-windows ' "$FAKE_CALL_LOG")" -eq 1 ] || fail renderer_budget "expected one list-windows"
-[ "$(grep -c '^list-panes ' "$FAKE_CALL_LOG")" -eq 1 ] || fail renderer_budget "expected one list-panes"
-assert_not_called renderer_read_only '^set-option '
-case $plain_renderer_output in
-  *'[a·main?]'*'[b·build✓]'*'[c·mixed?]'*) ;;
-  *) fail renderer_markers "unexpected markers: $plain_renderer_output" ;;
-esac
+renderer_output=$("$renderer" middle-left 100 attention %1 @1 0)
 case $renderer_output in
-  *'#[fg=#0A1F2E,bg=#50C4C0,bold][a·main?]'*) ;;
-  *) fail renderer_current_style "current zoom marker changed style" ;;
+  *'│ '*'#[push-default]'*) ;;
+  *) fail renderer_middle_left "missing native-list prefix: $renderer_output" ;;
 esac
-
-export FAKE_WINDOWS=$'@1|a|1|0|main'
-export FAKE_RENDER_PANES=$'@1|%1|1|\n@1|%2|0|waiting'
-: >"$FAKE_CALL_LOG"
-renderer_output=$("$renderer" middle 80 attention %1 @1 0)
-plain_renderer_output=$(printf '%s' "$renderer_output" | sed 's/#\[[^]]*\]//g')
-case $plain_renderer_output in
-  *'[a·main?]'*) fail renderer_unzoomed "visible sibling rendered unread" ;;
-esac
+renderer_output=$("$renderer" middle-right 100 attention %1 @1 0)
+assert_not_called renderer_budget '^list-windows '
+assert_not_called renderer_budget '^list-panes '
+assert_not_called renderer_read_only '^set-option '
 
 # Fish forwards the semantic operation and explicit pane ID.
 fish_home="$tmpdir/fish-home"
@@ -244,6 +236,15 @@ grep -q 'client-focus-in.*acknowledge-visible' "$tmux_config" || fail focus_hook
 grep -q 'after-select-window.*acknowledge-visible' "$tmux_config" || fail window_hook "missing window acknowledgement"
 grep -q 'after-select-pane.*acknowledge-visible' "$tmux_config" || fail pane_hook "missing pane acknowledgement"
 grep -q 'after-resize-pane.*acknowledge-visible' "$tmux_config" || fail resize_hook "missing resize acknowledgement"
+grep -q 'pane-exited.*reconcile-all' "$tmux_config" || fail pane_exit_hook "missing window attention reconciliation after pane exit"
+grep -q 'pane-moved.*reconcile-all' "$tmux_config" || fail pane_move_hook "missing window attention reconciliation after pane move"
+grep -q 'status-format\[2\].*#{W:' "$tmux_config" || fail native_window_loop "middle status does not use native W: loop"
+grep -q 'window-status-current-format.*bg=#50C4C0' "$tmux_config" || fail native_current_style "current window style is not native"
+grep -q 'window-status-current-format.*window_zoomed_flag' "$tmux_config" || \
+  fail native_current_marker "current window marker is not limited to zoomed hidden panes"
+if grep -q 'list-windows' "$renderer"; then
+  fail renderer_native_boundary "renderer still computes the active window"
+fi
 if grep -q '@client_focused' "$tmux_config"; then
   fail obsolete_focus_state "config still uses @client_focused"
 fi
@@ -251,10 +252,12 @@ fi
 export FAKE_PANES=$'@1|%1\n@1|%2'
 export FAKE_CLIENTS='focused|@1|%1|0'
 export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
 run_controller reconcile-all || fail reconcile_all "controller exited $?"
 assert_called reconcile_all '@attention_codex_working'
 assert_called reconcile_all '%1 -u @attention_state'
 assert_called reconcile_all '%2 -u @attention_state'
+assert_called reconcile_all 'set-option -wu -t @1 @attention_window_state'
 
 # Parse the complete tmux configuration in an isolated server.
 if [ -z "$real_tmux" ]; then
