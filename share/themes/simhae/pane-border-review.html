@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simhae — Pane Border Color Review</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --base00: #0A1F2E;
+      --base01: #142C3E;
+      --base02: #1C3A50;
+      --base04: #4A6E86;
+      --base05: #C6D8E4;
+      --active: #D4A870;
+      --candidate: #C6D8E4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--base00);
+      color: var(--base05);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      line-height: 1.5;
+    }
+
+    .page {
+      width: min(1440px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 52px 0 72px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      color: #68D4D0;
+      font: 700 12px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 8px;
+      color: #ECF0F4;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.06;
+      letter-spacing: -.035em;
+    }
+
+    .lede {
+      max-width: 780px;
+      margin: 0;
+      color: #90AED8;
+      font-size: 15px;
+    }
+
+    .background-key {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .key {
+      padding: 7px 10px;
+      border: 1px solid #4A6E86;
+      border-radius: 999px;
+      font: 600 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .key.pane { background: var(--base01); }
+    .key.status { background: var(--base02); }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid #24425C;
+      border-radius: 14px;
+      background: #0F2637;
+      box-shadow: 0 18px 50px rgb(0 0 0 / 18%);
+    }
+
+    .preview-panel { margin-bottom: 28px; }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #24425C;
+    }
+
+    .panel-title {
+      font-weight: 700;
+      color: #D6E2E8;
+    }
+
+    select {
+      min-width: 250px;
+      border: 1px solid #4A6E86;
+      border-radius: 8px;
+      padding: 8px 34px 8px 10px;
+      background: #142C3E;
+      color: #ECF0F4;
+      font: 600 12px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #24425C;
+    }
+
+    .preview-stage {
+      min-width: 0;
+      padding: 20px;
+    }
+
+    .preview-stage.pane-bg { background: var(--base01); }
+    .preview-stage.status-bg { background: var(--base02); }
+
+    .stage-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 13px;
+      color: #C6D8E4;
+      font: 600 11px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .mock-tmux {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 92px 72px;
+      border: 4px double var(--candidate);
+      background: var(--candidate);
+      gap: 4px;
+    }
+
+    .mock-pane {
+      display: flex;
+      align-items: flex-start;
+      padding: 9px;
+      background: inherit;
+      color: #C6D8E4;
+      font: 600 11px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .pane-bg .mock-pane { background: var(--base01); }
+    .status-bg .mock-pane { background: var(--base02); }
+    .mock-pane.active { border: 4px double var(--active); }
+    .mock-pane.wide { grid-column: 1 / -1; }
+
+    .recommendations {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .recommendation {
+      position: relative;
+      min-height: 130px;
+      padding: 16px;
+      border: 1px solid #24425C;
+      border-radius: 12px;
+      background: #142C3E;
+      cursor: pointer;
+    }
+
+    .recommendation:hover { border-color: #4A6E86; }
+    .recommendation.recommended::after {
+      content: "recommended";
+      position: absolute;
+      top: 13px;
+      right: 13px;
+      color: #0A1F2E;
+      background: #90AED8;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font: 800 9px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .candidate-line {
+      height: 8px;
+      margin: 23px 0 12px;
+      border-radius: 99px;
+      background: var(--swatch);
+      box-shadow: 0 0 0 1px rgb(10 31 46 / 45%);
+    }
+
+    .candidate-name { font-weight: 750; color: #ECF0F4; }
+    .candidate-meta {
+      margin-top: 4px;
+      color: #90AED8;
+      font: 500 11px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .table-head,
+    .swatch-row {
+      display: grid;
+      grid-template-columns: 190px 1fr 1fr;
+      align-items: stretch;
+    }
+
+    .table-head {
+      color: #90AED8;
+      background: #10283A;
+      font: 700 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .table-head > div { padding: 11px 14px; }
+    .table-head > div + div { border-left: 1px solid #24425C; }
+
+    .swatch-row { border-top: 1px solid #24425C; }
+
+    .identity {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+      padding: 13px 14px;
+      background: #10283A;
+    }
+
+    .dot {
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgb(255 255 255 / 14%);
+      border-radius: 9px;
+      background: var(--swatch);
+    }
+
+    .base-name {
+      color: #ECF0F4;
+      font: 750 12px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .hex {
+      color: #90AED8;
+      font: 500 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .badges { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+    .badge {
+      border: 1px solid #4A6E86;
+      border-radius: 999px;
+      padding: 2px 5px;
+      color: #C6D8E4;
+      font: 700 8px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .badge.unused { border-color: #68BE92; color: #80CCAA; }
+    .badge.current { border-color: #C8AE6A; color: #D4BE82; }
+    .badge.active { border-color: #50C4C0; color: #68D4D0; }
+    .badge.pick { border-color: #90AED8; color: #90AED8; }
+
+    .contrast-cell {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      min-height: 72px;
+      padding: 12px 14px 10px;
+      background: var(--cell-bg);
+      border-left: 1px solid #24425C;
+    }
+
+    .border-demo {
+      align-self: center;
+      height: 13px;
+      border-top: 4px double var(--swatch);
+      border-bottom: 4px double var(--swatch);
+    }
+
+    .ratio {
+      justify-self: end;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgb(10 31 46 / 78%);
+      color: #D6E2E8;
+      font: 700 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    footer {
+      margin-top: 18px;
+      color: #4A6E86;
+      font: 500 11px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      text-align: right;
+    }
+
+    @media (max-width: 800px) {
+      .page { width: min(100% - 24px, 720px); padding-top: 30px; }
+      header { grid-template-columns: 1fr; }
+      .background-key { justify-content: flex-start; }
+      .preview-grid, .recommendations { grid-template-columns: 1fr; }
+      .table-head, .swatch-row { grid-template-columns: 128px 1fr 1fr; }
+      .identity { grid-template-columns: 1fr; gap: 7px; }
+      .dot { width: 28px; height: 28px; }
+      select { min-width: 0; max-width: 55vw; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <div class="eyebrow">Simhae / Pelagic</div>
+        <h1>Pane Border Review</h1>
+        <p class="lede">각 팔레트 색상을 현재 pane 및 status 배경 위에서 같은 두께의 double border로 비교합니다. 대비율은 WCAG 상대 휘도 기준입니다.</p>
+      </div>
+      <div class="background-key">
+        <span class="key pane">pane · base01 · #142C3E</span>
+        <span class="key status">status · base02 · #1C3A50</span>
+      </div>
+    </header>
+
+    <section class="panel preview-panel">
+      <div class="panel-head">
+        <div class="panel-title">Live pane preview</div>
+        <select id="candidate-select" aria-label="Inactive pane border candidate"></select>
+      </div>
+      <div class="preview-grid">
+        <div class="preview-stage pane-bg">
+          <div class="stage-label"><span>pane background</span><span id="pane-ratio"></span></div>
+          <div class="mock-tmux">
+            <div class="mock-pane active">active · base10 / base12</div>
+            <div class="mock-pane">inactive</div>
+            <div class="mock-pane wide">inactive</div>
+          </div>
+        </div>
+        <div class="preview-stage status-bg">
+          <div class="stage-label"><span>status background</span><span id="status-ratio"></span></div>
+          <div class="mock-tmux">
+            <div class="mock-pane active">active · base10 / base12</div>
+            <div class="mock-pane">inactive</div>
+            <div class="mock-pane wide">inactive</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="recommendations" aria-label="Recommended candidates">
+      <article class="recommendation recommended" data-pick="base05" style="--swatch:#C6D8E4">
+        <div class="candidate-line"></div>
+        <div class="candidate-name">base05 · selected status foreground</div>
+        <div class="candidate-meta">#C6D8E4 · current inactive foreground</div>
+      </article>
+      <article class="recommendation" data-pick="base16" style="--swatch:#90AED8">
+        <div class="candidate-line"></div>
+        <div class="candidate-name">base16 · brighter blue</div>
+        <div class="candidate-meta">#90AED8 · cool alternative</div>
+      </article>
+      <article class="recommendation" data-pick="base06" style="--swatch:#D6E2E8">
+        <div class="candidate-line"></div>
+        <div class="candidate-name">base06 · soft white</div>
+        <div class="candidate-meta">#D6E2E8 · maximum structural clarity</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="table-head">
+        <div>Pelagic color</div>
+        <div>Pane · #142C3E</div>
+        <div>Status · #1C3A50</div>
+      </div>
+      <div id="palette-table"></div>
+    </section>
+
+    <footer>Generated from share/themes/simhae/palette.yaml · pelagic palette</footer>
+  </main>
+
+  <script>
+    const palette = [
+      ["base00", "#0A1F2E"], ["base01", "#142C3E"], ["base02", "#1C3A50"],
+      ["base03", "#24425C"], ["base04", "#4A6E86"], ["base05", "#C6D8E4"],
+      ["base06", "#D6E2E8"], ["base07", "#ECF0F4"], ["base08", "#C47A72"],
+      ["base09", "#C8945A"], ["base0A", "#C8AE6A"], ["base0B", "#68BE92"],
+      ["base0C", "#50C4C0"], ["base0D", "#7896CC"], ["base0E", "#9A7EC8"],
+      ["base0F", "#8C6040"], ["base10", "#071420"], ["base11", "#D08880"],
+      ["base12", "#D4A870"], ["base13", "#D4BE82"], ["base14", "#80CCAA"],
+      ["base15", "#68D4D0"], ["base16", "#90AED8"], ["base17", "#AE96D4"]
+    ];
+
+    const unused = new Set(["base03", "base06", "base07", "base09", "base0B", "base0F", "base10", "base11", "base12", "base13", "base14", "base15", "base16", "base17"]);
+    const paneBackground = "#142C3E";
+    const statusBackground = "#1C3A50";
+
+    function luminance(hex) {
+      const channels = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    }
+
+    function contrast(a, b) {
+      const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    }
+
+    function badges(name) {
+      const values = [];
+      if (unused.has(name)) values.push('<span class="badge unused">unused</span>');
+      if (name === "base02") values.push('<span class="badge current">inactive bg</span>');
+      if (name === "base05") values.push('<span class="badge current">inactive fg</span>');
+      if (name === "base12") values.push('<span class="badge current">active bg</span>');
+      if (name === "base10") values.push('<span class="badge active">active fg</span>');
+      if (["base05", "base16", "base06"].includes(name)) values.push('<span class="badge pick">candidate</span>');
+      return values.join("");
+    }
+
+    const table = document.querySelector("#palette-table");
+    table.innerHTML = palette.map(([name, hex]) => `
+      <article class="swatch-row" style="--swatch:${hex}">
+        <div class="identity">
+          <span class="dot"></span>
+          <div>
+            <div class="base-name">${name}</div>
+            <div class="hex">${hex}</div>
+            <div class="badges">${badges(name)}</div>
+          </div>
+        </div>
+        <div class="contrast-cell" style="--cell-bg:${paneBackground}">
+          <div class="border-demo"></div>
+          <span class="ratio">${contrast(hex, paneBackground).toFixed(2)}:1</span>
+        </div>
+        <div class="contrast-cell" style="--cell-bg:${statusBackground}">
+          <div class="border-demo"></div>
+          <span class="ratio">${contrast(hex, statusBackground).toFixed(2)}:1</span>
+        </div>
+      </article>`).join("");
+
+    const select = document.querySelector("#candidate-select");
+    select.innerHTML = palette.map(([name, hex]) =>
+      `<option value="${hex}" ${name === "base05" ? "selected" : ""}>${name} · ${hex}</option>`
+    ).join("");
+
+    function updatePreview(hex) {
+      document.documentElement.style.setProperty("--candidate", hex);
+      const [name] = palette.find(([, value]) => value === hex);
+      document.querySelector("#pane-ratio").textContent = `${name} · ${contrast(hex, paneBackground).toFixed(2)}:1`;
+      document.querySelector("#status-ratio").textContent = `${name} · ${contrast(hex, statusBackground).toFixed(2)}:1`;
+    }
+
+    select.addEventListener("change", event => updatePreview(event.target.value));
+    document.querySelectorAll("[data-pick]").forEach(card => {
+      card.addEventListener("click", () => {
+        const [, hex] = palette.find(([name]) => name === card.dataset.pick);
+        select.value = hex;
+        updatePreview(hex);
+        document.querySelector(".preview-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    updatePreview(select.value);
+  </script>
+</body>
+</html>

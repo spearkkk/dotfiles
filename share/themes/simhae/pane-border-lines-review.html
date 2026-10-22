@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simhae — tmux Pane Border Lines</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --base00: #0A1F2E;
+      --base01: #142C3E;
+      --base02: #1C3A50;
+      --base03: #24425C;
+      --base04: #4A6E86;
+      --base05: #C6D8E4;
+      --base06: #D6E2E8;
+      --base12: #D4A870;
+      --base10: #071420;
+      --inactive-fg: #C6D8E4;
+      --inactive-bg: #1C3A50;
+      --active-fg: #071420;
+      --active-bg: #D4A870;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 78% -10%, rgb(80 196 192 / 8%), transparent 34%),
+        var(--base00);
+      color: var(--base05);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    .page {
+      width: min(1480px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 50px 0 72px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 28px;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      color: #68D4D0;
+      font: 800 11px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 8px;
+      color: #ECF0F4;
+      font-size: clamp(31px, 4vw, 52px);
+      line-height: 1.04;
+      letter-spacing: -.035em;
+    }
+
+    .lede {
+      max-width: 830px;
+      margin: 0;
+      color: #90AED8;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .version {
+      padding: 8px 11px;
+      border: 1px solid var(--base04);
+      border-radius: 999px;
+      background: var(--base01);
+      color: var(--base06);
+      font: 700 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      white-space: nowrap;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 10px 13px;
+      border: 1px solid var(--base03);
+      border-radius: 10px;
+      background: var(--base01);
+      font: 650 11px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .legend-sample {
+      min-width: 110px;
+      padding: 3px 8px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .legend-sample.inactive { color: var(--inactive-fg); background: var(--inactive-bg); }
+    .legend-sample.active { color: var(--active-fg); background: var(--active-bg); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--base03);
+      border-radius: 14px;
+      background: #10283A;
+      box-shadow: 0 18px 44px rgb(0 0 0 / 16%);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      min-height: 68px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--base03);
+    }
+
+    .option-name {
+      color: var(--base07, #ECF0F4);
+      font: 800 15px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .command {
+      margin-top: 3px;
+      color: #90AED8;
+      font: 500 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .kind {
+      border: 1px solid var(--base04);
+      border-radius: 999px;
+      padding: 4px 7px;
+      color: var(--base05);
+      font: 750 9px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .kind.recommended { border-color: #80CCAA; color: #80CCAA; }
+    .kind.special { border-color: #D4BE82; color: #D4BE82; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--base03);
+    }
+
+    .state {
+      min-width: 0;
+      padding: 15px;
+      background: var(--base01);
+    }
+
+    .state-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      color: #90AED8;
+      font: 700 9px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .terminal {
+      overflow: hidden;
+      min-height: 168px;
+      border-radius: 4px;
+      background: var(--base00);
+      color: var(--base05);
+      font: 700 15px/1.12 "SFMono-Regular", Menlo, Consolas, monospace;
+      letter-spacing: 0;
+    }
+
+    .terminal pre {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 168px;
+      margin: 0;
+      padding: 10px;
+      white-space: pre;
+      text-align: left;
+    }
+
+    .state.inactive .terminal pre { color: var(--inactive-fg); background: var(--inactive-bg); }
+    .state.active .terminal pre { color: var(--active-fg); background: var(--active-bg); }
+
+    .pane-copy { opacity: .84; }
+    .state.active .pane-copy { opacity: .94; }
+
+    .description {
+      min-height: 60px;
+      margin: 0;
+      padding: 12px 16px 14px;
+      border-top: 1px solid var(--base03);
+      color: #90AED8;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .wide .comparison {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .space-preview pre { color: transparent !important; }
+    .space-preview pre::after {
+      content: "border cells are spaces";
+      color: var(--base04);
+      font-size: 11px;
+    }
+
+    .none-preview pre {
+      position: relative;
+      background: var(--base00) !important;
+      color: var(--base04) !important;
+    }
+
+    .none-preview pre::after {
+      content: "no border";
+      position: absolute;
+      inset: 18px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed var(--base03);
+      color: var(--base04);
+      font-size: 11px;
+    }
+
+    .note {
+      margin-top: 18px;
+      padding: 13px 15px;
+      border-left: 3px solid #C8AE6A;
+      background: rgb(20 44 62 / 72%);
+      color: #90AED8;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    code {
+      color: #D4BE82;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    @media (max-width: 920px) {
+      .page { width: min(100% - 24px, 720px); padding-top: 30px; }
+      header { grid-template-columns: 1fr; }
+      .cards, .legend { grid-template-columns: 1fr; }
+      .wide { grid-column: auto; }
+      .comparison, .wide .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <div class="eyebrow">Simhae / tmux chrome</div>
+        <h1>Pane Border Line Styles</h1>
+        <p class="lede">tmux가 제공하는 모든 <code>pane-border-lines</code> 옵션을 현재 inactive/active 색상으로 비교합니다. 아래 문자는 실제 옵션의 선 계열을 사용한 정적 근사치입니다.</p>
+      </div>
+      <div class="version">tmux 3.8 · 7 options</div>
+    </header>
+
+    <section class="legend" aria-label="Current colors">
+      <div class="legend-item">
+        <span>inactive · fg base05 / bg base02</span>
+        <span class="legend-sample inactive">── border ──</span>
+      </div>
+      <div class="legend-item">
+        <span>active · fg base10 / bg base12</span>
+        <span class="legend-sample active">━━ border ━━</span>
+      </div>
+    </section>
+
+    <section class="cards">
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">single</div><div class="command">set -g pane-border-lines single</div></div>
+          <span class="kind recommended">balanced</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive"><div class="state-label"><span>inactive</span><span>single</span></div><div class="terminal"><pre>┌──────────────┬──────────────┐
+│ <span class="pane-copy">pane 1</span>       │ <span class="pane-copy">pane 2</span>       │
+│              │              │
+├──────────────┴──────────────┤
+│ <span class="pane-copy">pane 3</span>                      │
+└─────────────────────────────┘</pre></div></div>
+          <div class="state active"><div class="state-label"><span>active</span><span>single</span></div><div class="terminal"><pre>┌──────────────┬──────────────┐
+│ <span class="pane-copy">pane 1</span>       │ <span class="pane-copy">pane 2</span>       │
+│              │              │
+├──────────────┴──────────────┤
+│ <span class="pane-copy">pane 3</span>                      │
+└─────────────────────────────┘</pre></div></div>
+        </div>
+        <p class="description">기본적인 UTF-8/ACS 단선. 가장 얇고 익숙하며, 작은 터미널에서도 공간을 덜 차지해 보입니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">double</div><div class="command">set -g pane-border-lines double</div></div>
+          <span class="kind">structured</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive"><div class="state-label"><span>inactive</span><span>double</span></div><div class="terminal"><pre>╔══════════════╦══════════════╗
+║ <span class="pane-copy">pane 1</span>       ║ <span class="pane-copy">pane 2</span>       ║
+║              ║              ║
+╠══════════════╩══════════════╣
+║ <span class="pane-copy">pane 3</span>                      ║
+╚═════════════════════════════╝</pre></div></div>
+          <div class="state active"><div class="state-label"><span>active</span><span>double</span></div><div class="terminal"><pre>╔══════════════╦══════════════╗
+║ <span class="pane-copy">pane 1</span>       ║ <span class="pane-copy">pane 2</span>       ║
+║              ║              ║
+╠══════════════╩══════════════╣
+║ <span class="pane-copy">pane 3</span>                      ║
+╚═════════════════════════════╝</pre></div></div>
+        </div>
+        <p class="description">현재 설정. 선이 두 겹이라 구조는 명확하지만, 색 대비가 강할 때 시각적 비중도 가장 커집니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">heavy</div><div class="command">set -g pane-border-lines heavy</div></div>
+          <span class="kind recommended">clear</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive"><div class="state-label"><span>inactive</span><span>heavy</span></div><div class="terminal"><pre>┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ <span class="pane-copy">pane 1</span>       ┃ <span class="pane-copy">pane 2</span>       ┃
+┃              ┃              ┃
+┣━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┫
+┃ <span class="pane-copy">pane 3</span>                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛</pre></div></div>
+          <div class="state active"><div class="state-label"><span>active</span><span>heavy</span></div><div class="terminal"><pre>┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ <span class="pane-copy">pane 1</span>       ┃ <span class="pane-copy">pane 2</span>       ┃
+┃              ┃              ┃
+┣━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┫
+┃ <span class="pane-copy">pane 3</span>                      ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛</pre></div></div>
+        </div>
+        <p class="description">한 줄이지만 굵은 UTF-8 선. double보다 단순하면서 pane 구분은 강하게 유지하는 후보입니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">simple</div><div class="command">set -g pane-border-lines simple</div></div>
+          <span class="kind recommended">ascii</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive"><div class="state-label"><span>inactive</span><span>simple</span></div><div class="terminal"><pre>+--------------+--------------+
+| <span class="pane-copy">pane 1</span>       | <span class="pane-copy">pane 2</span>       |
+|              |              |
++--------------+--------------+
+| <span class="pane-copy">pane 3</span>                      |
++-----------------------------+</pre></div></div>
+          <div class="state active"><div class="state-label"><span>active</span><span>simple</span></div><div class="terminal"><pre>+--------------+--------------+
+| <span class="pane-copy">pane 1</span>       | <span class="pane-copy">pane 2</span>       |
+|              |              |
++--------------+--------------+
+| <span class="pane-copy">pane 3</span>                      |
++-----------------------------+</pre></div></div>
+        </div>
+        <p class="description">요청한 <code>---</code> 형태의 ASCII 스타일. 폰트와 로케일에 관계없이 예측 가능하지만 모서리가 투박합니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">number</div><div class="command">set -g pane-border-lines number</div></div>
+          <span class="kind special">diagnostic</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive"><div class="state-label"><span>inactive</span><span>number</span></div><div class="terminal"><pre>1111111111111122222222222222222
+1 <span class="pane-copy">pane 1</span>       12 <span class="pane-copy">pane 2</span>       2
+1              12              2
+3333333333333333333333333333333
+3 <span class="pane-copy">pane 3</span>                      3
+3333333333333333333333333333333</pre></div></div>
+          <div class="state active"><div class="state-label"><span>active</span><span>number</span></div><div class="terminal"><pre>1111111111111122222222222222222
+1 <span class="pane-copy">pane 1</span>       12 <span class="pane-copy">pane 2</span>       2
+1              12              2
+3333333333333333333333333333333
+3 <span class="pane-copy">pane 3</span>                      3
+3333333333333333333333333333333</pre></div></div>
+        </div>
+        <p class="description">선 문자 대신 pane 번호를 사용합니다. 레이아웃 디버깅에는 유용하지만 일상 UI로는 정보 밀도가 높습니다.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div><div class="option-name">spaces</div><div class="command">set -g pane-border-lines spaces</div></div>
+          <span class="kind recommended">current</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive space-preview"><div class="state-label"><span>inactive</span><span>spaces</span></div><div class="terminal"><pre></pre></div></div>
+          <div class="state active space-preview"><div class="state-label"><span>active</span><span>spaces</span></div><div class="terminal"><pre></pre></div></div>
+        </div>
+        <p class="description">현재 설정. border cell을 공백으로 그리며, inactive bg는 기본 배경에 녹고 active bg만 amber 띠로 보입니다.</p>
+      </article>
+
+      <article class="card wide">
+        <div class="card-head">
+          <div><div class="option-name">none</div><div class="command">set -g pane-border-lines none</div></div>
+          <span class="kind special">floating panes</span>
+        </div>
+        <div class="comparison">
+          <div class="state inactive none-preview"><div class="state-label"><span>inactive</span><span>none</span></div><div class="terminal"><pre> </pre></div></div>
+          <div class="state active none-preview"><div class="state-label"><span>active</span><span>none</span></div><div class="terminal"><pre> </pre></div></div>
+        </div>
+        <p class="description"><strong>floating pane용 특수값.</strong> 선을 그리지 않습니다. 일반 tiled pane의 구분 스타일 후보라기보다 floating UI에서 외곽선을 제거할 때 사용합니다.</p>
+      </article>
+    </section>
+
+    <aside class="note">
+      실제 렌더링은 터미널 폰트의 box-drawing glyph, tmux의 ACS fallback, pane 크기에 따라 조금 달라질 수 있습니다. 특히 <code>double</code>과 <code>heavy</code>는 glyph를 지원하지 않는 환경에서 표준 ACS 선으로 fallback됩니다.
+    </aside>
+  </main>
+</body>
+</html>

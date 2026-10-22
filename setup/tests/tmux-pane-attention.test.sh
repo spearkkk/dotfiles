@@ -376,6 +376,15 @@ FAKE_TPM
   if [ "$source_status" -ne 0 ]; then
     fail tmux_config_parse "could not source isolated tmux configuration (exit $source_status): $source_output"
   fi
+  inactive_pane_style=$("$real_tmux" -L "$socket_name" show-option -gv pane-border-style)
+  [ "$inactive_pane_style" = 'fg=#C6D8E4,bg=#1C3A50' ] || \
+    fail inactive_pane_style "unexpected inactive pane style: $inactive_pane_style"
+  active_pane_style=$("$real_tmux" -L "$socket_name" show-option -gv pane-active-border-style)
+  [ "$active_pane_style" = 'fg=#071420,bg=#D4A870,bold' ] || \
+    fail active_pane_style "unexpected active pane style: $active_pane_style"
+  pane_border_lines=$("$real_tmux" -L "$socket_name" show-option -gv pane-border-lines)
+  [ "$pane_border_lines" = spaces ] || \
+    fail pane_border_lines "unexpected pane border lines: $pane_border_lines"
   pane_exit_hooks=$(
     "$real_tmux" -L "$socket_name" show-hooks -g pane-exited 2>/dev/null
   )
