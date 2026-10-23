@@ -351,16 +351,27 @@ unset FAKE_PANE_SNAPSHOT
 # Window-scoped reconciliation must not inspect or synchronize other windows.
 export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
 export FAKE_PANE_SNAPSHOT=$'@1|%1|done\n@1|%2|\n@2|%3|waiting'
-export FAKE_CLIENTS='focused|@1|%1|0'
+export FAKE_CLIENTS=$'focused|@1|%1|0\nfocused|@2|%3|0'
 export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
 export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
 run_controller reconcile-window @1 || fail reconcile_window "controller exited $?"
 assert_called reconcile_window 'display-message -p -t %1'
 assert_called reconcile_window 'display-message -p -t %2'
 assert_not_called reconcile_window 'display-message -p -t %3'
+assert_not_called reconcile_window 'set-option -p -t %3 -u @attention_state'
 assert_called reconcile_window 'list-panes -t @1'
 assert_not_called reconcile_window 'list-panes -t @2'
-assert_not_called reconcile_window 'refresh-client .*@2'
+unset FAKE_PANE_SNAPSHOT
+
+# A stale window aggregate must be cleared even when no pane attention state
+# changes, proving reconcile-window marks its target dirty directly.
+export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|\n@1|%2|\n@2|%3|waiting'
+export FAKE_CLIENTS=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+run_controller reconcile-window @1 || fail reconcile_window_stale_aggregate "controller exited $?"
+assert_called reconcile_window_stale_aggregate 'set-option -wu -t @1 @attention_window_state'
+assert_not_called reconcile_window_stale_aggregate 'set-option -wu -t @2 @attention_window_state'
 unset FAKE_PANE_SNAPSHOT
 
 # A pane-exited hook can run after the final attention-marked pane is gone.
