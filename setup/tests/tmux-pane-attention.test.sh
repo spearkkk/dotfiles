@@ -317,11 +317,8 @@ if grep -qE '^[[:space:]]*set[[:space:]]+-g[[:space:]]+@prefix_highlight_' "$tmu
   fail prefix_highlight_options "orphaned prefix-highlight options remain after plugin removal"
 fi
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
-if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
-  fail tilish_enforce "Tilish must use its full default enforcement hook, not an explicit enforcement override"
-fi
-grep -qE "^[[:space:]]*set(-option)?[[:space:]]+-gu[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config" || \
-  fail tilish_enforce_migration "configuration does not clear the legacy size-only override"
+grep -q "set -g @tilish-enforce 'size'" "$tmux_config" || \
+  fail tilish_enforce "Tilish must preserve pane geometry while equalizing sizes"
 grep -q "set -g @tilish-createauto 'off'" "$tmux_config" || fail tilish_createauto "Tilish auto split direction is not disabled"
 grep -q 'bind-key -n M-\[ previous-window' "$tmux_config" || fail previous_window_binding "Alt-[ binding changed"
 grep -q 'bind-key -n M-\] next-window' "$tmux_config" || fail next_window_binding "Alt-] binding changed"
@@ -368,7 +365,7 @@ fi
 tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)
 pane_exit_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*pane-exited\[0\]' "$tmux_config" || true)
 kill_hook_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*after-kill-pane' "$tmux_config" || true)
-expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout ; select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-window #{window_id}"'"'"''
+expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-window #{window_id}"'"'"''
 [ "$tpm_count" -eq 1 ] || fail tpm_loader_count "expected exactly one TPM loader, found $tpm_count"
 if grep -qE '^[[:space:]]*set-hook[[:space:]]+-gu[[:space:]]+after-kill-pane' "$tmux_config"; then
   fail kill_pane_hook_ownership "configuration globally clears after-kill-pane callbacks"
@@ -376,8 +373,11 @@ fi
 [ "$kill_hook_declarations" = "$expected_kill_hook_declarations" ] || \
   fail kill_pane_hook_declarations "after-kill-pane is not the dedicated [90] callback: $kill_hook_declarations"
 case $pane_exit_declarations in
-  *'select-layout -t'*'#{hook_window}'*'reconcile-window'*'#{hook_window}'*) ;;
+  *'select-layout -E -t'*'#{hook_window}'*'reconcile-window'*'#{hook_window}'*) ;;
   *) fail pane_exit_hook_target "pane-exited[0] is not target-aware and reconciled: $pane_exit_declarations" ;;
+esac
+case $pane_exit_declarations in
+  *'tmux select-layout -t '*) fail pane_exit_hook_geometry "pane-exited reapplies the layout instead of preserving geometry" ;;
 esac
 grep -qF 'bind-key -n M-Q kill-pane' "$tmux_config" || \
   fail tilish_kill_binding "M-Q must delegate layout work to the lifecycle hook"
@@ -489,13 +489,11 @@ FAKE_TPM
     fail tmux_config_parse "could not source isolated tmux configuration (exit $source_status): $source_output"
   fi
   tilish_enforce_value=$("$real_tmux" -L "$socket_name" show-option -gqv @tilish-enforce)
-  [ -z "$tilish_enforce_value" ] || \
-    fail tilish_enforce_runtime "legacy Tilish override survived configuration reload: $tilish_enforce_value"
+  [ "$tilish_enforce_value" = size ] || \
+    fail tilish_enforce_runtime "Tilish size-only enforcement was not applied: $tilish_enforce_value"
   split_hook=$("$real_tmux" -L "$socket_name" show-hooks -g after-split-window 2>/dev/null)
-  case $split_hook in
-    *'select-layout ; select-layout -E'*) ;;
-    *) fail tilish_split_hook_runtime "Tilish full layout enforcement was not restored: $split_hook" ;;
-  esac
+  [ "$split_hook" = 'after-split-window[0] select-layout -E' ] || \
+    fail tilish_split_hook_runtime "Tilish size-only enforcement was not applied: $split_hook"
   inactive_pane_style=$("$real_tmux" -L "$socket_name" show-option -gv pane-border-style)
   [ "$inactive_pane_style" = 'fg=#C6D8E4,bg=#1C3A50' ] || \
     fail inactive_pane_style "unexpected inactive pane style: $inactive_pane_style"
@@ -512,12 +510,15 @@ FAKE_TPM
   [ "$pane_exit_hook_count" -eq 1 ] || \
     fail pane_exit_hook_integration "expected one owned pane-exited hook: $pane_exit_hooks"
   case $pane_exit_hooks in
-    'pane-exited[0] '*'select-layout -t'*'#{hook_window}'*'tmux-pane-attention reconcile-window'*'#{hook_window}'*) ;;
+    'pane-exited[0] '*'select-layout -E -t'*'#{hook_window}'*'tmux-pane-attention reconcile-window'*'#{hook_window}'*) ;;
     *) fail pane_exit_hook_integration "pane-exited hook is not target-aware and reconciled: $pane_exit_hooks" ;;
+  esac
+  case $pane_exit_hooks in
+    *'tmux select-layout -t '*) fail pane_exit_hook_geometry_integration "pane-exited reapplies the layout: $pane_exit_hooks" ;;
   esac
   pane_kill_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-kill-pane 2>/dev/null)
   case $pane_kill_hooks in
-    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout ; select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-window'*'#{window_id}'*) ;;
+    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-window'*'#{window_id}'*) ;;
     *) fail kill_pane_hook_integration "unrelated after-kill hook was not preserved with owned [90]: $pane_kill_hooks" ;;
   esac
   kill_binding=$("$real_tmux" -L "$socket_name" list-keys -T root M-Q 2>/dev/null || true)
