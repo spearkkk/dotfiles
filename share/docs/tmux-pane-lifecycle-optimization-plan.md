@@ -33,7 +33,7 @@
 
 - [ ] **Step 1: Write failing tests**
 
-Add assertions that an absent `@attention_state` causes no pane option unset, no window aggregate query, and no `refresh-client`. Add config assertions requiring attention-gated focus/window/resize hooks and a zoom-plus-attention gated pane-selection hook.
+Add assertions that an absent `@attention_state` causes no pane option unset, no window aggregate query, and no `refresh-client`. Add config assertions requiring attention-gated focus/window/resize hooks and an attention-gated pane-selection hook that also covers implicit unzoom.
 
 - [ ] **Step 2: Verify RED**
 
@@ -43,7 +43,7 @@ Expected: FAIL because the current controller unsets missing state and hooks alw
 
 - [ ] **Step 3: Implement the minimal fast path**
 
-Extend `pane_rows` to `window_id|pane_id|attention_state`, add a snapshot lookup, and return early from `unset_attention_state` when the snapshot state is empty. Update the four high-frequency hooks with tmux format conditions; require zoom for `after-select-pane`.
+Extend `pane_rows` to `window_id|pane_id|attention_state`, add a snapshot lookup, and return early from `unset_attention_state` when the snapshot state is empty. Update the four high-frequency hooks with tmux format conditions; do not require zoom for `after-select-pane` because selection may implicitly unzoom before the hook runs.
 
 - [ ] **Step 4: Verify GREEN**
 

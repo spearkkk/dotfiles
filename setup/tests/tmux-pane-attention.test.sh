@@ -272,8 +272,8 @@ grep -q 'after-select-window.*if-shell -F.*@attention_window_state.*acknowledge-
   fail window_hook_fast_path "window selection hook is not attention-gated"
 grep -q 'after-resize-pane.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
   fail resize_hook_fast_path "resize hook is not attention-gated"
-grep -q 'after-select-pane.*if-shell -F.*window_zoomed_flag.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
-  fail pane_hook_fast_path "pane selection hook is not zoom-and-attention-gated"
+grep -q 'after-select-pane.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
+  fail pane_hook_fast_path "pane selection hook is not attention-gated"
 grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
 if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
@@ -431,6 +431,30 @@ EXPECTED_HOOKS
   [ "$codex_state" = waiting ] || fail title_hook_integration "final title was not reconciled: $codex_state"
   [ "$attention_state" = waiting ] || fail title_hook_integration "waiting marker was not stored: $attention_state"
   [ -z "$pending_state" ] || fail title_hook_integration "pending flag was not cleared: $pending_state"
+
+  # select-pane implicitly unzooms before after-select-pane runs. The hook must
+  # still acknowledge the newly visible window when attention exists.
+  hook_log="$tmpdir/select-pane-hook.log"
+  rm -f "$integration_home/.local/libexec/tmux-pane-attention"
+  cat >"$integration_home/.local/libexec/tmux-pane-attention" <<HOOK_HELPER
+#!/bin/sh
+printf '%s\n' "\$*" >>"$hook_log"
+HOOK_HELPER
+  chmod +x "$integration_home/.local/libexec/tmux-pane-attention"
+  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
+  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
+  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
+  "$real_tmux" -L "$socket_name" resize-pane -Z
+  "$real_tmux" -L "$socket_name" set-option -w @attention_window_state waiting
+  : >"$hook_log"
+  "$real_tmux" -L "$socket_name" select-pane -R
+  attempts=0
+  while ! grep -q '^acknowledge-visible$' "$hook_log" && [ "$attempts" -lt 20 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  grep -q '^acknowledge-visible$' "$hook_log" || \
+    fail select_pane_unzoom_ack "zoom-to-unzoom pane selection did not acknowledge the visible window"
 fi
 
 if [ "$failures" -ne 0 ]; then

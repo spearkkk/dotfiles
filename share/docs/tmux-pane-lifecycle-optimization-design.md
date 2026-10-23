@@ -17,7 +17,7 @@ Tilish와 pane attention 연동을 유지하면서 pane/window 전환의 공통 
 
 ### 1. Attention no-op fast path
 
-초기 pane snapshot에 `@attention_state`를 함께 저장한다. 상태가 없는 pane에는 unset을 호출하지 않으며, 실제 변경이 있을 때만 window aggregate와 client status를 갱신한다. 선택/focus/resize hook도 현재 window에 aggregate attention 상태가 있을 때만 helper를 시작한다. `after-select-pane`은 zoom 상태에서만 visibility가 바뀌므로 zoom과 attention 조건을 모두 만족할 때만 실행한다.
+초기 pane snapshot에 `@attention_state`를 함께 저장한다. 상태가 없는 pane에는 unset을 호출하지 않으며, 실제 변경이 있을 때만 window aggregate와 client status를 갱신한다. 선택/focus/resize hook도 현재 window에 aggregate attention 상태가 있을 때만 helper를 시작한다. `select-pane`은 zoom을 해제한 뒤 hook을 실행하므로 zoom flag로 조건화하지 않는다. `after-select-pane`은 aggregate attention 상태가 있을 때만 실행한다.
 
 ### 2. Hook 소유권과 layout target
 
