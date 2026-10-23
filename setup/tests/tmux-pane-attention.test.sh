@@ -296,6 +296,14 @@ if grep -Eq '(client-focus-in|after-select-window|after-select-pane|after-resize
   fail visibility_hook_race "visibility hooks must queue behind the controller lock without an aggregate pre-check"
 fi
 grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
+grep -q "set -g @plugin 'tmux-plugins/tmux-resurrect'" "$tmux_config" || \
+  fail resurrect_plugin "manual tmux-resurrect support was removed"
+if grep -q "set -g @plugin 'tmux-plugins/tmux-continuum'" "$tmux_config"; then
+  fail continuum_plugin "inactive Continuum status interpolation must not be loaded"
+fi
+if grep -qE '^[[:space:]]*set[[:space:]]+-g[[:space:]]+@continuum-' "$tmux_config"; then
+  fail continuum_options "orphaned Continuum options remain after plugin removal"
+fi
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
 if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
   fail tilish_enforce "Tilish must use its full default enforcement hook, not an explicit enforcement override"
