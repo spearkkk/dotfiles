@@ -302,28 +302,28 @@ if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-[hjklz][[:space
 fi
 
 tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)
-attention_exit_count=$(grep -cF 'set-hook -ag pane-exited' "$tmux_config" || true)
+pane_exit_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*pane-exited\[0\]' "$tmux_config" || true)
 kill_hook_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*after-kill-pane' "$tmux_config" || true)
-expected_kill_hook_declarations=$(cat <<'EXPECTED_HOOKS'
-set-hook -gu after-kill-pane
-set-hook -g after-kill-pane[0] 'select-layout ; select-layout -E'
-set-hook -g after-kill-pane[1] 'run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-all"'
-EXPECTED_HOOKS
-)
+expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout ; select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-all"'"'"''
 [ "$tpm_count" -eq 1 ] || fail tpm_loader_count "expected exactly one TPM loader, found $tpm_count"
-[ "$attention_exit_count" -eq 1 ] || fail pane_exit_hook_count "expected exactly one appended pane-exited hook, found $attention_exit_count"
+if grep -qE '^[[:space:]]*set-hook[[:space:]]+-gu[[:space:]]+after-kill-pane' "$tmux_config"; then
+  fail kill_pane_hook_ownership "configuration globally clears after-kill-pane callbacks"
+fi
 [ "$kill_hook_declarations" = "$expected_kill_hook_declarations" ] || \
-  fail kill_pane_hook_declarations "after-kill-pane declarations are not the exact reset, [0], [1] sequence: $kill_hook_declarations"
+  fail kill_pane_hook_declarations "after-kill-pane is not the dedicated [90] callback: $kill_hook_declarations"
+case $pane_exit_declarations in
+  *'select-layout -t'*'#{hook_window}'*'reconcile-all'*) ;;
+  *) fail pane_exit_hook_target "pane-exited[0] is not target-aware and reconciled: $pane_exit_declarations" ;;
+esac
+grep -qF 'bind-key -n M-Q kill-pane' "$tmux_config" || \
+  fail tilish_kill_binding "M-Q must delegate layout work to the lifecycle hook"
 tpm_line=$(grep -nF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" | cut -d: -f1)
-attention_exit_line=$(grep -nF 'set-hook -ag pane-exited' "$tmux_config" | cut -d: -f1)
-kill_hook_clear_line=$(grep -nFx 'set-hook -gu after-kill-pane' "$tmux_config" | cut -d: -f1)
-[ "$attention_exit_count" -eq 1 ] && \
-  sed -n "${attention_exit_line},$((attention_exit_line + 1))p" "$tmux_config" | grep -q 'reconcile-all' || \
-  fail pane_exit_hook_command "appended pane-exited hook does not reconcile attention"
-[ "$tpm_count" -eq 1 ] && [ "$attention_exit_count" -eq 1 ] && [ "$attention_exit_line" -gt "$tpm_line" ] || \
-  fail pane_exit_hook_order "attention pane-exited hook is not appended after TPM"
-[ -n "$kill_hook_clear_line" ] && [ "$kill_hook_clear_line" -gt "$tpm_line" ] || \
-  fail kill_pane_hook_order "after-kill-pane reset and exact indexed hooks are not after TPM"
+pane_exit_line=$(grep -nE '^[[:space:]]*set-hook[[:space:]]+-g[[:space:]]+pane-exited\[0\]' "$tmux_config" | cut -d: -f1)
+kill_hook_line=$(grep -nE '^[[:space:]]*set-hook[[:space:]]+-g[[:space:]]+after-kill-pane\[90\]' "$tmux_config" | cut -d: -f1)
+[ -n "$pane_exit_line" ] && [ "$pane_exit_line" -gt "$tpm_line" ] || \
+  fail pane_exit_hook_order "target-aware pane-exited replacement is not after TPM"
+[ -n "$kill_hook_line" ] && [ "$kill_hook_line" -gt "$tpm_line" ] || \
+  fail kill_pane_hook_order "owned after-kill-pane callback is not after TPM"
 grep -q 'pane-moved.*reconcile-all' "$tmux_config" || fail pane_move_hook "missing window attention reconciliation after pane move"
 grep -q 'status-format\[2\].*#{W:' "$tmux_config" || fail native_window_loop "middle status does not use native W: loop"
 grep -q 'window-status-current-format.*bg=#50C4C0' "$tmux_config" || fail native_current_style "current window style is not native"
@@ -386,28 +386,44 @@ FAKE_TPM
     "$real_tmux" -L "$socket_name" show-hooks -g pane-exited 2>/dev/null
   )
   pane_exit_hook_count=$(printf '%s\n' "$pane_exit_hooks" | grep -Ec '^pane-exited\[[0-9]+\] ' || true)
-  [ "$pane_exit_hook_count" -eq 2 ] || \
-    fail pane_exit_hook_integration "expected exactly two pane-exited hooks: $pane_exit_hooks"
-  if [ "$pane_exit_hook_count" -eq 2 ]; then
-    first_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '1p')
-    second_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '2p')
-    case $first_pane_exit_hook in
-      'pane-exited[0] '*'select-layout ; select-layout -E'*) ;;
-      *) fail pane_exit_hook_integration "first pane-exited hook is not Tilish full layout enforcement: $pane_exit_hooks" ;;
-    esac
-    case $second_pane_exit_hook in
-      'pane-exited[1] '*'tmux-pane-attention reconcile-all'*) ;;
-      *) fail pane_exit_hook_integration "second pane-exited hook is not attention reconciliation: $pane_exit_hooks" ;;
-    esac
-  fi
+  [ "$pane_exit_hook_count" -eq 1 ] || \
+    fail pane_exit_hook_integration "expected one owned pane-exited hook: $pane_exit_hooks"
+  case $pane_exit_hooks in
+    'pane-exited[0] '*'select-layout -t'*'#{hook_window}'*'tmux-pane-attention reconcile-all'*) ;;
+    *) fail pane_exit_hook_integration "pane-exited hook is not target-aware and reconciled: $pane_exit_hooks" ;;
+  esac
   pane_kill_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-kill-pane 2>/dev/null)
-  expected_pane_kill_hooks=$(cat <<EXPECTED_HOOKS
-after-kill-pane[0] select-layout ; select-layout -E
-after-kill-pane[1] run-shell -b "$integration_home/.local/libexec/tmux-pane-attention reconcile-all"
-EXPECTED_HOOKS
-)
-  [ "$pane_kill_hooks" = "$expected_pane_kill_hooks" ] || \
-    fail kill_pane_hook_integration "expected exactly two exact after-kill-pane hooks: $pane_kill_hooks"
+  case $pane_kill_hooks in
+    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout ; select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-all'*) ;;
+    *) fail kill_pane_hook_integration "unrelated after-kill hook was not preserved with owned [90]: $pane_kill_hooks" ;;
+  esac
+  kill_binding=$("$real_tmux" -L "$socket_name" list-keys -T root M-Q 2>/dev/null || true)
+  case $kill_binding in
+    *'kill-pane'*) ;;
+    *) fail tilish_kill_binding_integration "M-Q does not invoke kill-pane: $kill_binding" ;;
+  esac
+  case $kill_binding in
+    *'select-layout'*) fail tilish_kill_binding_integration "M-Q still duplicates layout work: $kill_binding" ;;
+  esac
+
+  # A natural exit in an inactive window must rebalance that window, not the
+  # currently selected one. Two survivors of even-horizontal differ by <= 1.
+  active_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
+  "$real_tmux" -L "$socket_name" new-window -d -n lifecycle-target 'sleep 30'
+  "$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h 'sleep 30'
+  "$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h 'sleep 1'
+  "$real_tmux" -L "$socket_name" select-layout -t lifecycle-target even-horizontal
+  "$real_tmux" -L "$socket_name" select-window -t "$active_window"
+  sleep 1.3
+  survivor_widths=$("$real_tmux" -L "$socket_name" list-panes -t lifecycle-target -F '#{pane_width}')
+  survivor_count=$(printf '%s\n' "$survivor_widths" | awk 'NF { count++ } END { print count + 0 }')
+  width_min=$(printf '%s\n' "$survivor_widths" | sort -n | head -1)
+  width_max=$(printf '%s\n' "$survivor_widths" | sort -n | tail -1)
+  [ "$survivor_count" -eq 2 ] && [ $((width_max - width_min)) -le 1 ] || \
+    fail inactive_window_layout "inactive natural exit was not balanced: $survivor_widths"
+  [ "$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')" = "$active_window" ] || \
+    fail inactive_window_focus "pane exit changed the active window"
+
   attention_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
   "$real_tmux" -L "$socket_name" set-option -w -t "$attention_window" @attention_window_state waiting
   waiting_format=$("$real_tmux" -L "$socket_name" display-message -p -t "$attention_window" '#{E:window-status-format}')
