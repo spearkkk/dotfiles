@@ -436,7 +436,7 @@ export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDI
 export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
 export FAKE_PANE_SNAPSHOT=$'@1|%1|done\n@1|%2|waiting'
 run_controller reconcile-all || fail reconcile_all "controller exited $?"
-assert_called reconcile_all '@attention_codex_working'
+assert_not_called reconcile_all '@attention_codex_working'
 assert_called reconcile_all '%1 -u @attention_state'
 assert_called reconcile_all '%2 -u @attention_state'
 assert_called reconcile_all 'set-option -wu -t @1 @attention_window_state'
