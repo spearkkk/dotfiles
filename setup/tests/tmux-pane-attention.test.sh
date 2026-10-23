@@ -235,33 +235,53 @@ env TMUX=1 FAKE_MUTATION_FAIL=1 FAKE_PANES='@2|%3' FAKE_CLIENTS='' \
   "$controller" command-done %3 >/dev/null 2>&1 || true
 assert_called lock_release '^wait-for -U tmux-pane-attention-lock$'
 
-# The renderer only draws the dynamic frame and context. Window navigation is
-# a native tmux format so selecting a window never waits on a #() command.
-for renderer_mode in spacer top middle-left bottom; do
-  : >"$FAKE_CALL_LOG"
-  renderer_output=$("$renderer" "$renderer_mode" 100 attention %1 @1 normal)
-  assert_not_called "renderer_${renderer_mode}_no_tmux_queries" '^show-options? '
-done
-renderer_output=$("$renderer" middle-left 100 attention %1 @1 normal)
-case $renderer_output in
-  *'│ '*'#[push-default]'*) ;;
-  *) fail renderer_middle_left "missing native-list prefix: $renderer_output" ;;
-esac
+# The sole remaining status subprocess is a context-only POSIX sh renderer.
+[ "$(sed -n '1p' "$renderer")" = '#!/bin/sh' ] || \
+  fail renderer_shell "status renderer must use POSIX sh instead of Bash"
 : >"$FAKE_CALL_LOG"
-renderer_output=$("$renderer" middle-right 100 attention %1 @1 normal)
+renderer_output=$("$renderer" normal x x x)
 assert_not_called renderer_budget '^list-windows '
 assert_not_called renderer_budget '^list-panes '
 assert_not_called renderer_context_queries '^show-options? '
 assert_not_called renderer_read_only '^set-option '
-renderer_output=$("$renderer" top 100 attention %1 @1 prod)
+renderer_output=$("$renderer" prod x x 'xprod-context')
 case $renderer_output in
   *'#[fg=#0A1F2E,bg=#C47A72]'*) ;;
   *) fail renderer_prod_style "missing prod border style: $renderer_output" ;;
 esac
-renderer_output=$("$renderer" top 100 attention %1 @1 prefix)
+renderer_output=$("$renderer" prefix x x 'xprefix-context')
 case $renderer_output in
   *'#[fg=#C6D8E4,bg=#0A1F2E]'*) ;;
   *) fail renderer_prefix_style "missing prefix border style: $renderer_output" ;;
+esac
+
+renderer_home="$tmpdir/renderer-home"
+renderer_source_log="$tmpdir/renderer-source.log"
+mkdir -p "$renderer_home/.tmux/config"
+cat >"$renderer_home/.tmux/config/kube-func.sh" <<'KUBE_HELPER'
+printf 'sourced\n' >>"$RENDERER_SOURCE_LOG"
+kube_tmux_shorten_context() {
+  [ "$1" = long-context ] && printf short-context || printf '%s' "$1"
+}
+KUBE_HELPER
+: >"$renderer_source_log"
+renderer_output=$(HOME="$renderer_home" RENDERER_SOURCE_LOG="$renderer_source_log" \
+  "$renderer" normal xlong-context x 'xcw-context')
+[ ! -s "$renderer_source_log" ] || \
+  fail renderer_cw_fast_path "cw context unnecessarily sourced the kube helper"
+case $renderer_output in
+  *' cw-context '*) ;;
+  *) fail renderer_cw_context "cw context missing from renderer output: $renderer_output" ;;
+esac
+
+: >"$renderer_source_log"
+renderer_output=$(HOME="$renderer_home" RENDERER_SOURCE_LOG="$renderer_source_log" \
+  "$renderer" normal xlong-context x x)
+[ "$(cat "$renderer_source_log")" = sourced ] || \
+  fail renderer_kube_source "kube helper was not sourced exactly once"
+case $renderer_output in
+  *' short-context '*) ;;
+  *) fail renderer_kube_context "short kube context missing from renderer output: $renderer_output" ;;
 esac
 
 # Fish forwards the semantic operation and explicit pane ID.
