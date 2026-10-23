@@ -298,11 +298,22 @@ fi
 grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
 grep -q "set -g @plugin 'tmux-plugins/tmux-resurrect'" "$tmux_config" || \
   fail resurrect_plugin "manual tmux-resurrect support was removed"
+grep -q "set -g @plugin 'tmux-plugins/tmux-yank'" "$tmux_config" || \
+  fail yank_plugin "tmux-yank support was removed"
 if grep -q "set -g @plugin 'tmux-plugins/tmux-continuum'" "$tmux_config"; then
   fail continuum_plugin "inactive Continuum status interpolation must not be loaded"
 fi
 if grep -qE '^[[:space:]]*set[[:space:]]+-g[[:space:]]+@continuum-' "$tmux_config"; then
   fail continuum_options "orphaned Continuum options remain after plugin removal"
+fi
+if grep -q "set -g @plugin 'kristijanhusak/tmux-simple-git-status'" "$tmux_config"; then
+  fail simple_git_plugin "unused simple-git-status plugin remains loaded"
+fi
+if grep -q "set -g @plugin 'tmux-plugins/tmux-prefix-highlight'" "$tmux_config"; then
+  fail prefix_highlight_plugin "unused prefix-highlight plugin remains loaded"
+fi
+if grep -qE '^[[:space:]]*set[[:space:]]+-g[[:space:]]+@prefix_highlight_' "$tmux_config"; then
+  fail prefix_highlight_options "orphaned prefix-highlight options remain after plugin removal"
 fi
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
 if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
