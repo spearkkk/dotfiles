@@ -29,11 +29,11 @@
 
 **Interfaces:**
 - Consumes: pane snapshot from `tmux list-panes -a`
-- Produces: `pane_attention_state <pane-id>` lookup and conditionally launched acknowledge hooks
+- Produces: `pane_attention_state <pane-id>` lookup and a post-lock acknowledgement fast path
 
 - [ ] **Step 1: Write failing tests**
 
-Add assertions that an absent `@attention_state` causes no pane option unset, no window aggregate query, and no `refresh-client`. Add config assertions requiring attention-gated focus/window/resize hooks and an attention-gated pane-selection hook that also covers implicit unzoom.
+Add assertions that an absent `@attention_state` causes no pane option unset, no window aggregate query, and no `refresh-client`. Add config assertions requiring visibility hooks to queue unconditionally, plus a post-lock no-attention fast path that skips pane scans and refreshes.
 
 - [ ] **Step 2: Verify RED**
 
@@ -43,7 +43,7 @@ Expected: FAIL because the current controller unsets missing state and hooks alw
 
 - [ ] **Step 3: Implement the minimal fast path**
 
-Extend `pane_rows` to `window_id|pane_id|attention_state`, add a snapshot lookup, and return early from `unset_attention_state` when the snapshot state is empty. Update the four high-frequency hooks with tmux format conditions; do not require zoom for `after-select-pane` because selection may implicitly unzoom before the hook runs.
+Extend `pane_rows` to `window_id|pane_id|attention_state`, add a snapshot lookup, and return early from `unset_attention_state` when the snapshot state is empty. Keep the four visibility hooks unconditional to serialize behind the controller lock. Add a post-lock focused-client aggregate check that exits before pane snapshots when no attention exists.
 
 - [ ] **Step 4: Verify GREEN**
 

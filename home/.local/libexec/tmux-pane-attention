@@ -32,6 +32,18 @@ visible_panes=
 dirty_windows=
 attention_cleared=
 
+acknowledgement_needed() {
+  attention_client_rows=$(tmux list-clients -F '#{client_flags}|#{@attention_window_state}' 2>/dev/null) || return 0
+  while IFS='|' read -r flags window_attention; do
+    case ",$flags," in
+      *,focused,*) [ -n "$window_attention" ] && return 0 ;;
+    esac
+  done <<EOF
+$attention_client_rows
+EOF
+  return 1
+}
+
 pane_exists() {
   wanted=$1
   while IFS='|' read -r row_window row_pane row_attention; do
@@ -281,6 +293,11 @@ acknowledge_visible() {
 $visible_panes
 EOF
 }
+
+if [ "$operation" = acknowledge-visible ] && ! acknowledgement_needed; then
+  release_lock
+  exit 0
+fi
 
 snapshot_visibility || exit 0
 

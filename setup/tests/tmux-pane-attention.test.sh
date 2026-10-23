@@ -42,6 +42,13 @@ case ${1:-} in
     ;;
   list-clients)
     case "$*" in
+      *@attention_window_state*)
+        if [ "${FAKE_CLIENT_ATTENTION_ROWS+x}" = x ]; then
+          printf '%s\n' "$FAKE_CLIENT_ATTENTION_ROWS"
+        else
+          printf '%s\n' "${FAKE_CLIENTS:-}" | awk -F'|' -v state="${FAKE_ATTENTION_WINDOW_STATE:-}" 'NF { print $1 "|" state }'
+        fi
+        ;;
       *client_name*)
         if [ -n "${FAKE_NAMED_CLIENTS:-}" ]; then
           printf '%s\n' "$FAKE_NAMED_CLIENTS"
@@ -135,12 +142,13 @@ assert_called zoomed_hidden_done 'set-option .*%2 .*@attention_state done'
 assert_called zoomed_hidden_done 'set-option -w -t @1 @attention_window_state done'
 
 export FAKE_CLIENTS=$'focused|@1|%1|1\nfocused|@2|%3|0'
+export FAKE_CLIENT_ATTENTION_ROWS=$'focused|waiting\nfocused|done'
 export FAKE_PANE_SNAPSHOT=$'@1|%1|waiting\n@1|%2|\n@2|%3|done'
 run_controller acknowledge-visible || fail multi_client_union "controller exited $?"
 assert_called multi_client_union 'set-option .*%1 -u @attention_state|set-option .*%1 .* -u .*@attention_state'
 assert_called multi_client_union 'set-option .*%3 -u @attention_state|set-option .*%3 .* -u .*@attention_state'
 assert_not_called multi_client_union 'set-option .*%2 .*@attention_state'
-unset FAKE_PANE_SNAPSHOT
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
 
 export FAKE_CLIENTS='UTF-8|@1|%1|0'
 run_controller acknowledge-visible || fail unfocused_no_ack "controller exited $?"
@@ -150,11 +158,12 @@ assert_not_called unfocused_no_ack 'set-option .*@attention_state'
 export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
 export FAKE_PANE_SNAPSHOT=$'@1|%1|\n@1|%2|\n@2|%3|'
 export FAKE_CLIENTS='focused|@1|%1|0'
+export FAKE_CLIENT_ATTENTION_ROWS='focused|'
 run_controller acknowledge-visible || fail attention_noop "controller exited $?"
 assert_not_called attention_noop 'set-option .*@attention_state'
-assert_not_called attention_noop 'list-panes -t '
+assert_not_called attention_noop '^list-panes '
 assert_not_called attention_noop 'refresh-client '
-unset FAKE_PANE_SNAPSHOT
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
 
 reconcile() {
   local title=$1 attention=$2 codex=$3
@@ -211,10 +220,11 @@ assert_not_called stale_pane_noop 'set-option '
 export FAKE_PANES=$'@0|%0\n@1|%1\n@2|%2'
 export FAKE_CLIENTS='focused,UTF-8|@1|%1|0'
 : >"$FAKE_CALL_LOG"
+export FAKE_CLIENT_ATTENTION_ROWS='focused|waiting'
 export FAKE_PANE_SNAPSHOT=$'@0|%0|\n@1|%1|waiting\n@2|%2|'
 env -u TMUX "$controller" acknowledge-visible >/dev/null 2>&1 || fail server_hook_acknowledges "server hook exited unexpectedly"
 assert_called server_hook_acknowledges 'set-option .*%1 -u @attention_state|set-option .*%1 .* -u .*@attention_state'
-unset FAKE_PANE_SNAPSHOT
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
 
 env TMUX=1 "$controller" invalid-operation >/dev/null 2>&1
 [ "$?" -eq 64 ] || fail invalid_operation "expected status 64"
@@ -266,14 +276,9 @@ grep -q 'client-focus-in.*acknowledge-visible' "$tmux_config" || fail focus_hook
 grep -q 'after-select-window.*acknowledge-visible' "$tmux_config" || fail window_hook "missing window acknowledgement"
 grep -q 'after-select-pane.*acknowledge-visible' "$tmux_config" || fail pane_hook "missing pane acknowledgement"
 grep -q 'after-resize-pane.*acknowledge-visible' "$tmux_config" || fail resize_hook "missing resize acknowledgement"
-grep -q 'client-focus-in.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
-  fail focus_hook_fast_path "client focus hook is not attention-gated"
-grep -q 'after-select-window.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
-  fail window_hook_fast_path "window selection hook is not attention-gated"
-grep -q 'after-resize-pane.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
-  fail resize_hook_fast_path "resize hook is not attention-gated"
-grep -q 'after-select-pane.*if-shell -F.*@attention_window_state.*acknowledge-visible' "$tmux_config" || \
-  fail pane_hook_fast_path "pane selection hook is not attention-gated"
+if grep -Eq '(client-focus-in|after-select-window|after-select-pane|after-resize-pane).*if-shell' "$tmux_config"; then
+  fail visibility_hook_race "visibility hooks must queue behind the controller lock without an aggregate pre-check"
+fi
 grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
 if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
@@ -482,6 +487,10 @@ FAKE_TPM
 
   # select-pane implicitly unzooms before after-select-pane runs. The hook must
   # still acknowledge the newly visible window when attention exists.
+  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
+  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
+  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
+  "$real_tmux" -L "$socket_name" resize-pane -Z
   hook_log="$tmpdir/select-pane-hook.log"
   rm -f "$integration_home/.local/libexec/tmux-pane-attention"
   cat >"$integration_home/.local/libexec/tmux-pane-attention" <<HOOK_HELPER
@@ -489,10 +498,6 @@ FAKE_TPM
 printf '%s\n' "\$*" >>"$hook_log"
 HOOK_HELPER
   chmod +x "$integration_home/.local/libexec/tmux-pane-attention"
-  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
-  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
-  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
-  "$real_tmux" -L "$socket_name" resize-pane -Z
   "$real_tmux" -L "$socket_name" set-option -w @attention_window_state waiting
   : >"$hook_log"
   "$real_tmux" -L "$socket_name" select-pane -R
