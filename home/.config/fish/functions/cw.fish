@@ -22,7 +22,7 @@ function __cw_session
 end
 
 function cw --description 'Create/reuse a tmux window with a profile context'
-    set -l context
+    set -l contexts
     set -l session
     set -l expecting_session 0
     set -l list_only 0
@@ -43,20 +43,15 @@ function cw --description 'Create/reuse a tmux window with a profile context'
             case -P --pane current-pane
                 set current_pane 1
             case -h --help
-                echo "Usage: cw CONTEXT [-s|--session SESSION]"
-                echo "       cw CONTEXT --pane"
+                echo "Usage: cw CONTEXT... [-s|--session SESSION]"
+                echo "       cw CONTEXT... --pane"
                 echo "       cw --list"
                 echo
                 echo "CONTEXT values and init hooks are provided by the active profile."
                 echo "If a context provides a default session, pass -s to override it."
                 return
             case '*'
-                if test -z "$context"
-                    set context $arg
-                else
-                    echo "unexpected argument: $arg" >&2
-                    return 1
-                end
+                set -a contexts $arg
         end
     end
 
@@ -70,21 +65,61 @@ function cw --description 'Create/reuse a tmux window with a profile context'
         return
     end
 
-    if test -z "$context"
-        echo "Usage: cw CONTEXT [-s|--session SESSION]" >&2
+    if test (count $contexts) -eq 0
+        echo "Usage: cw CONTEXT... [-s|--session SESSION]" >&2
         return 1
     end
 
-    set -l spec (__cw_context "$context")
-    or return 1
+    set -l types
+    set -l titles
+    set -l reset_hooks
+    set -l pane_reset_hooks
+    set -l cwd
+    set -l default_session
+    set -l is_prod 0
 
-    set -l title (__cw_get title $spec)
-    set -l cwd (__cw_get cwd $spec)
-    set -l init (__cw_get init $spec)
-    set -l default_session (__cw_get session $spec)
-    set -l pane_init (__cw_get pane_init $spec)
+    for context in $contexts
+        set -l spec (__cw_context "$context")
+        or return 1
+        set -l type (__cw_get type $spec)
 
-    test -z "$title"; and set title "$context"
+        if test -z "$type"
+            echo "context type not found: $context" >&2
+            return 1
+        end
+        if not contains -- "$type" kubernetes object-storage pulsar hadoop
+            echo "unsupported context type: $type" >&2
+            return 1
+        end
+        if contains -- "$type" $types
+            echo "context type already selected: $type" >&2
+            return 1
+        end
+        set -a types "$type"
+
+        set -l context_title (__cw_get title $spec)
+        test -z "$context_title"; and set context_title "$context"
+        set -a titles "$context_title"
+
+        test -z "$cwd"; and set cwd (__cw_get cwd $spec)
+        test -z "$default_session"; and set default_session (__cw_get session $spec)
+
+        set -l reset (__cw_get reset $spec)
+        if test -n "$reset"; and not contains -- "$reset" $reset_hooks
+            set -a reset_hooks "$reset"
+        end
+        set -l pane_reset (__cw_get pane_reset $spec)
+        if test -n "$pane_reset"; and not contains -- "$pane_reset" $pane_reset_hooks
+            set -a pane_reset_hooks "$pane_reset"
+        end
+
+        if test (__cw_get env $spec) = prod
+            set is_prod 1
+        end
+    end
+
+    set -l title (string join + -- $titles)
+    set -l context_label (string join ' | ' -- $contexts)
     test -z "$cwd"; and set cwd ~
 
     if test $current_pane -eq 1
@@ -92,12 +127,38 @@ function cw --description 'Create/reuse a tmux window with a profile context'
             echo "cw --pane requires running inside tmux" >&2
             return 1
         end
-        if test -z "$pane_init"; or not functions -q "$pane_init"
-            echo "cw --pane is not supported for context: $context" >&2
-            return 1
+        for pane_reset in $pane_reset_hooks
+            if not functions -q "$pane_reset"
+                echo "cw pane reset function not found: $pane_reset" >&2
+                return 1
+            end
+            $pane_reset "$title"
+            or return 1
         end
-        $pane_init $spec
-        return $status
+
+        tmux set-option -p -t "$TMUX_PANE" @cw_context "$context_label" 2>/dev/null
+        tmux set-option -p -t "$TMUX_PANE" @cw_context_prod "$is_prod" 2>/dev/null
+
+        for deferred_pass in 0 1
+            for context in $contexts
+                set -l spec (__cw_context "$context")
+                or return 1
+                set -l deferred (__cw_get deferred $spec)
+                test -z "$deferred"; and set deferred 0
+                if test "$deferred" != "$deferred_pass"
+                    continue
+                end
+
+                set -l pane_init (__cw_get pane_init $spec)
+                if test -z "$pane_init"; or not functions -q "$pane_init"
+                    echo "cw --pane is not supported for context: $context" >&2
+                    return 1
+                end
+                $pane_init $spec
+                or return 1
+            end
+        end
+        return 0
     end
 
     test -z "$session"; and set session "$default_session"
@@ -116,21 +177,65 @@ function cw --description 'Create/reuse a tmux window with a profile context'
     end
 
     set -l target "$session:$title"
+    set -l window_exists 1
 
     if not tmux list-windows -t "$session" -F '#W' | string match -q -- "$title"
+        set window_exists 0
         tmux new-window -d -t "$session" -n "$title" -c "$cwd"
     end
 
-    tmux set-option -w -t "$target" @cw_context "$context" 2>/dev/null
+    if test $window_exists -eq 1
+        for context in $contexts
+            set -l spec (__cw_context "$context")
+            or return 1
+            set -l reuse_guard (__cw_get reuse_guard $spec)
+            if test -z "$reuse_guard"
+                continue
+            end
+            if not functions -q "$reuse_guard"
+                echo "cw reuse guard function not found: $reuse_guard" >&2
+                return 1
+            end
+            if $reuse_guard "$target" $spec
+                tmux switch-client -t "$target" 2>/dev/null; or tmux attach-session -t "$target"
+                return $status
+            end
+        end
+    end
 
-    if test -n "$init"
-        if not functions -q "$init"
-            echo "cw init function not found: $init" >&2
+    for reset in $reset_hooks
+        if not functions -q "$reset"
+            echo "cw reset function not found: $reset" >&2
             return 1
         end
-
-        $init "$target" $spec
+        $reset "$target"
         or return 1
+    end
+
+    tmux set-option -w -t "$target" @cw_context "$context_label" 2>/dev/null
+    tmux set-option -w -t "$target" @cw_context_prod "$is_prod" 2>/dev/null
+
+    for deferred_pass in 0 1
+        for context in $contexts
+            set -l spec (__cw_context "$context")
+            or return 1
+            set -l deferred (__cw_get deferred $spec)
+            test -z "$deferred"; and set deferred 0
+            if test "$deferred" != "$deferred_pass"
+                continue
+            end
+
+            set -l init (__cw_get init $spec)
+            if test -z "$init"
+                continue
+            end
+            if not functions -q "$init"
+                echo "cw init function not found: $init" >&2
+                return 1
+            end
+            $init "$target" $spec
+            or return 1
+        end
     end
 
     tmux switch-client -t "$target" 2>/dev/null; or tmux attach-session -t "$target"

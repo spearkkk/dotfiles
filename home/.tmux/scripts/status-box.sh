@@ -71,10 +71,20 @@ if [[ -z "$aws_profile" ]]; then
   aws_profile="$(tmux_option_value -w "$window_id" @aws_profile)"
 fi
 
+cw_context="$(tmux_option_value -p "$pane_id" @cw_context)"
+if [[ -z "$cw_context" ]]; then
+  cw_context="$(tmux_option_value -w "$window_id" @cw_context)"
+fi
+
+cw_context_prod="$(tmux_option_value -p "$pane_id" @cw_context_prod)"
+if [[ -z "$cw_context_prod" ]]; then
+  cw_context_prod="$(tmux_option_value -w "$window_id" @cw_context_prod)"
+fi
+
 # shellcheck disable=SC1091
 [[ -f "$HOME/.tmux/config/kube-func.sh" ]] && source "$HOME/.tmux/config/kube-func.sh"
 
-if is_prod_context "$kube_context" || is_prod_aws_profile "$aws_profile"; then
+if [[ "$cw_context_prod" == "1" ]] || is_prod_context "$kube_context" || is_prod_aws_profile "$aws_profile"; then
   bg="#C47A72"
   fg="#0A1F2E"
   border="#0A1F2E"
@@ -159,9 +169,13 @@ case "$mode" in
     ;;
   middle-right)
     context_line=""
-    short_kube="$(short_kube_context "$kube_context")"
-    [[ -n "$short_kube" ]] && context_line+="${style_chip} ${short_kube} ${style_text}"
-    [[ -n "$aws_profile" ]] && context_line+="${style_chip} ${aws_profile} ${style_text}"
+    if [[ -n "$cw_context" ]]; then
+      context_line+="${style_chip} ${cw_context} ${style_text}"
+    else
+      short_kube="$(short_kube_context "$kube_context")"
+      [[ -n "$short_kube" ]] && context_line+="${style_chip} ${short_kube} ${style_text}"
+      [[ -n "$aws_profile" ]] && context_line+="${style_chip} ${aws_profile} ${style_text}"
+    fi
     printf '#[pop-default]%s%s %s│' "$style_text" "$context_line" "$style_border"
     ;;
   bottom)

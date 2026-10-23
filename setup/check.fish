@@ -223,6 +223,11 @@ if not bash "$repo_root/setup/tests/tmux-move-pane.test.sh"
     mark_fail "tmux pane movement test failed"
 end
 
+log_step "cw multi-context"
+if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
+    mark_fail "cw multi-context test failed"
+end
+
 log_step "Personal Brewfile"
 if not bash "$repo_root/setup/tests/personal-brewfile.test.sh"
     mark_fail "personal Brewfile test failed"

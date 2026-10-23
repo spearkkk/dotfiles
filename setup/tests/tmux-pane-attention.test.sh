@@ -425,6 +425,28 @@ EXPECTED_HOOKS
     *) fail attention_done_format "missing complete done style token: $done_format" ;;
   esac
   pane_id=$("$real_tmux" -L "$socket_name" display-message -p '#{pane_id}')
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @cw_context_prod 1
+  prod_status_style=$("$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" '#{E:status-style}')
+  [ "$prod_status_style" = 'bg=#C47A72,fg=#0A1F2E' ] || \
+    fail prod_status_style "prod pane did not expand to the red status background: $prod_status_style"
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @cw_context_prod 0
+  dev_status_style=$("$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" '#{E:status-style}')
+  [ "$dev_status_style" = 'bg=#1C3A50,fg=#C6D8E4' ] || \
+    fail dev_status_style "dev pane did not expand to the normal status background: $dev_status_style"
+  "$real_tmux" -L "$socket_name" set-option -p -u -t "$pane_id" @cw_context_prod
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @aws_profile dragon-kks
+  legacy_aws_prod_style=$("$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" '#{E:status-style}')
+  [ "$legacy_aws_prod_style" = 'bg=#C47A72,fg=#0A1F2E' ] || \
+    fail legacy_aws_prod_style "legacy prod AWS pane did not expand to the red status background: $legacy_aws_prod_style"
+  "$real_tmux" -L "$socket_name" set-option -p -u -t "$pane_id" @aws_profile
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @kube_context fke-prod-kks-streaming
+  legacy_kube_prod_style=$("$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" '#{E:status-style}')
+  [ "$legacy_kube_prod_style" = 'bg=#C47A72,fg=#0A1F2E' ] || \
+    fail legacy_kube_prod_style "legacy prod Kubernetes pane did not expand to the red status background: $legacy_kube_prod_style"
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @kube_context 'bp:corp-user@xpssk03/realtime-ad/xpssk-02'
+  legacy_xpssk_prod_style=$("$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" '#{E:status-style}')
+  [ "$legacy_xpssk_prod_style" = 'bg=#C47A72,fg=#0A1F2E' ] || \
+    fail legacy_xpssk_prod_style "xpssk prod Kubernetes pane did not expand to the red status background: $legacy_xpssk_prod_style"
   "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T '⠋ Working'
   "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T 'Action Required | review'
   sleep 1
