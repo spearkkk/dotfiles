@@ -424,27 +424,33 @@ FAKE_TPM
     *) fail kill_pane_hook_integration "unrelated after-kill hook was not preserved with owned [90]: $pane_kill_hooks" ;;
   esac
   kill_binding=$("$real_tmux" -L "$socket_name" list-keys -T root M-Q 2>/dev/null || true)
-  case $kill_binding in
-    *'kill-pane'*) ;;
-    *) fail tilish_kill_binding_integration "M-Q does not invoke kill-pane: $kill_binding" ;;
-  esac
-  case $kill_binding in
-    *'select-layout'*) fail tilish_kill_binding_integration "M-Q still duplicates layout work: $kill_binding" ;;
-  esac
+  normalized_kill_binding=$(printf '%s\n' "$kill_binding" | awk '{$1=$1; print}')
+  [ "$normalized_kill_binding" = 'bind-key -T root M-Q kill-pane' ] || \
+    fail tilish_kill_binding_integration "M-Q is not exactly one kill-pane command: $kill_binding"
 
   # A natural exit in an inactive window must rebalance that window, not the
   # currently selected one. Two survivors of even-horizontal differ by <= 1.
   active_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
   "$real_tmux" -L "$socket_name" new-window -d -n lifecycle-target 'sleep 30'
   "$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h 'sleep 30'
-  "$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h 'sleep 1'
+  exiting_pane=$("$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h -P -F '#{pane_id}' 'sleep 30')
   "$real_tmux" -L "$socket_name" select-layout -t lifecycle-target even-horizontal
   "$real_tmux" -L "$socket_name" select-window -t "$active_window"
-  sleep 1.3
-  survivor_widths=$("$real_tmux" -L "$socket_name" list-panes -t lifecycle-target -F '#{pane_width}')
-  survivor_count=$(printf '%s\n' "$survivor_widths" | awk 'NF { count++ } END { print count + 0 }')
-  width_min=$(printf '%s\n' "$survivor_widths" | sort -n | head -1)
-  width_max=$(printf '%s\n' "$survivor_widths" | sort -n | tail -1)
+  "$real_tmux" -L "$socket_name" send-keys -t "$exiting_pane" C-c
+  attempts=0
+  survivor_widths=
+  survivor_count=0
+  width_min=0
+  width_max=2
+  while [ "$attempts" -lt 30 ]; do
+    survivor_widths=$("$real_tmux" -L "$socket_name" list-panes -t lifecycle-target -F '#{pane_width}')
+    survivor_count=$(printf '%s\n' "$survivor_widths" | awk 'NF { count++ } END { print count + 0 }')
+    width_min=$(printf '%s\n' "$survivor_widths" | sort -n | head -1)
+    width_max=$(printf '%s\n' "$survivor_widths" | sort -n | tail -1)
+    [ "$survivor_count" -eq 2 ] && [ $((width_max - width_min)) -le 1 ] && break
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
   [ "$survivor_count" -eq 2 ] && [ $((width_max - width_min)) -le 1 ] || \
     fail inactive_window_layout "inactive natural exit was not balanced: $survivor_widths"
   [ "$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')" = "$active_window" ] || \

@@ -42,3 +42,7 @@ controller에 `reconcile-window <window-id>` operation을 추가한다. 이 oper
 - Tilish `M-Q`에서 layout 계산은 한 번만 수행된다.
 - pane 종료 reconciliation은 다른 window pane title을 조회하지 않는다.
 - 기존 attention waiting/done 색상 및 marker 테스트가 유지된다.
+
+## 활성 server 적용
+
+브랜치 검증은 격리 tmux server에서 수행한다. Main 병합 후 실행 중인 server에는 구버전이 소유했던 `after-kill-pane[0]`, `[1]`만 한 번 제거하고 설정을 source한다. 저장된 설정은 전체 hook 초기화를 포함하지 않는다.
