@@ -251,6 +251,7 @@ esac
 renderer_output=$("$renderer" middle-right 100 attention %1 @1 normal)
 assert_not_called renderer_budget '^list-windows '
 assert_not_called renderer_budget '^list-panes '
+assert_not_called renderer_context_queries '^show-options? '
 assert_not_called renderer_read_only '^set-option '
 renderer_output=$("$renderer" top 100 attention %1 @1 prod)
 case $renderer_output in

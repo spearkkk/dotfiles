@@ -7,6 +7,12 @@ session="${3:-}"
 pane_id="${4:-}"
 window_id="${5:-}"
 style_variant="${6:-normal}"
+kube_context="${7:-x}"
+aws_profile="${8:-x}"
+cw_context="${9:-x}"
+kube_context="${kube_context#x}"
+aws_profile="${aws_profile#x}"
+cw_context="${cw_context#x}"
 
 [[ "$width" =~ ^[0-9]+$ ]] || width=80
 (( width < 8 )) && width=8
@@ -30,15 +36,6 @@ case "$style_variant" in
     inactive_fg="#4A6E86"
     ;;
 esac
-
-tmux_option_value() {
-  local scope="$1"
-  local target="$2"
-  local option="$3"
-
-  [[ -z "$target" ]] && return
-  tmux show-options "$scope" -v -t "$target" "$option" 2>/dev/null || true
-}
 
 short_kube_context() {
   local ctx="$1"
@@ -105,18 +102,6 @@ case "$mode" in
     printf '%s│ %s#[push-default]' "$style_border" "$style_inactive"
     ;;
   middle-right)
-    kube_context="$(tmux_option_value -p "$pane_id" @kube_context)"
-    if [[ -z "$kube_context" ]]; then
-      kube_context="$(tmux_option_value -w "$window_id" @kube_context)"
-    fi
-    aws_profile="$(tmux_option_value -p "$pane_id" @aws_profile)"
-    if [[ -z "$aws_profile" ]]; then
-      aws_profile="$(tmux_option_value -w "$window_id" @aws_profile)"
-    fi
-    cw_context="$(tmux_option_value -p "$pane_id" @cw_context)"
-    if [[ -z "$cw_context" ]]; then
-      cw_context="$(tmux_option_value -w "$window_id" @cw_context)"
-    fi
     # shellcheck disable=SC1091
     [[ -f "$HOME/.tmux/config/kube-func.sh" ]] && source "$HOME/.tmux/config/kube-func.sh"
 

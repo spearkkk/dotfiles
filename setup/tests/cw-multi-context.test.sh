@@ -146,7 +146,7 @@ grep -q 'set-option -p -t %7 @cw_context dev-k8s | fos-dev' "$FAKE_TMUX_LOG" || 
 
 export FAKE_CW_CONTEXT='dev-k8s | fos-dev'
 export FAKE_CW_CONTEXT_PROD=0
-renderer_output=$($renderer middle-right 100 test %7 @1 normal)
+renderer_output=$($renderer middle-right 100 test %7 @1 normal x x "x$FAKE_CW_CONTEXT")
 case $renderer_output in
   *' dev-k8s | fos-dev '*) ;;
   *) fail status_context "combined context missing from status: $renderer_output" ;;
@@ -154,7 +154,7 @@ esac
 
 export FAKE_CW_CONTEXT='dev-k8s | pulsar-prod'
 export FAKE_CW_CONTEXT_PROD=1
-renderer_output=$($renderer middle-right 100 test %7 @1 prod)
+renderer_output=$($renderer middle-right 100 test %7 @1 prod x x "x$FAKE_CW_CONTEXT")
 case $renderer_output in
   *'#[fg=#0A1F2E,bg=#C47A72]'*) ;;
   *) fail status_prod "prod status color missing: $renderer_output" ;;
