@@ -9,6 +9,7 @@ return {
         "VimEnter",
         "FocusGained",
         "InsertLeave",
+        "CmdlineEnter",
         "CmdlineLeave",
       },
       set_previous_events = {
