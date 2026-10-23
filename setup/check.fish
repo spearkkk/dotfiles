@@ -218,6 +218,11 @@ if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
     mark_fail "tmux pane attention test failed"
 end
 
+log_step "tmux pane focus"
+if not bash "$repo_root/setup/tests/tmux-pane-focus.test.sh"
+    mark_fail "tmux pane focus test failed"
+end
+
 log_step "tmux pane movement"
 if not bash "$repo_root/setup/tests/tmux-move-pane.test.sh"
     mark_fail "tmux pane movement test failed"
