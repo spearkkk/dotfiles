@@ -304,7 +304,7 @@ fi
 tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)
 pane_exit_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*pane-exited\[0\]' "$tmux_config" || true)
 kill_hook_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*after-kill-pane' "$tmux_config" || true)
-expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout ; select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-all"'"'"''
+expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout ; select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-window #{window_id}"'"'"''
 [ "$tpm_count" -eq 1 ] || fail tpm_loader_count "expected exactly one TPM loader, found $tpm_count"
 if grep -qE '^[[:space:]]*set-hook[[:space:]]+-gu[[:space:]]+after-kill-pane' "$tmux_config"; then
   fail kill_pane_hook_ownership "configuration globally clears after-kill-pane callbacks"
@@ -312,7 +312,7 @@ fi
 [ "$kill_hook_declarations" = "$expected_kill_hook_declarations" ] || \
   fail kill_pane_hook_declarations "after-kill-pane is not the dedicated [90] callback: $kill_hook_declarations"
 case $pane_exit_declarations in
-  *'select-layout -t'*'#{hook_window}'*'reconcile-all'*) ;;
+  *'select-layout -t'*'#{hook_window}'*'reconcile-window'*'#{hook_window}'*) ;;
   *) fail pane_exit_hook_target "pane-exited[0] is not target-aware and reconciled: $pane_exit_declarations" ;;
 esac
 grep -qF 'bind-key -n M-Q kill-pane' "$tmux_config" || \
@@ -346,6 +346,21 @@ assert_called reconcile_all '@attention_codex_working'
 assert_called reconcile_all '%1 -u @attention_state'
 assert_called reconcile_all '%2 -u @attention_state'
 assert_called reconcile_all 'set-option -wu -t @1 @attention_window_state'
+unset FAKE_PANE_SNAPSHOT
+
+# Window-scoped reconciliation must not inspect or synchronize other windows.
+export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|done\n@1|%2|\n@2|%3|waiting'
+export FAKE_CLIENTS='focused|@1|%1|0'
+export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+run_controller reconcile-window @1 || fail reconcile_window "controller exited $?"
+assert_called reconcile_window 'display-message -p -t %1'
+assert_called reconcile_window 'display-message -p -t %2'
+assert_not_called reconcile_window 'display-message -p -t %3'
+assert_called reconcile_window 'list-panes -t @1'
+assert_not_called reconcile_window 'list-panes -t @2'
+assert_not_called reconcile_window 'refresh-client .*@2'
 unset FAKE_PANE_SNAPSHOT
 
 # A pane-exited hook can run after the final attention-marked pane is gone.
@@ -389,12 +404,12 @@ FAKE_TPM
   [ "$pane_exit_hook_count" -eq 1 ] || \
     fail pane_exit_hook_integration "expected one owned pane-exited hook: $pane_exit_hooks"
   case $pane_exit_hooks in
-    'pane-exited[0] '*'select-layout -t'*'#{hook_window}'*'tmux-pane-attention reconcile-all'*) ;;
+    'pane-exited[0] '*'select-layout -t'*'#{hook_window}'*'tmux-pane-attention reconcile-window'*'#{hook_window}'*) ;;
     *) fail pane_exit_hook_integration "pane-exited hook is not target-aware and reconciled: $pane_exit_hooks" ;;
   esac
   pane_kill_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-kill-pane 2>/dev/null)
   case $pane_kill_hooks in
-    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout ; select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-all'*) ;;
+    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout ; select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-window'*'#{window_id}'*) ;;
     *) fail kill_pane_hook_integration "unrelated after-kill hook was not preserved with owned [90]: $pane_kill_hooks" ;;
   esac
   kill_binding=$("$real_tmux" -L "$socket_name" list-keys -T root M-Q 2>/dev/null || true)
