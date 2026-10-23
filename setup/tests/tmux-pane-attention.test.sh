@@ -541,12 +541,8 @@ FAKE_TPM
   [ "$attention_state" = waiting ] || fail title_hook_integration "waiting marker was not stored: $attention_state"
   [ -z "$pending_state" ] || fail title_hook_integration "pending flag was not cleared: $pending_state"
 
-  # select-pane implicitly unzooms before after-select-pane runs. The hook must
-  # still acknowledge the newly visible window when attention exists.
-  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
-  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
-  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
-  "$real_tmux" -L "$socket_name" resize-pane -Z
+  # Spinner glyph changes are presentation-only. Once the semantic state is
+  # already working, they must not launch another reconciliation process.
   hook_log="$tmpdir/select-pane-hook.log"
   rm -f "$integration_home/.local/libexec/tmux-pane-attention"
   cat >"$integration_home/.local/libexec/tmux-pane-attention" <<HOOK_HELPER
@@ -554,6 +550,45 @@ FAKE_TPM
 printf '%s\n' "\$*" >>"$hook_log"
 HOOK_HELPER
   chmod +x "$integration_home/.local/libexec/tmux-pane-attention"
+  sleep 0.2
+  : >"$hook_log"
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @attention_codex_state working
+  "$real_tmux" -L "$socket_name" set-option -pu -t "$pane_id" @attention_state 2>/dev/null || true
+  "$real_tmux" -L "$socket_name" set-option -pu -t "$pane_id" @attention_reconcile_pending 2>/dev/null || true
+  "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T '⠋ Working'
+  sleep 0.5
+  : >"$hook_log"
+  "$real_tmux" -L "$socket_name" set-option -p -t "$pane_id" @attention_codex_state working
+  "$real_tmux" -L "$socket_name" set-option -pu -t "$pane_id" @attention_state 2>/dev/null || true
+  "$real_tmux" -L "$socket_name" set-option -pu -t "$pane_id" @attention_reconcile_pending 2>/dev/null || true
+  "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T '⠹ Working'
+  sleep 0.3
+  if grep -q '^reconcile-title ' "$hook_log"; then
+    title_debug=$(
+      "$real_tmux" -L "$socket_name" display-message -p -t "$pane_id" \
+        'title=#{pane_title}|codex=#{@attention_codex_state}|attention=#{@attention_state}|transition=#{E:@attention_title_transition}'
+    )
+    fail title_hook_spinner_noop "spinner-only title change launched reconciliation ($title_debug): $(cat "$hook_log")"
+  fi
+
+  # A semantic transition still has to enqueue reconciliation.
+  : >"$hook_log"
+  "$real_tmux" -L "$socket_name" set-option -pu -t "$pane_id" @attention_reconcile_pending 2>/dev/null || true
+  "$real_tmux" -L "$socket_name" select-pane -t "$pane_id" -T 'Action Required | review'
+  attempts=0
+  while ! grep -q '^reconcile-title ' "$hook_log" && [ "$attempts" -lt 20 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  grep -q "^reconcile-title $pane_id\$" "$hook_log" || \
+    fail title_hook_semantic_transition "semantic title transition was not reconciled: $(cat "$hook_log")"
+
+  # select-pane implicitly unzooms before after-select-pane runs. The hook must
+  # still acknowledge the newly visible window when attention exists.
+  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
+  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
+  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
+  "$real_tmux" -L "$socket_name" resize-pane -Z
   "$real_tmux" -L "$socket_name" set-option -w @attention_window_state waiting
   : >"$hook_log"
   "$real_tmux" -L "$socket_name" select-pane -R
