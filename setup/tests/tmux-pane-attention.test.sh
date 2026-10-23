@@ -300,6 +300,8 @@ grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "
 if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
   fail tilish_enforce "Tilish must use its full default enforcement hook, not an explicit enforcement override"
 fi
+grep -qE "^[[:space:]]*set(-option)?[[:space:]]+-gu[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config" || \
+  fail tilish_enforce_migration "configuration does not clear the legacy size-only override"
 grep -q "set -g @tilish-createauto 'off'" "$tmux_config" || fail tilish_createauto "Tilish auto split direction is not disabled"
 grep -q 'bind-key -n M-\[ previous-window' "$tmux_config" || fail previous_window_binding "Alt-[ binding changed"
 grep -q 'bind-key -n M-\] next-window' "$tmux_config" || fail next_window_binding "Alt-] binding changed"
@@ -448,6 +450,11 @@ else
   ln -s "$controller" "$integration_home/.local/libexec/tmux-pane-attention"
   cat >"$integration_home/.tmux/plugins/tpm/tpm" <<'FAKE_TPM'
 #!/bin/sh
+if [ "$(tmux show-option -gqv @tilish-enforce)" = size ]; then
+  tmux set-hook -g after-split-window 'select-layout -E'
+else
+  tmux set-hook -g after-split-window 'select-layout ; select-layout -E'
+fi
 tmux set-hook -g pane-exited 'select-layout; select-layout -E'
 tmux set-hook -g after-kill-pane[2] 'display-message stale-hook'
 FAKE_TPM
@@ -455,11 +462,20 @@ FAKE_TPM
   env HOME="$integration_home" PATH="$real_path" "$real_tmux" -L "$socket_name" -f /dev/null \
     new-session -d -s attention-test 'sleep 30' || \
     fail tmux_config_parse "could not start isolated server"
+  "$real_tmux" -L "$socket_name" set-option -g @tilish-enforce size
   source_output=$("$real_tmux" -L "$socket_name" source-file "$tmux_config" 2>&1)
   source_status=$?
   if [ "$source_status" -ne 0 ]; then
     fail tmux_config_parse "could not source isolated tmux configuration (exit $source_status): $source_output"
   fi
+  tilish_enforce_value=$("$real_tmux" -L "$socket_name" show-option -gqv @tilish-enforce)
+  [ -z "$tilish_enforce_value" ] || \
+    fail tilish_enforce_runtime "legacy Tilish override survived configuration reload: $tilish_enforce_value"
+  split_hook=$("$real_tmux" -L "$socket_name" show-hooks -g after-split-window 2>/dev/null)
+  case $split_hook in
+    *'select-layout ; select-layout -E'*) ;;
+    *) fail tilish_split_hook_runtime "Tilish full layout enforcement was not restored: $split_hook" ;;
+  esac
   inactive_pane_style=$("$real_tmux" -L "$socket_name" show-option -gv pane-border-style)
   [ "$inactive_pane_style" = 'fg=#C6D8E4,bg=#1C3A50' ] || \
     fail inactive_pane_style "unexpected inactive pane style: $inactive_pane_style"
