@@ -237,16 +237,31 @@ assert_called lock_release '^wait-for -U tmux-pane-attention-lock$'
 
 # The renderer only draws the dynamic frame and context. Window navigation is
 # a native tmux format so selecting a window never waits on a #() command.
-: >"$FAKE_CALL_LOG"
-renderer_output=$("$renderer" middle-left 100 attention %1 @1 0)
+for renderer_mode in spacer top middle-left bottom; do
+  : >"$FAKE_CALL_LOG"
+  renderer_output=$("$renderer" "$renderer_mode" 100 attention %1 @1 normal)
+  assert_not_called "renderer_${renderer_mode}_no_tmux_queries" '^show-options? '
+done
+renderer_output=$("$renderer" middle-left 100 attention %1 @1 normal)
 case $renderer_output in
   *'│ '*'#[push-default]'*) ;;
   *) fail renderer_middle_left "missing native-list prefix: $renderer_output" ;;
 esac
-renderer_output=$("$renderer" middle-right 100 attention %1 @1 0)
+: >"$FAKE_CALL_LOG"
+renderer_output=$("$renderer" middle-right 100 attention %1 @1 normal)
 assert_not_called renderer_budget '^list-windows '
 assert_not_called renderer_budget '^list-panes '
 assert_not_called renderer_read_only '^set-option '
+renderer_output=$("$renderer" top 100 attention %1 @1 prod)
+case $renderer_output in
+  *'#[fg=#0A1F2E,bg=#C47A72]'*) ;;
+  *) fail renderer_prod_style "missing prod border style: $renderer_output" ;;
+esac
+renderer_output=$("$renderer" top 100 attention %1 @1 prefix)
+case $renderer_output in
+  *'#[fg=#C6D8E4,bg=#0A1F2E]'*) ;;
+  *) fail renderer_prefix_style "missing prefix border style: $renderer_output" ;;
+esac
 
 # Fish forwards the semantic operation and explicit pane ID.
 fish_home="$tmpdir/fish-home"
@@ -356,6 +371,13 @@ tilish_shifted_move_line=$(grep -nF "bind-key -n M-S-H run-shell '~/.local/libex
   fail tilish_shifted_move_order "Ghostty extended-key pane move bindings are not after TPM"
 grep -q 'pane-moved.*reconcile-all' "$tmux_config" || fail pane_move_hook "missing window attention reconciliation after pane move"
 grep -q 'status-format\[2\].*#{W:' "$tmux_config" || fail native_window_loop "middle status does not use native W: loop"
+status_box_invocations=$(grep -o 'status-box\.sh' "$tmux_config" | wc -l | tr -d ' ')
+[ "$status_box_invocations" -eq 1 ] || \
+  fail status_box_process_budget "expected one status-box process per redraw, found $status_box_invocations"
+grep -q 'status-format\[0\].*#{R: ' "$tmux_config" || \
+  fail native_status_spacer "status spacer is not rendered by a native repeat format"
+grep -q 'status-format\[3\].*#{R:─' "$tmux_config" || \
+  fail native_status_bottom "status bottom border is not rendered by a native repeat format"
 grep -q 'window-status-current-format.*bg=#50C4C0' "$tmux_config" || fail native_current_style "current window style is not native"
 grep -q 'window-status-current-format.*window_zoomed_flag' "$tmux_config" || \
   fail native_current_marker "current window marker is not limited to zoomed hidden panes"
