@@ -43,6 +43,13 @@ case ${1:-} in
     ;;
   list-clients)
     case "$*" in
+      *@attention_window_state*)
+        if [ "${FAKE_CLIENT_ATTENTION_ROWS+x}" = x ]; then
+          printf '%s\n' "$FAKE_CLIENT_ATTENTION_ROWS"
+        else
+          printf '%s\n' "${FAKE_CLIENTS:-}" | awk -F'|' -v state="${FAKE_ATTENTION_WINDOW_STATE:-}" 'NF { print $1 "|" state }'
+        fi
+        ;;
       *client_name*)
         if [ -n "${FAKE_NAMED_CLIENTS:-}" ]; then
           printf '%s\n' "$FAKE_NAMED_CLIENTS"
@@ -55,6 +62,13 @@ case ${1:-} in
     ;;
   list-panes)
     case "$*" in
+      *'#{window_id}|#{pane_id}|#{@attention_state}'*)
+        if [ "${FAKE_PANE_SNAPSHOT+x}" = x ]; then
+          printf '%s\n' "$FAKE_PANE_SNAPSHOT"
+        else
+          printf '%s\n' "${FAKE_PANES:-}" | awk -F'|' 'NF { print $1 "|" $2 "|" }'
+        fi
+        ;;
       *@attention_state*) printf '%s\n' "${FAKE_AGGREGATE_PANES:-}" ;;
       *pane_active*) printf '%s\n' "${FAKE_RENDER_PANES:-}" ;;
       *) printf '%s\n' "${FAKE_PANES:-}" ;;
@@ -129,18 +143,35 @@ assert_called zoomed_hidden_done 'set-option .*%2 .*@attention_state done'
 assert_called zoomed_hidden_done 'set-option -w -t @1 @attention_window_state done'
 
 export FAKE_CLIENTS=$'focused|@1|%1|1\nfocused|@2|%3|0'
+export FAKE_CLIENT_ATTENTION_ROWS=$'focused|waiting\nfocused|done'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|waiting\n@1|%2|\n@2|%3|done'
 run_controller acknowledge-visible || fail multi_client_union "controller exited $?"
 assert_called multi_client_union 'set-option .*%1 -u @attention_state|set-option .*%1 .* -u .*@attention_state'
 assert_called multi_client_union 'set-option .*%3 -u @attention_state|set-option .*%3 .* -u .*@attention_state'
 assert_not_called multi_client_union 'set-option .*%2 .*@attention_state'
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
 
 export FAKE_CLIENTS='UTF-8|@1|%1|0'
 run_controller acknowledge-visible || fail unfocused_no_ack "controller exited $?"
 assert_not_called unfocused_no_ack 'set-option .*@attention_state'
 
+# A common navigation/focus event with no attention state must be a true no-op.
+export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|\n@1|%2|\n@2|%3|'
+export FAKE_CLIENTS='focused|@1|%1|0'
+export FAKE_CLIENT_ATTENTION_ROWS='focused|'
+run_controller acknowledge-visible || fail attention_noop "controller exited $?"
+assert_not_called attention_noop 'set-option .*@attention_state'
+assert_not_called attention_noop '^list-panes '
+assert_not_called attention_noop 'refresh-client '
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
+
 reconcile() {
   local title=$1 attention=$2 codex=$3
   export FAKE_TITLE=$title FAKE_ATTENTION_STATE=$attention FAKE_CODEX_STATE=$codex FAKE_PENDING=1
+  export FAKE_PANE_SNAPSHOT="@1|%1|
+@1|%2|
+@2|%3|$attention"
   export FAKE_CLIENTS='UTF-8|@1|%1|0'
   run_controller reconcile-title %3 || fail "$4" "controller exited $?"
 }
@@ -180,6 +211,7 @@ assert_called waiting_to_idle '-u @attention_state'
 
 reconcile 'Idle' waiting '' stale_waiting
 assert_called stale_waiting '-u @attention_state'
+unset FAKE_PANE_SNAPSHOT
 
 export FAKE_PANES=$'@0|%0\n@1|%1\n@2|%2'
 export FAKE_CLIENTS='focused|@1|%1|0'
@@ -189,8 +221,11 @@ assert_not_called stale_pane_noop 'set-option '
 export FAKE_PANES=$'@0|%0\n@1|%1\n@2|%2'
 export FAKE_CLIENTS='focused,UTF-8|@1|%1|0'
 : >"$FAKE_CALL_LOG"
+export FAKE_CLIENT_ATTENTION_ROWS='focused|waiting'
+export FAKE_PANE_SNAPSHOT=$'@0|%0|\n@1|%1|waiting\n@2|%2|'
 env -u TMUX "$controller" acknowledge-visible >/dev/null 2>&1 || fail server_hook_acknowledges "server hook exited unexpectedly"
 assert_called server_hook_acknowledges 'set-option .*%1 -u @attention_state|set-option .*%1 .* -u .*@attention_state'
+unset FAKE_PANE_SNAPSHOT FAKE_CLIENT_ATTENTION_ROWS
 
 env TMUX=1 "$controller" invalid-operation >/dev/null 2>&1
 [ "$?" -eq 64 ] || fail invalid_operation "expected status 64"
@@ -242,10 +277,14 @@ grep -q 'client-focus-in.*acknowledge-visible' "$tmux_config" || fail focus_hook
 grep -q 'after-select-window.*acknowledge-visible' "$tmux_config" || fail window_hook "missing window acknowledgement"
 grep -q 'after-select-pane.*acknowledge-visible' "$tmux_config" || fail pane_hook "missing pane acknowledgement"
 grep -q 'after-resize-pane.*acknowledge-visible' "$tmux_config" || fail resize_hook "missing resize acknowledgement"
+if grep -Eq '(client-focus-in|after-select-window|after-select-pane|after-resize-pane).*if-shell' "$tmux_config"; then
+  fail visibility_hook_race "visibility hooks must queue behind the controller lock without an aggregate pre-check"
+fi
 grep -q "set -g @plugin 'jabirali/tmux-tilish'" "$tmux_config" || fail tilish_plugin "missing Tilish TPM plugin"
 grep -q "set -g @tilish-default 'tiled'" "$tmux_config" || fail tilish_default "Tilish does not default to the tiled layout"
-grep -q "set -g @tilish-enforce 'size'" "$tmux_config" || \
-  fail tilish_enforce "Tilish must equalize pane sizes without rearranging the layout"
+if grep -qE "^[[:space:]]*set[[:space:]]+-g[[:space:]]+@tilish-enforce([[:space:]]|$)" "$tmux_config"; then
+  fail tilish_enforce "Tilish must use its full default enforcement hook, not an explicit enforcement override"
+fi
 grep -q "set -g @tilish-createauto 'off'" "$tmux_config" || fail tilish_createauto "Tilish auto split direction is not disabled"
 grep -q 'bind-key -n M-\[ previous-window' "$tmux_config" || fail previous_window_binding "Alt-[ binding changed"
 grep -q 'bind-key -n M-\] next-window' "$tmux_config" || fail next_window_binding "Alt-] binding changed"
@@ -272,9 +311,6 @@ for binding in \
   grep -qF "$binding" "$ghostty_keybinds" || \
     fail korean_shifted_move_bindings "missing Ghostty Korean pane move binding: $binding"
 done
-if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-[hjklz][[:space:]]' "$tmux_config"; then
-  fail tilish_binding_owner "duplicate native Tilish navigation or zoom binding remains"
-fi
 for binding in \
   "bind-key -n M-H run-shell '~/.local/libexec/tmux-move-pane left \"#{pane_id}\"'" \
   "bind-key -n M-J run-shell '~/.local/libexec/tmux-move-pane down \"#{pane_id}\"'" \
@@ -288,38 +324,36 @@ for binding in \
     fail tilish_shifted_move_bindings "missing Ghostty extended-key pane move binding: $binding"
 done
 
+if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-[hjklz][[:space:]]' "$tmux_config"; then
+  fail tilish_binding_owner "duplicate native Tilish navigation or zoom binding remains"
+fi
+
 tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)
-attention_exit_count=$(grep -cF 'set-hook -ag pane-exited' "$tmux_config" || true)
-tilish_close_override_count=$(grep -cF 'bind-key -n M-Q kill-pane' "$tmux_config" || true)
+pane_exit_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*pane-exited\[0\]' "$tmux_config" || true)
 kill_hook_declarations=$(grep -E '^[[:space:]]*set-hook[[:space:]].*after-kill-pane' "$tmux_config" || true)
-expected_kill_hook_declarations=$(cat <<'EXPECTED_HOOKS'
-set-hook -gu after-kill-pane
-set-hook -g after-kill-pane[0] 'select-layout -E'
-set-hook -g after-kill-pane[1] 'run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-all"'
-EXPECTED_HOOKS
-)
+expected_kill_hook_declarations='set-hook -g after-kill-pane[90] '"'"'select-layout ; select-layout -E ; run-shell -b "~/.local/libexec/tmux-pane-attention reconcile-window #{window_id}"'"'"''
 [ "$tpm_count" -eq 1 ] || fail tpm_loader_count "expected exactly one TPM loader, found $tpm_count"
-[ "$attention_exit_count" -eq 1 ] || fail pane_exit_hook_count "expected exactly one appended pane-exited hook, found $attention_exit_count"
-[ "$tilish_close_override_count" -eq 1 ] || \
-  fail tilish_close_override_count "expected one non-rearranging Alt+Shift+Q override, found $tilish_close_override_count"
+if grep -qE '^[[:space:]]*set-hook[[:space:]]+-gu[[:space:]]+after-kill-pane' "$tmux_config"; then
+  fail kill_pane_hook_ownership "configuration globally clears after-kill-pane callbacks"
+fi
 [ "$kill_hook_declarations" = "$expected_kill_hook_declarations" ] || \
-  fail kill_pane_hook_declarations "after-kill-pane declarations are not the exact reset, [0], [1] sequence: $kill_hook_declarations"
+  fail kill_pane_hook_declarations "after-kill-pane is not the dedicated [90] callback: $kill_hook_declarations"
+case $pane_exit_declarations in
+  *'select-layout -t'*'#{hook_window}'*'reconcile-window'*'#{hook_window}'*) ;;
+  *) fail pane_exit_hook_target "pane-exited[0] is not target-aware and reconciled: $pane_exit_declarations" ;;
+esac
+grep -qF 'bind-key -n M-Q kill-pane' "$tmux_config" || \
+  fail tilish_kill_binding "M-Q must delegate layout work to the lifecycle hook"
 tpm_line=$(grep -nF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" | cut -d: -f1)
-attention_exit_line=$(grep -nF 'set-hook -ag pane-exited' "$tmux_config" | cut -d: -f1)
-tilish_close_override_line=$(grep -nF 'bind-key -n M-Q kill-pane' "$tmux_config" | cut -d: -f1)
+pane_exit_line=$(grep -nE '^[[:space:]]*set-hook[[:space:]]+-g[[:space:]]+pane-exited\[0\]' "$tmux_config" | cut -d: -f1)
+kill_hook_line=$(grep -nE '^[[:space:]]*set-hook[[:space:]]+-g[[:space:]]+after-kill-pane\[90\]' "$tmux_config" | cut -d: -f1)
 tilish_shifted_move_line=$(grep -nF "bind-key -n M-S-H run-shell '~/.local/libexec/tmux-move-pane left \"#{pane_id}\"'" "$tmux_config" | cut -d: -f1)
-kill_hook_clear_line=$(grep -nFx 'set-hook -gu after-kill-pane' "$tmux_config" | cut -d: -f1)
-[ "$attention_exit_count" -eq 1 ] && \
-  sed -n "${attention_exit_line},$((attention_exit_line + 1))p" "$tmux_config" | grep -q 'reconcile-all' || \
-  fail pane_exit_hook_command "appended pane-exited hook does not reconcile attention"
-[ "$tpm_count" -eq 1 ] && [ "$attention_exit_count" -eq 1 ] && [ "$attention_exit_line" -gt "$tpm_line" ] || \
-  fail pane_exit_hook_order "attention pane-exited hook is not appended after TPM"
-[ -n "$tilish_close_override_line" ] && [ "$tilish_close_override_line" -gt "$tpm_line" ] || \
-  fail tilish_close_override_order "Alt+Shift+Q override is not after TPM"
+[ -n "$pane_exit_line" ] && [ "$pane_exit_line" -gt "$tpm_line" ] || \
+  fail pane_exit_hook_order "target-aware pane-exited replacement is not after TPM"
+[ -n "$kill_hook_line" ] && [ "$kill_hook_line" -gt "$tpm_line" ] || \
+  fail kill_pane_hook_order "owned after-kill-pane callback is not after TPM"
 [ -n "$tilish_shifted_move_line" ] && [ "$tilish_shifted_move_line" -gt "$tpm_line" ] || \
   fail tilish_shifted_move_order "Ghostty extended-key pane move bindings are not after TPM"
-[ -n "$kill_hook_clear_line" ] && [ "$kill_hook_clear_line" -gt "$tpm_line" ] || \
-  fail kill_pane_hook_order "after-kill-pane reset and exact indexed hooks are not after TPM"
 grep -q 'pane-moved.*reconcile-all' "$tmux_config" || fail pane_move_hook "missing window attention reconciliation after pane move"
 grep -q 'status-format\[2\].*#{W:' "$tmux_config" || fail native_window_loop "middle status does not use native W: loop"
 grep -q 'window-status-current-format.*bg=#50C4C0' "$tmux_config" || fail native_current_style "current window style is not native"
@@ -336,11 +370,39 @@ export FAKE_PANES=$'@1|%1\n@1|%2'
 export FAKE_CLIENTS='focused|@1|%1|0'
 export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
 export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+export FAKE_PANE_SNAPSHOT=$'@1|%1|done\n@1|%2|waiting'
 run_controller reconcile-all || fail reconcile_all "controller exited $?"
 assert_called reconcile_all '@attention_codex_working'
 assert_called reconcile_all '%1 -u @attention_state'
 assert_called reconcile_all '%2 -u @attention_state'
 assert_called reconcile_all 'set-option -wu -t @1 @attention_window_state'
+unset FAKE_PANE_SNAPSHOT
+
+# Window-scoped reconciliation must not inspect or synchronize other windows.
+export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|done\n@1|%2|\n@2|%3|waiting'
+export FAKE_CLIENTS=$'focused|@1|%1|0\nfocused|@2|%3|0'
+export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDING=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+run_controller reconcile-window @1 || fail reconcile_window "controller exited $?"
+assert_called reconcile_window 'display-message -p -t %1'
+assert_called reconcile_window 'display-message -p -t %2'
+assert_not_called reconcile_window 'display-message -p -t %3'
+assert_not_called reconcile_window 'set-option -p -t %3 -u @attention_state'
+assert_called reconcile_window 'list-panes -t @1'
+assert_not_called reconcile_window 'list-panes -t @2'
+unset FAKE_PANE_SNAPSHOT
+
+# A stale window aggregate must be cleared even when no pane attention state
+# changes, proving reconcile-window marks its target dirty directly.
+export FAKE_PANES=$'@1|%1\n@1|%2\n@2|%3'
+export FAKE_PANE_SNAPSHOT=$'@1|%1|\n@1|%2|\n@2|%3|waiting'
+export FAKE_CLIENTS=''
+export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
+run_controller reconcile-window @1 || fail reconcile_window_stale_aggregate "controller exited $?"
+assert_called reconcile_window_stale_aggregate 'set-option -wu -t @1 @attention_window_state'
+assert_not_called reconcile_window_stale_aggregate 'set-option -wu -t @2 @attention_window_state'
+unset FAKE_PANE_SNAPSHOT
 
 # A pane-exited hook can run after the final attention-marked pane is gone.
 # Even when unsetting absent pane options fails, every current window must be
@@ -351,7 +413,7 @@ export FAKE_TITLE='shell' FAKE_ATTENTION_STATE='' FAKE_CODEX_STATE='' FAKE_PENDI
 export FAKE_ATTENTION_WINDOW_STATE=done FAKE_AGGREGATE_PANES=''
 export FAKE_MISSING_ATTENTION_UNSET_FAIL=1
 run_controller reconcile-all || fail stale_window_aggregate "controller exited $?"
-assert_called stale_window_aggregate 'set-option -p -t %1 -u @attention_state'
+assert_not_called stale_window_aggregate 'set-option -p -t %1 -u @attention_state'
 assert_called stale_window_aggregate 'set-option -wu -t @1 @attention_window_state'
 unset FAKE_MISSING_ATTENTION_UNSET_FAIL
 
@@ -364,7 +426,7 @@ else
   ln -s "$controller" "$integration_home/.local/libexec/tmux-pane-attention"
   cat >"$integration_home/.tmux/plugins/tpm/tpm" <<'FAKE_TPM'
 #!/bin/sh
-tmux set-hook -g pane-exited 'select-layout -E'
+tmux set-hook -g pane-exited 'select-layout; select-layout -E'
 tmux set-hook -g after-kill-pane[2] 'display-message stale-hook'
 FAKE_TPM
   chmod +x "$integration_home/.tmux/plugins/tpm/tpm"
@@ -389,28 +451,50 @@ FAKE_TPM
     "$real_tmux" -L "$socket_name" show-hooks -g pane-exited 2>/dev/null
   )
   pane_exit_hook_count=$(printf '%s\n' "$pane_exit_hooks" | grep -Ec '^pane-exited\[[0-9]+\] ' || true)
-  [ "$pane_exit_hook_count" -eq 2 ] || \
-    fail pane_exit_hook_integration "expected exactly two pane-exited hooks: $pane_exit_hooks"
-  if [ "$pane_exit_hook_count" -eq 2 ]; then
-    first_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '1p')
-    second_pane_exit_hook=$(printf '%s\n' "$pane_exit_hooks" | sed -n '2p')
-    case $first_pane_exit_hook in
-      'pane-exited[0] select-layout -E') ;;
-      *) fail pane_exit_hook_integration "first pane-exited hook does not preserve geometry while equalizing sizes: $pane_exit_hooks" ;;
-    esac
-    case $second_pane_exit_hook in
-      'pane-exited[1] '*'tmux-pane-attention reconcile-all'*) ;;
-      *) fail pane_exit_hook_integration "second pane-exited hook is not attention reconciliation: $pane_exit_hooks" ;;
-    esac
-  fi
+  [ "$pane_exit_hook_count" -eq 1 ] || \
+    fail pane_exit_hook_integration "expected one owned pane-exited hook: $pane_exit_hooks"
+  case $pane_exit_hooks in
+    'pane-exited[0] '*'select-layout -t'*'#{hook_window}'*'tmux-pane-attention reconcile-window'*'#{hook_window}'*) ;;
+    *) fail pane_exit_hook_integration "pane-exited hook is not target-aware and reconciled: $pane_exit_hooks" ;;
+  esac
   pane_kill_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-kill-pane 2>/dev/null)
-  expected_pane_kill_hooks=$(cat <<EXPECTED_HOOKS
-after-kill-pane[0] select-layout -E
-after-kill-pane[1] run-shell -b "$integration_home/.local/libexec/tmux-pane-attention reconcile-all"
-EXPECTED_HOOKS
-)
-  [ "$pane_kill_hooks" = "$expected_pane_kill_hooks" ] || \
-    fail kill_pane_hook_integration "expected exactly two exact after-kill-pane hooks: $pane_kill_hooks"
+  case $pane_kill_hooks in
+    *'after-kill-pane[2] display-message stale-hook'*'after-kill-pane[90] select-layout ; select-layout -E ; run-shell -b '*'tmux-pane-attention reconcile-window'*'#{window_id}'*) ;;
+    *) fail kill_pane_hook_integration "unrelated after-kill hook was not preserved with owned [90]: $pane_kill_hooks" ;;
+  esac
+  kill_binding=$("$real_tmux" -L "$socket_name" list-keys -T root M-Q 2>/dev/null || true)
+  normalized_kill_binding=$(printf '%s\n' "$kill_binding" | awk '{$1=$1; print}')
+  [ "$normalized_kill_binding" = 'bind-key -T root M-Q kill-pane' ] || \
+    fail tilish_kill_binding_integration "M-Q is not exactly one kill-pane command: $kill_binding"
+
+  # A natural exit in an inactive window must rebalance that window, not the
+  # currently selected one. Two survivors of even-horizontal differ by <= 1.
+  active_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
+  "$real_tmux" -L "$socket_name" new-window -d -n lifecycle-target 'sleep 30'
+  "$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h 'sleep 30'
+  exiting_pane=$("$real_tmux" -L "$socket_name" split-window -d -t lifecycle-target -h -P -F '#{pane_id}' 'sleep 30')
+  "$real_tmux" -L "$socket_name" select-layout -t lifecycle-target even-horizontal
+  "$real_tmux" -L "$socket_name" select-window -t "$active_window"
+  "$real_tmux" -L "$socket_name" send-keys -t "$exiting_pane" C-c
+  attempts=0
+  survivor_widths=
+  survivor_count=0
+  width_min=0
+  width_max=2
+  while [ "$attempts" -lt 30 ]; do
+    survivor_widths=$("$real_tmux" -L "$socket_name" list-panes -t lifecycle-target -F '#{pane_width}')
+    survivor_count=$(printf '%s\n' "$survivor_widths" | awk 'NF { count++ } END { print count + 0 }')
+    width_min=$(printf '%s\n' "$survivor_widths" | sort -n | head -1)
+    width_max=$(printf '%s\n' "$survivor_widths" | sort -n | tail -1)
+    [ "$survivor_count" -eq 2 ] && [ $((width_max - width_min)) -le 1 ] && break
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  [ "$survivor_count" -eq 2 ] && [ $((width_max - width_min)) -le 1 ] || \
+    fail inactive_window_layout "inactive natural exit was not balanced: $survivor_widths"
+  [ "$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')" = "$active_window" ] || \
+    fail inactive_window_focus "pane exit changed the active window"
+
   attention_window=$("$real_tmux" -L "$socket_name" display-message -p '#{window_id}')
   "$real_tmux" -L "$socket_name" set-option -w -t "$attention_window" @attention_window_state waiting
   waiting_format=$("$real_tmux" -L "$socket_name" display-message -p -t "$attention_window" '#{E:window-status-format}')
@@ -456,6 +540,30 @@ EXPECTED_HOOKS
   [ "$codex_state" = waiting ] || fail title_hook_integration "final title was not reconciled: $codex_state"
   [ "$attention_state" = waiting ] || fail title_hook_integration "waiting marker was not stored: $attention_state"
   [ -z "$pending_state" ] || fail title_hook_integration "pending flag was not cleared: $pending_state"
+
+  # select-pane implicitly unzooms before after-select-pane runs. The hook must
+  # still acknowledge the newly visible window when attention exists.
+  "$real_tmux" -L "$socket_name" split-window -h -d 'sleep 30'
+  left_pane=$("$real_tmux" -L "$socket_name" list-panes -F '#{pane_id}' | head -1)
+  "$real_tmux" -L "$socket_name" select-pane -t "$left_pane"
+  "$real_tmux" -L "$socket_name" resize-pane -Z
+  hook_log="$tmpdir/select-pane-hook.log"
+  rm -f "$integration_home/.local/libexec/tmux-pane-attention"
+  cat >"$integration_home/.local/libexec/tmux-pane-attention" <<HOOK_HELPER
+#!/bin/sh
+printf '%s\n' "\$*" >>"$hook_log"
+HOOK_HELPER
+  chmod +x "$integration_home/.local/libexec/tmux-pane-attention"
+  "$real_tmux" -L "$socket_name" set-option -w @attention_window_state waiting
+  : >"$hook_log"
+  "$real_tmux" -L "$socket_name" select-pane -R
+  attempts=0
+  while ! grep -q '^acknowledge-visible$' "$hook_log" && [ "$attempts" -lt 20 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  grep -q '^acknowledge-visible$' "$hook_log" || \
+    fail select_pane_unzoom_ack "zoom-to-unzoom pane selection did not acknowledge the visible window"
 fi
 
 if [ "$failures" -ne 0 ]; then

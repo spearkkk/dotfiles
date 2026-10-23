@@ -7,12 +7,12 @@ lock_held=0
 status_dirty=0
 
 usage() {
-  printf '%s\n' 'usage: tmux-pane-attention reconcile-title <pane-id> | reconcile-all | acknowledge-visible | command-done <pane-id>' >&2
+  printf '%s\n' 'usage: tmux-pane-attention reconcile-title <pane-id> | reconcile-window <window-id> | reconcile-all | acknowledge-visible | command-done <pane-id>' >&2
   exit 64
 }
 
 case $operation in
-  reconcile-title|command-done) [ -n "$target" ] || usage ;;
+  reconcile-title|reconcile-window|command-done) [ -n "$target" ] || usage ;;
   reconcile-all|acknowledge-visible) ;;
   *) usage ;;
 esac
@@ -30,10 +30,23 @@ lock_held=1
 pane_rows=
 visible_panes=
 dirty_windows=
+attention_cleared=
+
+acknowledgement_needed() {
+  attention_client_rows=$(tmux list-clients -F '#{client_flags}|#{@attention_window_state}' 2>/dev/null) || return 0
+  while IFS='|' read -r flags window_attention; do
+    case ",$flags," in
+      *,focused,*) [ -n "$window_attention" ] && return 0 ;;
+    esac
+  done <<EOF
+$attention_client_rows
+EOF
+  return 1
+}
 
 pane_exists() {
   wanted=$1
-  while IFS='|' read -r row_window row_pane; do
+  while IFS='|' read -r row_window row_pane row_attention; do
     [ "$row_pane" = "$wanted" ] && return 0
   done <<EOF
 $pane_rows
@@ -62,27 +75,44 @@ $1"
   fi
 }
 
-mark_window_dirty() {
-  wanted=$1
-  while IFS='|' read -r row_window row_pane; do
-    [ "$row_pane" = "$wanted" ] || continue
-    case "
+mark_window_id_dirty() {
+  dirty_window=$1
+  [ -n "$dirty_window" ] || return
+  case "
 $dirty_windows
 " in
-      *"
-$row_window
+    *"
+$dirty_window
 "*) ;;
-      *) dirty_windows="${dirty_windows}${dirty_windows:+
-}$row_window" ;;
-    esac
+    *) dirty_windows="${dirty_windows}${dirty_windows:+
+}$dirty_window" ;;
+  esac
+}
+
+mark_window_dirty() {
+  wanted=$1
+  while IFS='|' read -r row_window row_pane row_attention; do
+    [ "$row_pane" = "$wanted" ] || continue
+    mark_window_id_dirty "$row_window"
     return
   done <<EOF
 $pane_rows
 EOF
 }
 
+pane_in_window() {
+  scope_pane=$1
+  scope_window=$2
+  while IFS='|' read -r candidate_window candidate_pane candidate_attention; do
+    [ "$candidate_pane" = "$scope_pane" ] && [ "$candidate_window" = "$scope_window" ] && return 0
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
 snapshot_visibility() {
-  pane_rows=$(tmux list-panes -a -F '#{window_id}|#{pane_id}' 2>/dev/null) || return 1
+  pane_rows=$(tmux list-panes -a -F '#{window_id}|#{pane_id}|#{@attention_state}' 2>/dev/null) || return 1
   client_rows=$(tmux list-clients -F '#{client_name}|#{client_flags}|#{window_id}|#{pane_id}|#{window_zoomed_flag}' 2>/dev/null) || return 1
   visible_panes=
 
@@ -95,7 +125,7 @@ snapshot_visibility() {
       add_visible "$client_pane"
       continue
     fi
-    while IFS='|' read -r pane_window pane_id; do
+    while IFS='|' read -r pane_window pane_id pane_attention; do
       [ "$pane_window" = "$client_window" ] && add_visible "$pane_id"
     done <<EOF
 $pane_rows
@@ -114,8 +144,34 @@ set_pane_option() {
   tmux set-option -p -t "$1" "$2" "$3" >/dev/null 2>&1 || :
 }
 
+pane_has_attention() {
+  wanted=$1
+  case "
+$attention_cleared
+" in
+    *"
+$wanted
+"*) return 1 ;;
+  esac
+  while IFS='|' read -r row_window row_pane row_attention; do
+    [ "$row_pane" = "$wanted" ] || continue
+    [ -n "$row_attention" ]
+    return
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
+mark_attention_cleared() {
+  attention_cleared="${attention_cleared}${attention_cleared:+
+}$1"
+}
+
 unset_attention_state() {
+  pane_has_attention "$1" || return
   if tmux set-option -p -t "$1" -u @attention_state >/dev/null 2>&1; then
+    mark_attention_cleared "$1"
     status_dirty=1
     mark_window_dirty "$1"
   fi
@@ -226,19 +282,42 @@ reconcile_one() {
 }
 
 acknowledge_visible() {
+  acknowledge_window=${1:-}
   while IFS= read -r pane_id; do
-    [ -n "$pane_id" ] && unset_attention_state "$pane_id"
+    [ -n "$pane_id" ] || continue
+    if [ -n "$acknowledge_window" ]; then
+      pane_in_window "$pane_id" "$acknowledge_window" || continue
+    fi
+    unset_attention_state "$pane_id"
   done <<EOF
 $visible_panes
 EOF
 }
 
+if [ "$operation" = acknowledge-visible ] && ! acknowledgement_needed; then
+  release_lock
+  exit 0
+fi
+
 snapshot_visibility || exit 0
 
 case $operation in
   reconcile-title) reconcile_one "$target" ;;
+  reconcile-window)
+    mark_window_id_dirty "$target"
+    while IFS='|' read -r pane_window pane_id pane_attention; do
+      [ "$pane_window" = "$target" ] || continue
+      [ -n "$pane_id" ] || continue
+      mark_window_dirty "$pane_id"
+      unset_pane_option "$pane_id" @attention_codex_working
+      reconcile_one "$pane_id"
+    done <<EOF
+$pane_rows
+EOF
+    acknowledge_visible "$target"
+    ;;
   reconcile-all)
-    while IFS='|' read -r pane_window pane_id; do
+    while IFS='|' read -r pane_window pane_id pane_attention; do
       [ -n "$pane_id" ] || continue
       mark_window_dirty "$pane_id"
       unset_pane_option "$pane_id" @attention_codex_working
