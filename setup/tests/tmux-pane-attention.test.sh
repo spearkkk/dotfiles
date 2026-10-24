@@ -406,8 +406,8 @@ for binding in \
     fail tilish_shifted_move_bindings "missing Ghostty extended-key pane move binding: $binding"
 done
 
-if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-[hjklz][[:space:]]' "$tmux_config"; then
-  fail tilish_binding_owner "duplicate native Tilish navigation or zoom binding remains"
+if grep -Eq '^[[:space:]]*bind(-key)?[[:space:]]+-n[[:space:]]+M-z[[:space:]]' "$tmux_config"; then
+  fail tilish_binding_owner "duplicate native Tilish zoom binding remains"
 fi
 
 tpm_count=$(grep -cF "run '~/.tmux/plugins/tpm/tpm'" "$tmux_config" || true)

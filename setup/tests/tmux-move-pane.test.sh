@@ -4,6 +4,7 @@ set -u
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 helper="$repo_root/home/.local/libexec/tmux-move-pane"
+config="$repo_root/home/.tmux.conf"
 real_tmux=$(command -v tmux || true)
 socket_name="move-pane-test-$$"
 failures=0
@@ -24,6 +25,25 @@ fail() {
 }
 
 "$real_tmux" -L "$socket_name" -f /dev/null new-session -d -s move-test -x 120 -y 30
+"$real_tmux" -L "$socket_name" source-file "$config" >/dev/null 2>&1
+root_keys=$("$real_tmux" -L "$socket_name" list-keys -T root)
+
+assert_root_key() {
+  local key=$1
+  local command=$2
+  grep -Eq "M-${key}[[:space:]]+${command}" <<<"$root_keys" || \
+    fail root_key "missing binding: M-${key} ${command}"
+}
+
+assert_root_key h 'select-pane -L'
+assert_root_key j 'select-pane -D'
+assert_root_key k 'select-pane -U'
+assert_root_key l 'select-pane -R'
+assert_root_key S-H 'run-shell .*tmux-move-pane left'
+assert_root_key S-J 'run-shell .*tmux-move-pane down'
+assert_root_key S-K 'run-shell .*tmux-move-pane up'
+assert_root_key S-L 'run-shell .*tmux-move-pane right'
+
 socket_path=$("$real_tmux" -L "$socket_name" display-message -p '#{socket_path}')
 tmux_env="$socket_path,$$,0"
 first_pane=$("$real_tmux" -L "$socket_name" display-message -p '#{pane_id}')
