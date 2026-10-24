@@ -131,3 +131,16 @@ Reload tmux after applying the dotfiles:
 ```fish
 tmux source-file ~/.tmux.conf
 ```
+
+## Simhae palette source
+
+The canonical palette is maintained in [spearkkk/simhae-theme](https://github.com/spearkkk/simhae-theme). This repository consumes the snapshot at `share/themes/simhae/palette.yaml`; its exact source commit and checksum are recorded in `share/themes/simhae/source.json`. Edit the representative repository rather than this snapshot.
+
+With Node 24 (managed by mise), update explicitly from a local checkout:
+
+```sh
+bash setup/sync-simhae.sh ~/Projects/simhae-theme
+bash setup/set-theme.sh
+```
+
+The first command refuses to overwrite locally modified palette data. The second regenerates existing application configuration. Bootstrap continues to use the checked-in snapshot and does not fetch the network. See the representative repository's [maintenance guide](https://github.com/spearkkk/simhae-theme/blob/main/docs/maintenance.md).
