@@ -4,21 +4,16 @@ local utils    = require("lib.utils")
 
 local ITEM = "front_app"
 local MAX_CHARS = 28
-local EMPTY_WORKSPACE_LABEL = "∅ idle"
 
 local function current_front_app(env)
   local info = (env and env.INFO) or ""
   info = info:gsub("^%s+", ""):gsub("%s+$", "")
-  if info ~= "" then
+  if info ~= "" and not info:match("^bundleID=") then
     return info
   end
 
-  local app = utils.capture("lsappinfo info -only name $(lsappinfo front) 2>/dev/null | cut -d'\"' -f4 | xargs")
-  if app ~= "" then
-    return app
-  end
-
-  return "-"
+  local front_info = utils.capture([[lsappinfo info -only name "$(lsappinfo front)" 2>/dev/null]])
+  return front_info:match('^%s*"([^"]+)"') or ""
 end
 
 local front_app = Sbar.add("item", ITEM, {
@@ -55,8 +50,8 @@ local front_app = Sbar.add("item", ITEM, {
 
 local function refresh(env)
   local app = current_front_app(env)
-  if app == "" or app == "-" then
-    front_app:set({ label = EMPTY_WORKSPACE_LABEL })
+  if app == "" then
+    front_app:set({ label = "" })
     return
   end
   front_app:set({ label = app })

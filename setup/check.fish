@@ -233,6 +233,11 @@ if not bash "$repo_root/setup/tests/tmux-ui-color-review.test.sh"
     mark_fail "tmux UI color review test failed"
 end
 
+log_step "Sketchybar front app"
+if not REPO_ROOT="$repo_root" mise exec lua@5.4 -- lua "$repo_root/setup/tests/front-app.test.lua"
+    mark_fail "Sketchybar front app test failed"
+end
+
 log_step "cw multi-context"
 if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
     mark_fail "cw multi-context test failed"
