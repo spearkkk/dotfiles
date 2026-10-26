@@ -1,0 +1,71 @@
+#!/bin/sh
+
+direction=${1:-}
+source_pane=${2:-}
+tmux_bin=${TMUX_BIN:-tmux}
+
+case $direction in
+  left) select_flag=-L ;;
+  down) select_flag=-D ;;
+  up) select_flag=-U ;;
+  right) select_flag=-R ;;
+  *)
+    printf 'tmux-move-pane: invalid direction: %s\n' "$direction" >&2
+    exit 64
+    ;;
+esac
+
+if [ -z "$source_pane" ]; then
+  printf '%s\n' 'tmux-move-pane: missing source pane ID' >&2
+  exit 64
+fi
+
+if ! source_info=$("$tmux_bin" display-message -p -t "$source_pane" '#{pane_id}|#{window_id}|#{pane_left}|#{pane_top}' 2>/dev/null); then
+  printf 'tmux-move-pane: pane not found: %s\n' "$source_pane" >&2
+  exit 1
+fi
+IFS='|' read -r resolved_pane window_id source_left source_top <<EOF
+$source_info
+EOF
+if [ "$resolved_pane" != "$source_pane" ]; then
+  printf 'tmux-move-pane: pane not found: %s\n' "$source_pane" >&2
+  exit 1
+fi
+
+# Resolve the neighbor from an explicit pane. Relative targets such as
+# {left-of} can use the wrong client when multiple monitors each have a tmux
+# client attached to the same server.
+if ! "$tmux_bin" select-pane "$select_flag" -t "$source_pane" 2>/dev/null; then
+  "$tmux_bin" select-pane -t "$source_pane" 2>/dev/null || :
+  exit 0
+fi
+
+target_info=$("$tmux_bin" display-message -p -t "$window_id" '#{pane_id}|#{pane_left}|#{pane_top}') || {
+  "$tmux_bin" select-pane -t "$source_pane" 2>/dev/null || :
+  exit 1
+}
+IFS='|' read -r target_pane target_left target_top <<EOF
+$target_info
+EOF
+
+if [ "$target_pane" = "$source_pane" ]; then
+  exit 0
+fi
+
+# select-pane wraps at window edges. Treat a wrapped target as no neighbor.
+case $direction in
+  left) [ "$target_left" -lt "$source_left" ] ;;
+  right) [ "$target_left" -gt "$source_left" ] ;;
+  up) [ "$target_top" -lt "$source_top" ] ;;
+  down) [ "$target_top" -gt "$source_top" ] ;;
+esac || {
+  "$tmux_bin" select-pane -t "$source_pane" 2>/dev/null || :
+  exit 0
+}
+
+if ! "$tmux_bin" swap-pane -d -s "$source_pane" -t "$target_pane"; then
+  "$tmux_bin" select-pane -t "$source_pane" 2>/dev/null || :
+  exit 1
+fi
+
+"$tmux_bin" select-pane -t "$source_pane"

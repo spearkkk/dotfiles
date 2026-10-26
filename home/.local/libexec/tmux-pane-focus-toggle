@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -u
+
+target_window=${1:?usage: tmux-pane-focus-toggle target-window}
+enabled=$(tmux show-options -wqv -t "$target_window" @pane-focus-enabled)
+if [[ -z "$enabled" ]]; then
+  enabled=$(tmux show-options -gqv @pane-focus-enabled)
+fi
+
+if [[ "$enabled" == on ]]; then
+  tmux set-option -w -t "$target_window" @pane-focus-enabled off
+  saved_layout=$(tmux show-options -wqv -t "$target_window" @pane-focus-saved-layout)
+
+  if [[ -z "$saved_layout" ]] || \
+      ! tmux select-layout -t "$target_window" "$saved_layout" >/dev/null 2>&1; then
+    tmux select-layout -E -t "$target_window" >/dev/null
+  fi
+
+  tmux set-option -wu -t "$target_window" @pane-focus-saved-layout
+  tmux display-message -t "$target_window" 'Pane focus: off'
+  exit
+fi
+
+layout=$(tmux display-message -p -t "$target_window" '#{window_layout}')
+tmux set-option -w -t "$target_window" @pane-focus-saved-layout "$layout"
+tmux set-option -w -t "$target_window" @pane-focus-enabled on
+
+focus_script="$HOME/.tmux/plugins/tmux-pane-focus/scripts/focus.sh"
+if [[ -x "$focus_script" ]]; then
+  active_pane=$(tmux list-panes -t "$target_window" -f '#{pane_active}' -F '#{pane_id}')
+  tmux run-shell -t "$active_pane" "$focus_script"
+fi
+
+tmux display-message -t "$target_window" 'Pane focus: on'

@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simhae — tmux UI Color Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --base00: #0A1F2E;
+      --base01: #142C3E;
+      --base02: #1C3A50;
+      --base03: #24425C;
+      --base04: #4A6E86;
+      --base05: #C6D8E4;
+      --base06: #D6E2E8;
+      --base07: #ECF0F4;
+      --preview-pane-bg: #0A1F2E;
+      --pane-inactive-fg: #C8AE6A;
+      --pane-inactive-bg: #0A1F2E;
+      --pane-active-fg: #071420;
+      --pane-active-bg: #C6D8E4;
+      --waiting-fg: #071420;
+      --waiting-bg: #C8AE6A;
+      --done-fg: #071420;
+      --done-bg: #68BE92;
+      --status-fg: #C6D8E4;
+      --status-bg: #24425C;
+      --status-border: #4A6E86;
+      --status-inactive: #4A6E86;
+      --current-fg: #071420;
+      --current-bg: #C6D8E4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 82% -8%, rgb(80 196 192 / 10%), transparent 34%),
+        var(--base00);
+      color: var(--base05);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .page {
+      width: min(1580px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 42px 0 70px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      color: #68D4D0;
+      font: 800 11px/1.2 ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 7px;
+      color: var(--base07);
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.04;
+      letter-spacing: -.038em;
+    }
+
+    .lede {
+      max-width: 820px;
+      margin: 0;
+      color: #90AED8;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .header-actions, .preset-row, .context-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .button {
+      border: 1px solid var(--base04);
+      border-radius: 8px;
+      padding: 9px 12px;
+      background: var(--base01);
+      color: var(--base06);
+      cursor: pointer;
+      font: 750 11px/1 ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .button:hover, .button.active { border-color: #68D4D0; color: #68D4D0; }
+    .button.primary { color: #071420; background: #50C4C0; border-color: #50C4C0; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(350px, 440px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--base03);
+      border-radius: 14px;
+      background: rgb(15 38 55 / 94%);
+      box-shadow: 0 18px 48px rgb(0 0 0 / 18%);
+    }
+
+    .panel + .panel { margin-top: 18px; }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      min-height: 56px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--base03);
+      background: #10283A;
+    }
+
+    .panel-title { color: var(--base07); font-weight: 800; font-size: 13px; }
+    .panel-note { color: #90AED8; font: 600 10px ui-monospace, "SFMono-Regular", Menlo, monospace; }
+    .panel-body { padding: 15px; }
+
+    .controls { display: grid; gap: 16px; }
+    .control-group { display: grid; gap: 8px; }
+    .group-title {
+      color: #90AED8;
+      font: 800 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: minmax(110px, 1fr) 34px 88px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .color-label { color: var(--base06); font-size: 12px; font-weight: 700; }
+    .color-kind { color: #7896CC; font: 650 9px ui-monospace, "SFMono-Regular", Menlo, monospace; }
+
+    input[type="color"] {
+      width: 34px;
+      height: 30px;
+      padding: 2px;
+      border: 1px solid var(--base04);
+      border-radius: 7px;
+      background: var(--base01);
+      cursor: pointer;
+    }
+
+    .hex-input {
+      width: 88px;
+      border: 1px solid var(--base03);
+      border-radius: 7px;
+      padding: 7px 8px;
+      outline: none;
+      background: var(--base00);
+      color: var(--base06);
+      font: 650 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .hex-input:focus { border-color: #68D4D0; }
+    .hex-input.invalid { border-color: #C47A72; color: #E9A39C; }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      padding-top: 4px;
+    }
+
+    .swatch {
+      aspect-ratio: 1;
+      min-width: 0;
+      border: 1px solid rgb(255 255 255 / 16%);
+      border-radius: 7px;
+      background: var(--swatch);
+      cursor: pointer;
+    }
+
+    .swatch:hover, .swatch:focus-visible { outline: 2px solid var(--base07); outline-offset: 2px; }
+
+    .preview-stack { position: sticky; top: 16px; }
+    .terminal-shell {
+      overflow: hidden;
+      border: 1px solid #071420;
+      border-radius: 9px;
+      background: var(--preview-pane-bg);
+      box-shadow: 0 22px 54px rgb(0 0 0 / 26%);
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    .terminal-topbar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 11px;
+      border-bottom: 1px solid #071420;
+      background: #142C3E;
+    }
+
+    .traffic { width: 8px; height: 8px; border-radius: 50%; background: #4A6E86; }
+    .terminal-caption { margin-left: 5px; color: #7896CC; font-size: 9px; }
+
+    .pane-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: minmax(160px, 1fr) minmax(148px, .9fr);
+      gap: 4px;
+      padding: 4px 4px 0;
+      background: #071420;
+    }
+
+    .mock-pane {
+      min-width: 0;
+      background: var(--preview-pane-bg);
+      color: var(--base05);
+      box-shadow: inset 0 0 0 2px var(--pane-inactive-bg);
+    }
+
+    .mock-pane.active { box-shadow: inset 0 0 0 2px var(--pane-active-bg); }
+    .mock-pane.waiting { box-shadow: inset 0 0 0 2px var(--waiting-bg); }
+    .mock-pane.done { box-shadow: inset 0 0 0 2px var(--done-bg); }
+
+    .pane-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 26px;
+      padding: 4px 9px;
+      color: var(--pane-inactive-fg);
+      background: var(--pane-inactive-bg);
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .mock-pane.active .pane-title { color: var(--pane-active-fg); background: var(--pane-active-bg); }
+    .mock-pane.waiting .pane-title { color: var(--waiting-fg); background: var(--waiting-bg); }
+    .mock-pane.done .pane-title { color: var(--done-fg); background: var(--done-bg); }
+
+    .pane-mark { opacity: .9; }
+    .pane-body { padding: 15px 14px; color: #7896CC; font-size: 10px; line-height: 1.7; }
+    .pane-body strong { color: var(--base05); }
+    .cursor { display: inline-block; width: 7px; height: 13px; vertical-align: -2px; background: #50C4C0; }
+
+    .status-box {
+      display: grid;
+      grid-template-rows: 12px 22px 27px 17px;
+      color: var(--status-fg);
+      background: var(--status-bg);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .status-spacer { background: var(--status-bg); }
+    .status-top, .status-bottom, .status-middle { padding: 0 10px; }
+    .status-top, .status-bottom { color: var(--status-border); white-space: nowrap; overflow: hidden; }
+    .status-middle { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .session { color: var(--status-fg); font-weight: 900; }
+    .windows { display: flex; gap: 4px; min-width: 0; }
+    .window-chip { padding: 2px 5px; color: var(--status-inactive); background: transparent; }
+    .window-chip.current { color: var(--current-fg); background: var(--current-bg); }
+    .window-chip.waiting { color: var(--waiting-fg); background: var(--waiting-bg); }
+    .window-chip.done { color: var(--done-fg); background: var(--done-bg); }
+    .status-context { margin-left: auto; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .context-chip { padding: 2px 5px; color: var(--status-bg); background: var(--status-fg); font-weight: 900; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 13px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #90AED8;
+      font: 650 9px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .legend-dot { width: 9px; height: 9px; border-radius: 3px; background: var(--dot); }
+
+    .contrast-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .contrast-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 9px;
+      border: 1px solid var(--base03);
+      border-radius: 8px;
+      background: var(--base01);
+      font: 650 10px ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+
+    .contrast-value { color: #68BE92; font-weight: 900; }
+    .contrast-item.warn .contrast-value { color: #E9A39C; }
+
+    pre.snippet {
+      max-height: 360px;
+      margin: 0;
+      padding: 15px;
+      overflow: auto;
+      background: #071420;
+      color: #C6D8E4;
+      font: 600 10px/1.65 "SFMono-Regular", Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    .copy-state { min-width: 52px; color: #68BE92; text-align: right; font-size: 10px; }
+
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .preview-stack { position: static; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 700px) {
+      .page { width: min(100% - 20px, 1580px); padding-top: 25px; }
+      header { display: block; }
+      .header-actions { margin-top: 17px; }
+      .controls { grid-template-columns: 1fr; }
+      .pane-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, 128px); }
+      .status-box { font-size: 8px; }
+      .status-context { display: none; }
+      .contrast-grid { grid-template-columns: 1fr; }
+      .color-row { grid-template-columns: minmax(100px, 1fr) 34px 84px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <div class="eyebrow">Simhae / tmux chroma lab</div>
+        <h1>Pane title + status color review</h1>
+        <p class="lede">Pane 본문은 그대로 두고, title·border와 boxed status의 모든 semantic state를 한 화면에서 조정합니다. Waiting과 done은 pane title과 window chip이 같은 색상 pair를 공유합니다.</p>
+      </div>
+      <div class="header-actions">
+        <button class="button" data-preset="muted">Muted</button>
+        <button class="button" data-preset="contrast">High contrast</button>
+        <button class="button" data-preset="current">Current palette</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Color controls</div>
+              <div class="panel-note">swatch → selected field</div>
+            </div>
+            <button class="button" id="resetButton">Reset</button>
+          </div>
+          <div class="panel-body">
+            <div class="preset-row" aria-label="status context">
+              <button class="button active" data-context="normal">Normal</button>
+              <button class="button" data-context="prefix">Prefix</button>
+              <button class="button" data-context="prod">Prod</button>
+            </div>
+            <div class="controls" id="controls"></div>
+            <div class="control-group" style="margin-top:16px">
+              <div class="group-title">Simhae palette</div>
+              <div class="palette" id="palette"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div class="panel-title">Contrast check</div>
+            <div class="panel-note">AA body target ≥ 4.5</div>
+          </div>
+          <div class="panel-body contrast-grid" id="contrastGrid"></div>
+        </section>
+      </aside>
+
+      <div class="preview-stack">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Integrated tmux preview</div>
+              <div class="panel-note">pane content bg fixed · #0A1F2E</div>
+            </div>
+            <div class="context-switch" aria-hidden="true"><span class="panel-note" id="contextLabel">NORMAL</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="terminal-shell">
+              <div class="terminal-topbar">
+                <i class="traffic"></i><i class="traffic"></i><i class="traffic"></i>
+                <span class="terminal-caption">tmux · simhae-pelagic</span>
+              </div>
+              <div class="pane-grid">
+                <section class="mock-pane active">
+                  <div class="pane-title"><span class="pane-mark">▶</span><span>1</span><span>editor</span></div>
+                  <div class="pane-body"><strong>active pane</strong><br>src/theme.ts<br><br><span class="cursor"></span></div>
+                </section>
+                <section class="mock-pane">
+                  <div class="pane-title"><span class="pane-mark">·</span><span>2</span><span>server</span></div>
+                  <div class="pane-body"><strong>inactive pane</strong><br>listening on :3000<br>ready</div>
+                </section>
+                <section class="mock-pane waiting">
+                  <div class="pane-title"><span class="pane-mark">·</span><span>3</span><span>Action Required | review</span></div>
+                  <div class="pane-body"><strong>waiting</strong><br>Choose an action to continue.</div>
+                </section>
+                <section class="mock-pane done">
+                  <div class="pane-title"><span class="pane-mark">·</span><span>4</span><span>tests complete</span></div>
+                  <div class="pane-body"><strong>done</strong><br>PASS 42 tests<br>0 failures</div>
+                </section>
+              </div>
+              <div class="status-box">
+                <div class="status-spacer"></div>
+                <div class="status-top">╭─ <span class="session">dotfiles</span> ─────────────────────────────────────────────────────────────────────────╮</div>
+                <div class="status-middle">
+                  <span style="color:var(--status-border)">│</span>
+                  <div class="windows">
+                    <span class="window-chip">[1·shell]</span>
+                    <span class="window-chip current">[2·theme]</span>
+                    <span class="window-chip waiting">[3·agent?]</span>
+                    <span class="window-chip done">[4·tests✓]</span>
+                  </div>
+                  <div class="status-context"><span class="context-chip" id="contextChip">dev</span><span id="contextText">local</span><span style="color:var(--status-border)">│</span></div>
+                </div>
+                <div class="status-bottom">╰──────────────────────────────────────────────────────────────────────────────────────╯</div>
+              </div>
+            </div>
+            <div class="legend">
+              <span class="legend-item"><i class="legend-dot" style="--dot:var(--pane-inactive-bg)"></i>inactive</span>
+              <span class="legend-item"><i class="legend-dot" style="--dot:var(--pane-active-bg)"></i>active</span>
+              <span class="legend-item"><i class="legend-dot" style="--dot:var(--waiting-bg)"></i>waiting</span>
+              <span class="legend-item"><i class="legend-dot" style="--dot:var(--done-bg)"></i>done</span>
+              <span class="legend-item"><i class="legend-dot" style="--dot:var(--current-bg)"></i>current window</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Generated tmux palette snippet</div>
+              <div class="panel-note">single-source tmux.conf values</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="copy-state" id="copyState"></span>
+              <button class="button primary" id="copyButton">Copy</button>
+            </div>
+          </div>
+          <pre class="snippet" id="snippet"></pre>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const defaults = Object.freeze({
+        paneInactiveFg: '#C8AE6A', paneInactiveBg: '#0A1F2E',
+        paneActiveFg: '#071420', paneActiveBg: '#C6D8E4',
+        waitingFg: '#071420', waitingBg: '#C8AE6A',
+        doneFg: '#071420', doneBg: '#68BE92',
+        statusNormalFg: '#C6D8E4', statusNormalBg: '#24425C', statusNormalBorder: '#4A6E86', statusNormalInactive: '#4A6E86',
+        statusPrefixFg: '#4A6E86', statusPrefixBg: '#0A1F2E', statusPrefixBorder: '#4A6E86', statusPrefixInactive: '#4A6E86',
+        statusProdFg: '#071420', statusProdBg: '#C47A72', statusProdBorder: '#0A1F2E', statusProdInactive: '#071420',
+        currentFg: '#071420', currentBg: '#C6D8E4'
+      });
+
+      const presets = {
+        current: defaults,
+        muted: {
+          ...defaults,
+          paneActiveBg: '#B89262', waitingBg: '#B8A26C', doneBg: '#8672AE',
+          statusProdBg: '#AD6E69', currentBg: '#5AAEAC'
+        },
+        contrast: {
+          ...defaults,
+          paneInactiveFg: '#ECF0F4', paneActiveBg: '#E0AE65', waitingBg: '#E0C66F',
+          doneBg: '#B49AE6', statusProdBg: '#E28E82', currentBg: '#65D8D4'
+        }
+      };
+
+      const groups = [
+        { title: 'Pane title', fields: [
+          ['paneInactiveFg', 'Inactive', 'fg'], ['paneInactiveBg', 'Inactive', 'bg'],
+          ['paneActiveFg', 'Active', 'fg'], ['paneActiveBg', 'Active', 'bg']
+        ]},
+        { title: 'Attention · shared', fields: [
+          ['waitingFg', 'Waiting', 'fg'], ['waitingBg', 'Waiting', 'bg'],
+          ['doneFg', 'Done', 'fg'], ['doneBg', 'Done', 'bg']
+        ]},
+        { title: 'Status · normal', fields: [
+          ['statusNormalFg', 'Normal', 'fg'], ['statusNormalBg', 'Normal', 'bg'],
+          ['statusNormalBorder', 'Normal', 'border'], ['statusNormalInactive', 'Windows', 'inactive']
+        ]},
+        { title: 'Status · prefix', fields: [
+          ['statusPrefixFg', 'Prefix', 'fg'], ['statusPrefixBg', 'Prefix', 'bg'],
+          ['statusPrefixBorder', 'Prefix', 'border'], ['statusPrefixInactive', 'Windows', 'inactive']
+        ]},
+        { title: 'Status · prod', fields: [
+          ['statusProdFg', 'Prod', 'fg'], ['statusProdBg', 'Prod', 'bg'],
+          ['statusProdBorder', 'Prod', 'border'], ['statusProdInactive', 'Windows', 'inactive']
+        ]},
+        { title: 'Window tab', fields: [
+          ['currentFg', 'Current', 'fg'], ['currentBg', 'Current', 'bg']
+        ]}
+      ];
+
+      const palette = [
+        '#0A1F2E', '#142C3E', '#1C3A50', '#24425C', '#4A6E86', '#C6D8E4', '#D6E2E8', '#ECF0F4',
+        '#C47A72', '#68BE92', '#C8AE6A', '#7896CC', '#9A7EC8', '#50C4C0', '#D4A870', '#071420'
+      ];
+
+      function normalizeHex(value) {
+        if (typeof value !== 'string' || !value.startsWith('#')) return null;
+        const raw = value.slice(1);
+        if (/^[0-9a-f]{3}$/i.test(raw)) return `#${raw.split('').map(c => c + c).join('').toUpperCase()}`;
+        if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw.toUpperCase()}`;
+        return null;
+      }
+
+      function luminance(hex) {
+        const normalized = normalizeHex(hex);
+        if (!normalized) return 0;
+        const channels = normalized.slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255);
+        const linear = channels.map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+        return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+      }
+
+      function contrastRatio(fg, bg) {
+        const a = luminance(fg);
+        const b = luminance(bg);
+        return Math.round(((Math.max(a, b) + .05) / (Math.min(a, b) + .05)) * 100) / 100;
+      }
+
+      function identifyPreset(colors) {
+        for (const name of ['current', 'muted', 'contrast']) {
+          if (Object.keys(defaults).every(key => colors[key] === presets[name][key])) return name;
+        }
+        return 'custom';
+      }
+
+      function statusContextColors(colors, context) {
+        const prefix = context[0].toUpperCase() + context.slice(1);
+        return {
+          fg: colors[`status${prefix}Fg`],
+          bg: colors[`status${prefix}Bg`],
+          border: colors[`status${prefix}Border`],
+          inactive: colors[`status${prefix}Inactive`]
+        };
+      }
+
+      function buildSnippet(c) {
+        return `# attention colors shared by pane title and status window
+set -g @attention_waiting_fg '${c.waitingFg}'
+set -g @attention_waiting_bg '${c.waitingBg}'
+set -g @attention_done_fg '${c.doneFg}'
+set -g @attention_done_bg '${c.doneBg}'
+
+# pane title / border
+set -g window-style "default"
+set -g pane-border-style "fg=#{?#{==:#{@attention_state},waiting},#{E:@attention_waiting_fg},#{?#{==:#{@attention_state},done},#{E:@attention_done_fg},${c.paneInactiveFg}}},bg=#{?#{==:#{@attention_state},waiting},#{E:@attention_waiting_bg},#{?#{==:#{@attention_state},done},#{E:@attention_done_bg},${c.paneInactiveBg}}}"
+set -g pane-active-border-style "fg=${c.paneActiveFg},bg=${c.paneActiveBg},bold"
+
+# status context
+set -g @status_normal_bg '${c.statusNormalBg}'
+set -g @status_normal_fg '${c.statusNormalFg}'
+set -g @status_normal_border '${c.statusNormalBorder}'
+set -g @status_normal_inactive '${c.statusNormalInactive}'
+set -g @status_prefix_bg '${c.statusPrefixBg}'
+set -g @status_prefix_fg '${c.statusPrefixFg}'
+set -g @status_prefix_border '${c.statusPrefixBorder}'
+set -g @status_prefix_inactive '${c.statusPrefixInactive}'
+set -g @status_prod_bg '${c.statusProdBg}'
+set -g @status_prod_fg '${c.statusProdFg}'
+set -g @status_prod_border '${c.statusProdBorder}'
+set -g @status_prod_inactive '${c.statusProdInactive}'
+
+set -g status-style "bg=#{?client_prefix,#{E:@status_prefix_bg},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_bg},#{E:@status_normal_bg}}},fg=#{?client_prefix,#{E:@status_prefix_fg},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_fg},#{E:@status_normal_fg}}}"
+set -g @status_box_bg '#{?client_prefix,#{E:@status_prefix_bg},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_bg},#{E:@status_normal_bg}}}'
+set -g @status_box_fg '#{?client_prefix,#{E:@status_prefix_fg},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_fg},#{E:@status_normal_fg}}}'
+set -g @status_box_border '#{?client_prefix,#{E:@status_prefix_border},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_border},#{E:@status_normal_border}}}'
+set -g @status_box_inactive '#{?client_prefix,#{E:@status_prefix_inactive},#{?#{||:#{==:#{@cw_context_prod},1},#{m/r:prod|dragon-kks|dragon-ssk|xpssk-02,#{@kube_context}|#{@aws_profile}}},#{E:@status_prod_inactive},#{E:@status_normal_inactive}}}'
+
+# window chips
+set -g window-status-format '#{?#{==:#{@attention_window_state},waiting},#[fg=#{E:@attention_waiting_fg}#,bg=#{E:@attention_waiting_bg}#,bold],#{?#{==:#{@attention_window_state},done},#[fg=#{E:@attention_done_fg}#,bg=#{E:@attention_done_bg}#,bold],#[default]}}[#[underscore]#{window_index}#[nounderscore]·#{window_name}#{?#{==:#{@attention_window_state},waiting},?,#{?#{==:#{@attention_window_state},done},✓,}}]#[default]'
+set -g window-status-current-format '#[fg=${c.currentFg},bg=${c.currentBg},bold][#[underscore]#{window_index}#[nounderscore]·#{window_name}#{?window_zoomed_flag,#{?#{==:#{@attention_window_state},waiting},?,#{?#{==:#{@attention_window_state},done},✓,}},}]#[default]'
+
+# status renderer receives the already-resolved palette
+set -g status-format[2] "#[fg=#{E:@status_box_border},bg=#{E:@status_box_bg}]│ #[fg=#{E:@status_box_inactive},bg=#{E:@status_box_bg}]#[push-default]#{W:#{E:window-status-format},#{E:window-status-current-format}}#[align=right]#(~/.tmux/scripts/status-box.sh \"#{E:@status_box_bg}\" \"#{E:@status_box_fg}\" \"#{E:@status_box_border}\" x#{q:@kube_context} x#{q:@aws_profile} x#{q:@cw_context})"`;
+      }
+
+      const api = { defaults, presets, normalizeHex, contrastRatio, identifyPreset, statusContextColors, buildSnippet };
+      globalThis.TmuxColorReview = api;
+
+      if (typeof document === 'undefined') return;
+
+      let colors = { ...defaults };
+      let selectedKey = 'waitingBg';
+      let context = 'normal';
+
+      const controls = document.getElementById('controls');
+      const paletteNode = document.getElementById('palette');
+      const contrastGrid = document.getElementById('contrastGrid');
+      const snippetNode = document.getElementById('snippet');
+      const contextLabel = document.getElementById('contextLabel');
+      const contextChip = document.getElementById('contextChip');
+      const contextText = document.getElementById('contextText');
+
+      function controlRow([key, label, kind]) {
+        const row = document.createElement('label');
+        row.className = 'color-row';
+        row.innerHTML = `<span class="color-label">${label} <span class="color-kind">${kind}</span></span><input type="color" data-color-key="${key}" aria-label="${label} ${kind} color"><input class="hex-input" data-hex-key="${key}" aria-label="${label} ${kind} hex" spellcheck="false">`;
+        return row;
+      }
+
+      for (const group of groups) {
+        const section = document.createElement('section');
+        section.className = 'control-group';
+        const title = document.createElement('div');
+        title.className = 'group-title';
+        title.textContent = group.title;
+        section.append(title, ...group.fields.map(controlRow));
+        controls.append(section);
+      }
+
+      for (const color of palette) {
+        const button = document.createElement('button');
+        button.className = 'swatch';
+        button.style.setProperty('--swatch', color);
+        button.title = color;
+        button.setAttribute('aria-label', `Apply ${color}`);
+        button.addEventListener('click', () => setColor(selectedKey, color));
+        paletteNode.append(button);
+      }
+
+      function setColor(key, value) {
+        const normalized = normalizeHex(value);
+        if (!normalized) return false;
+        colors[key] = normalized;
+        selectedKey = key;
+        render();
+        return true;
+      }
+
+      controls.addEventListener('focusin', event => {
+        selectedKey = event.target.dataset.colorKey || event.target.dataset.hexKey || selectedKey;
+      });
+
+      controls.addEventListener('input', event => {
+        const key = event.target.dataset.colorKey || event.target.dataset.hexKey;
+        if (!key) return;
+        const valid = setColor(key, event.target.value);
+        if (event.target.dataset.hexKey) event.target.classList.toggle('invalid', !valid);
+      });
+
+      function statusColors() {
+        return statusContextColors(colors, context);
+      }
+
+      function renderPreview() {
+        const root = document.documentElement.style;
+        const vars = {
+          '--pane-inactive-fg': colors.paneInactiveFg, '--pane-inactive-bg': colors.paneInactiveBg,
+          '--pane-active-fg': colors.paneActiveFg, '--pane-active-bg': colors.paneActiveBg,
+          '--waiting-fg': colors.waitingFg, '--waiting-bg': colors.waitingBg,
+          '--done-fg': colors.doneFg, '--done-bg': colors.doneBg,
+          '--current-fg': colors.currentFg, '--current-bg': colors.currentBg
+        };
+        const status = statusColors();
+        vars['--status-fg'] = status.fg;
+        vars['--status-bg'] = status.bg;
+        vars['--status-border'] = status.border;
+        vars['--status-inactive'] = status.inactive;
+        for (const [name, value] of Object.entries(vars)) root.setProperty(name, value);
+        contextLabel.textContent = context.toUpperCase();
+        contextChip.textContent = context === 'normal' ? 'dev' : context;
+        contextText.textContent = context === 'prod' ? 'dragon-kks' : context === 'prefix' ? 'C-a' : 'local';
+      }
+
+      function renderControls() {
+        document.querySelectorAll('[data-color-key]').forEach(input => { input.value = colors[input.dataset.colorKey]; });
+        document.querySelectorAll('[data-hex-key]').forEach(input => {
+          if (document.activeElement !== input || normalizeHex(input.value)) input.value = colors[input.dataset.hexKey];
+          input.classList.remove('invalid');
+        });
+      }
+
+      function renderContrast() {
+        const pairs = [
+          ['Inactive', colors.paneInactiveFg, colors.paneInactiveBg],
+          ['Active', colors.paneActiveFg, colors.paneActiveBg],
+          ['Waiting', colors.waitingFg, colors.waitingBg],
+          ['Done', colors.doneFg, colors.doneBg],
+          ['Status', statusColors().fg, statusColors().bg],
+          ['Current', colors.currentFg, colors.currentBg]
+        ];
+        contrastGrid.innerHTML = pairs.map(([label, fg, bg]) => {
+          const ratio = contrastRatio(fg, bg);
+          return `<div class="contrast-item ${ratio < 4.5 ? 'warn' : ''}"><span>${label}</span><span class="contrast-value">${ratio}:1</span></div>`;
+        }).join('');
+      }
+
+      function render() {
+        renderControls();
+        renderPreview();
+        renderContrast();
+        snippetNode.textContent = buildSnippet(colors);
+        document.querySelectorAll('[data-context]').forEach(button => button.classList.toggle('active', button.dataset.context === context));
+        const activePreset = identifyPreset(colors);
+        document.querySelectorAll('[data-preset]').forEach(button => {
+          const selected = button.dataset.preset === activePreset;
+          button.classList.toggle('active', selected);
+          button.setAttribute('aria-pressed', String(selected));
+        });
+      }
+
+      document.querySelectorAll('[data-context]').forEach(button => {
+        button.addEventListener('click', () => { context = button.dataset.context; render(); });
+      });
+
+      document.querySelectorAll('[data-preset]').forEach(button => {
+        button.addEventListener('click', () => { colors = { ...presets[button.dataset.preset] }; render(); });
+      });
+
+      document.getElementById('resetButton').addEventListener('click', () => { colors = { ...defaults }; render(); });
+      document.getElementById('copyButton').addEventListener('click', async () => {
+        const state = document.getElementById('copyState');
+        try {
+          await navigator.clipboard.writeText(snippetNode.textContent);
+          state.textContent = 'Copied';
+        } catch {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(snippetNode);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          state.textContent = 'Selected';
+        }
+        setTimeout(() => { state.textContent = ''; }, 1400);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

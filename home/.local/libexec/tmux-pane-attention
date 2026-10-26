@@ -1,0 +1,327 @@
+#!/bin/sh
+
+operation=${1:-}
+target=${2:-}
+lock_name=tmux-pane-attention-lock
+lock_held=0
+status_dirty=0
+
+usage() {
+  printf '%s\n' 'usage: tmux-pane-attention reconcile-title <pane-id> | reconcile-window <window-id> | reconcile-all | acknowledge-visible | command-done <pane-id>' >&2
+  exit 64
+}
+
+case $operation in
+  reconcile-title|reconcile-window|command-done) [ -n "$target" ] || usage ;;
+  reconcile-all|acknowledge-visible) ;;
+  *) usage ;;
+esac
+
+release_lock() {
+  [ "$lock_held" -eq 1 ] || return
+  tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :
+  lock_held=0
+}
+
+trap release_lock 0 1 2 15
+tmux wait-for -L "$lock_name" >/dev/null 2>&1 || exit 0
+lock_held=1
+
+pane_rows=
+focused_panes=
+dirty_windows=
+attention_cleared=
+
+acknowledgement_needed() {
+  attention_client_rows=$(tmux list-clients -F '#{client_flags}|#{@attention_window_state}' 2>/dev/null) || return 0
+  while IFS='|' read -r flags window_attention; do
+    case ",$flags," in
+      *,focused,*) [ -n "$window_attention" ] && return 0 ;;
+    esac
+  done <<EOF
+$attention_client_rows
+EOF
+  return 1
+}
+
+pane_exists() {
+  wanted=$1
+  while IFS='|' read -r row_window row_pane row_attention; do
+    [ "$row_pane" = "$wanted" ] && return 0
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
+is_focused() {
+  wanted=$1
+  while IFS= read -r row_pane; do
+    [ "$row_pane" = "$wanted" ] && return 0
+  done <<EOF
+$focused_panes
+EOF
+  return 1
+}
+
+add_focused() {
+  pane_exists "$1" || return
+  is_focused "$1" && return
+  focused_panes="${focused_panes}${focused_panes:+
+}$1"
+}
+
+mark_window_id_dirty() {
+  dirty_window=$1
+  [ -n "$dirty_window" ] || return
+  case "
+$dirty_windows
+" in
+    *"
+$dirty_window
+"*) ;;
+    *) dirty_windows="${dirty_windows}${dirty_windows:+
+}$dirty_window" ;;
+  esac
+}
+
+mark_window_dirty() {
+  wanted=$1
+  while IFS='|' read -r row_window row_pane row_attention; do
+    [ "$row_pane" = "$wanted" ] || continue
+    mark_window_id_dirty "$row_window"
+    return
+  done <<EOF
+$pane_rows
+EOF
+}
+
+pane_in_window() {
+  scope_pane=$1
+  scope_window=$2
+  while IFS='|' read -r candidate_window candidate_pane candidate_attention; do
+    [ "$candidate_pane" = "$scope_pane" ] && [ "$candidate_window" = "$scope_window" ] && return 0
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
+snapshot_focus() {
+  pane_rows=$(tmux list-panes -a -F '#{window_id}|#{pane_id}|#{@attention_state}' 2>/dev/null) || return 1
+  client_rows=$(tmux list-clients -F '#{client_name}|#{client_flags}|#{window_id}|#{pane_id}|#{window_zoomed_flag}' 2>/dev/null) || return 1
+  focused_panes=
+
+  while IFS='|' read -r client_name flags client_window client_pane zoomed; do
+    case ",$flags," in
+      *,focused,*) add_focused "$client_pane" ;;
+    esac
+  done <<EOF
+$client_rows
+EOF
+  return 0
+}
+
+unset_pane_option() {
+  tmux set-option -p -t "$1" -u "$2" >/dev/null 2>&1 || :
+}
+
+set_pane_option() {
+  tmux set-option -p -t "$1" "$2" "$3" >/dev/null 2>&1 || :
+}
+
+pane_has_attention() {
+  wanted=$1
+  case "
+$attention_cleared
+" in
+    *"
+$wanted
+"*) return 1 ;;
+  esac
+  while IFS='|' read -r row_window row_pane row_attention; do
+    [ "$row_pane" = "$wanted" ] || continue
+    [ -n "$row_attention" ]
+    return
+  done <<EOF
+$pane_rows
+EOF
+  return 1
+}
+
+mark_attention_cleared() {
+  attention_cleared="${attention_cleared}${attention_cleared:+
+}$1"
+}
+
+unset_attention_state() {
+  pane_has_attention "$1" || return
+  if tmux set-option -p -t "$1" -u @attention_state >/dev/null 2>&1; then
+    mark_attention_cleared "$1"
+    status_dirty=1
+    mark_window_dirty "$1"
+  fi
+}
+
+set_attention_state() {
+  if tmux set-option -p -t "$1" @attention_state "$2" >/dev/null 2>&1; then
+    status_dirty=1
+    mark_window_dirty "$1"
+  fi
+}
+
+sync_window_attention() {
+  while IFS= read -r window_id; do
+    [ -n "$window_id" ] || continue
+
+    desired=
+    states=$(tmux list-panes -t "$window_id" -F '#{@attention_state}' 2>/dev/null) || continue
+    while IFS= read -r state; do
+      case $state in
+        waiting) desired=waiting; break ;;
+        done) [ -n "$desired" ] || desired=done ;;
+      esac
+    done <<EOF
+$states
+EOF
+
+    current=$(tmux show-options -wqv -t "$window_id" @attention_window_state 2>/dev/null) || current=
+    [ "$current" = "$desired" ] && continue
+
+    if [ -n "$desired" ]; then
+      tmux set-option -w -t "$window_id" @attention_window_state "$desired" >/dev/null 2>&1 || :
+    else
+      tmux set-option -wu -t "$window_id" @attention_window_state >/dev/null 2>&1 || :
+    fi
+    status_dirty=1
+  done <<EOF
+$dirty_windows
+EOF
+}
+
+refresh_status() {
+  [ "$status_dirty" -eq 1 ] || return
+  while IFS='|' read -r client_name flags client_window client_pane zoomed; do
+    [ -n "$client_name" ] || continue
+    tmux refresh-client -S -t "$client_name" >/dev/null 2>&1 || :
+  done <<EOF
+$client_rows
+EOF
+}
+
+pane_option() {
+  tmux show-options -pqv -t "$1" "$2" 2>/dev/null || :
+}
+
+classify_title() {
+  title=$1
+  lower=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')
+  case $lower in
+    *"action required | "*) printf '%s\n' waiting; return ;;
+  esac
+  case $title in
+    ⠋\ *|⠙\ *|⠹\ *|⠸\ *|⠼\ *|⠴\ *|⠦\ *|⠧\ *|⠇\ *|⠏\ *) printf '%s\n' working ;;
+    *) printf '%s\n' idle ;;
+  esac
+}
+
+reconcile_one() {
+  pane_id=$1
+  pane_exists "$pane_id" || return
+  unset_pane_option "$pane_id" @attention_reconcile_pending
+  current_title=$(tmux display-message -p -t "$pane_id" '#{pane_title}' 2>/dev/null) || return
+  title_state=$(classify_title "$current_title")
+  codex_state=$(pane_option "$pane_id" @attention_codex_state)
+  attention_state=$(pane_option "$pane_id" @attention_state)
+
+  case $title_state in
+    working)
+      [ "$codex_state" = working ] || set_pane_option "$pane_id" @attention_codex_state working
+      [ "$attention_state" = waiting ] && unset_attention_state "$pane_id"
+      ;;
+    waiting)
+      if [ "$codex_state" != waiting ]; then
+        set_pane_option "$pane_id" @attention_codex_state waiting
+        if is_focused "$pane_id"; then
+          unset_attention_state "$pane_id"
+        else
+          set_attention_state "$pane_id" waiting
+        fi
+      fi
+      ;;
+    idle)
+      if [ "$codex_state" = working ]; then
+        unset_pane_option "$pane_id" @attention_codex_state
+        if is_focused "$pane_id"; then
+          unset_attention_state "$pane_id"
+        else
+          set_attention_state "$pane_id" done
+        fi
+      elif [ "$codex_state" = waiting ]; then
+        unset_pane_option "$pane_id" @attention_codex_state
+        [ "$attention_state" = waiting ] && unset_attention_state "$pane_id"
+      elif [ "$attention_state" = waiting ]; then
+        unset_attention_state "$pane_id"
+      fi
+      ;;
+  esac
+}
+
+acknowledge_focused() {
+  acknowledge_window=${1:-}
+  while IFS= read -r pane_id; do
+    [ -n "$pane_id" ] || continue
+    if [ -n "$acknowledge_window" ]; then
+      pane_in_window "$pane_id" "$acknowledge_window" || continue
+    fi
+    unset_attention_state "$pane_id"
+  done <<EOF
+$focused_panes
+EOF
+}
+
+if [ "$operation" = acknowledge-visible ] && ! acknowledgement_needed; then
+  release_lock
+  exit 0
+fi
+
+snapshot_focus || exit 0
+
+case $operation in
+  reconcile-title) reconcile_one "$target" ;;
+  reconcile-window)
+    mark_window_id_dirty "$target"
+    while IFS='|' read -r pane_window pane_id pane_attention; do
+      [ "$pane_window" = "$target" ] || continue
+      [ -n "$pane_id" ] || continue
+      reconcile_one "$pane_id"
+    done <<EOF
+$pane_rows
+EOF
+    acknowledge_focused "$target"
+    ;;
+  reconcile-all)
+    while IFS='|' read -r pane_window pane_id pane_attention; do
+      [ -n "$pane_id" ] || continue
+      mark_window_dirty "$pane_id"
+      reconcile_one "$pane_id"
+    done <<EOF
+$pane_rows
+EOF
+    acknowledge_focused
+    ;;
+  acknowledge-visible) acknowledge_focused ;;
+  command-done)
+    pane_exists "$target" || exit 0
+    if is_focused "$target"; then
+      unset_attention_state "$target"
+    else
+      set_attention_state "$target" done
+    fi
+    ;;
+esac
+
+sync_window_attention
+release_lock
+refresh_status
+exit 0

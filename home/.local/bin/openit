@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: openit <artifact-path|http(s)-url>" >&2
+  exit 2
+fi
+
+target=$1
+
+case "$target" in
+  http://*|https://*|file://*)
+    exec open -na "Google Chrome" --args --new-window "$target"
+    ;;
+esac
+
+if [ ! -e "$target" ]; then
+  echo "openit: artifact not found: $target" >&2
+  exit 1
+fi
+
+artifact_dir=$(cd "$(dirname "$target")" && pwd -P)
+artifact_name=$(basename "$target")
+artifact_path="$artifact_dir/$artifact_name"
+extension=$(printf '%s' "${artifact_name##*.}" | tr '[:upper:]' '[:lower:]')
+
+case "$extension" in
+  html|htm|pdf|svg|png|jpg|jpeg|gif|webp|avif|bmp|ico)
+    exec open -na "Google Chrome" --args --new-window "$artifact_path"
+    ;;
+esac
+
+if [ -n "${TMUX:-}" ]; then
+  exec tmux new-window -n "view:$artifact_name" -c "$artifact_dir" nvim -- "$artifact_path"
+fi
+
+attached_session=$(tmux list-sessions -F '#{session_name}:#{session_attached}' 2>/dev/null | awk -F: '$2 > 0 { print $1; exit }')
+if [ -n "$attached_session" ]; then
+  exec tmux new-window -t "$attached_session" -n "view:$artifact_name" -c "$artifact_dir" nvim -- "$artifact_path"
+fi
+
+exec open -na "Ghostty" --args -e nvim -- "$artifact_path"

@@ -1,4 +1,5 @@
 local theme = require("lib.theme")
+local M = {}
 
 -- Tints every display that doesn't currently hold the focused window,
 -- purely as a "you're not looking here" cue -- not meant to obscure content.
@@ -41,7 +42,7 @@ end
 
 local function current_focused_screen()
   local win = hs.window.focusedWindow()
-  return (win and win:screen()) or hs.screen.mainScreen()
+  return (win and win:screen()) or hs.mouse.getCurrentScreen() or hs.screen.mainScreen()
 end
 
 local function refresh_after_layout_change()
@@ -57,15 +58,28 @@ hs.window.filter.default:subscribe(hs.window.filter.windowFocused, function(win)
   refresh_dimming(win and win:screen())
 end)
 
+-- Some app launch/termination transitions change the focused window without
+-- producing a windowFocused event. Reconcile the observed state so a stale
+-- overlay cannot remain on the display that actually received focus.
+local last_focused_screen_id
+M.focus_reconciler = hs.timer.doEvery(0.25, function()
+  local focused_screen = current_focused_screen()
+  local focused_screen_id = focused_screen and focused_screen:id()
+  if focused_screen_id ~= last_focused_screen_id then
+    last_focused_screen_id = focused_screen_id
+    refresh_dimming(focused_screen)
+  end
+end)
+
 -- Rebuild overlays when displays are connected/disconnected/reconfigured.
-local screen_watcher = hs.screen.watcher.new(function()
+M.screen_watcher = hs.screen.watcher.new(function()
   for _, canvas in pairs(overlays) do
     canvas:delete()
   end
   overlays = {}
   refresh_dimming(current_focused_screen())
 end)
-screen_watcher:start()
+M.screen_watcher:start()
 
 -- hammerspoon://dimset?state=on|off -- lets sketchybar (or anything else) toggle this explicitly.
 hs.urlevent.bind("dimset", function(_, params)
@@ -81,3 +95,5 @@ hs.urlevent.bind("dimrefresh", function()
 end)
 
 refresh_dimming(current_focused_screen())
+
+return M

@@ -1,8 +1,20 @@
+local tooling = require("config.tooling")
+
 return {
   {
     "williamboman/mason.nvim",
     cmd = { "Mason", "MasonInstall", "MasonUpdate", "MasonUninstall" },
     opts = {},
+  },
+  {
+    "WhoIsSethDaniel/mason-tool-installer.nvim",
+    dependencies = {
+      "williamboman/mason.nvim",
+    },
+    opts = {
+      ensure_installed = tooling.mason,
+      run_on_start = true,
+    },
   },
   {
     "neovim/nvim-lspconfig",
@@ -46,19 +58,13 @@ return {
         },
       })
 
+      vim.lsp.config("ruff", {
+        on_attach = function(client)
+          client.server_capabilities.hoverProvider = false
+        end,
+      })
+
       require("mason-lspconfig").setup({
-        ensure_installed = {
-          "lua_ls",
-          "bashls",
-          "gopls",
-          "rust_analyzer",
-          "ts_ls",
-          "jsonls",
-          "yamlls",
-          "dockerls",
-          "lemminx",
-          "jdtls",
-        },
         automatic_enable = {
           exclude = { "jdtls" },
         },

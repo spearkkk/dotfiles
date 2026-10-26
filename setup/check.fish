@@ -24,7 +24,7 @@ end
 function usage
     echo "Usage: fish setup/check.fish"
     echo
-    echo "Runs syntax checks, LaunchAgent plist validation, stow simulations, and a high-signal secret scan."
+    echo "Runs layout, template, syntax, stow, plist, and high-signal secret checks."
 end
 
 for arg in $argv
@@ -82,6 +82,66 @@ function check_files --argument-names label command_name flag
     end
 end
 
+function check_layout
+    set -l allowed \
+        .git \
+        .gitignore \
+        .worktrees \
+        AGENTS.md \
+        CLAUDE.md \
+        README.md \
+        home \
+        profiles \
+        setup \
+        share
+
+    for entry in (find "$repo_root" -mindepth 1 -maxdepth 1 -print | sort)
+        set -l name (basename "$entry")
+        if not contains -- "$name" $allowed
+            mark_fail "Unexpected repository root entry: $name"
+        end
+    end
+
+    set -l misplaced_templates
+    for profile_home in "$repo_root"/profiles/*/home
+        if test -d "$profile_home"
+            set --append misplaced_templates (find "$profile_home" -type f -name '*.template')
+        end
+    end
+
+    for template in $misplaced_templates
+        mark_fail "Template belongs under profile setup/templates/home: $template"
+    end
+end
+
+function check_templates
+    set -l templates
+    for template_home in "$repo_root"/profiles/*/setup/templates/home
+        if test -d "$template_home"
+            set --append templates (find "$template_home" -type f -name '*.template' | sort)
+        end
+    end
+
+    if test (count $templates) -eq 0
+        log_info "No profile templates found."
+        return
+    end
+
+    log_info "Checking "(count $templates)" profile templates."
+    for src in $templates
+        switch "$src"
+            case '*.toml.template'
+                if not env SRC="$src" python3 -c 'import os, pathlib, tomllib; tomllib.loads(pathlib.Path(os.environ["SRC"]).read_text())'
+                    mark_fail "TOML template validation failed: $src"
+                end
+            case '*.json.template'
+                if not env SRC="$src" python3 -c 'import json, os, pathlib; json.loads(pathlib.Path(os.environ["SRC"]).read_text())'
+                    mark_fail "JSON template validation failed: $src"
+                end
+        end
+    end
+end
+
 function stow_base_simulate --argument-names target_dir
     log_info "Base source: $repo_root/home"
     if not stow --simulate --verbose --restow --no-folding --target="$target_dir" --dir="$repo_root/home" . >/dev/null 2>&1 2>&1
@@ -123,6 +183,7 @@ log_step "Check required tools"
 require_command fish
 require_command bash
 require_command find
+require_command python3
 require_command stow
 if test (uname) = Darwin
     require_command plutil
@@ -133,6 +194,12 @@ end
 if not type -q rg
     log_warn "ripgrep not found; secret scan will be skipped."
 end
+
+log_step "Repository layout"
+check_layout
+
+log_step "Profile templates"
+check_templates
 
 log_step "Fish syntax"
 check_files fish fish -n \
@@ -145,6 +212,46 @@ check_files sh bash -n \
     "$repo_root/setup" \
     "$repo_root/home" \
     "$repo_root/profiles"
+
+log_step "tmux pane attention"
+if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
+    mark_fail "tmux pane attention test failed"
+end
+
+log_step "tmux pane focus"
+if not bash "$repo_root/setup/tests/tmux-pane-focus.test.sh"
+    mark_fail "tmux pane focus test failed"
+end
+
+log_step "tmux pane movement"
+if not bash "$repo_root/setup/tests/tmux-move-pane.test.sh"
+    mark_fail "tmux pane movement test failed"
+end
+
+log_step "tmux UI color review"
+if not bash "$repo_root/setup/tests/tmux-ui-color-review.test.sh"
+    mark_fail "tmux UI color review test failed"
+end
+
+log_step "cw multi-context"
+if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
+    mark_fail "cw multi-context test failed"
+end
+
+log_step "Personal Brewfile"
+if not bash "$repo_root/setup/tests/personal-brewfile.test.sh"
+    mark_fail "personal Brewfile test failed"
+end
+
+log_step "Neovim tooling"
+if not bash "$repo_root/setup/tests/nvim-tooling.test.sh"
+    mark_fail "Neovim tooling test failed"
+end
+
+log_step "Artifact preview"
+if not bash "$repo_root/setup/tests/openit.test.sh"
+    mark_fail "Artifact preview test failed"
+end
 
 if type -q luac
     log_step "Lua syntax"

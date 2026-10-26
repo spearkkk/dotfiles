@@ -174,6 +174,13 @@ function ctx --description 'Show compact shell context'
     end
 
     function _ctx_tmux_option --argument-names option
+        if contains -- "$option" @kube_context @fke_config
+            set -l inheritance_disabled (tmux show-options -p -v -t "$TMUX_PANE" @kube_context_disabled 2>/dev/null)
+            if test "$inheritance_disabled" = 1
+                return 1
+            end
+        end
+
         set -l value (tmux show-options -p -v -t "$TMUX_PANE" $option 2>/dev/null)
         if test -n "$value"
             echo $value

@@ -91,6 +91,33 @@ function unstow_profile --argument-names name home_dir
     end
 end
 
+function reconcile_identical_targets --argument-names home_dir
+    if not test -d "$home_dir"
+        return 0
+    end
+
+    for src in (find "$home_dir" -type f | sort)
+        set -l rel (string replace -- "$home_dir/" "" "$src")
+
+        # Stow metadata and setup templates are not installed as profile files.
+        if test "$rel" = .stow-local-ignore; or string match -q '*.template' -- "$rel"
+            continue
+        end
+
+        set -l target "$HOME/$rel"
+        if test -L "$target"; and test "$target" -ef "$src"
+            set -l link_target (readlink "$target")
+            if string match -q '/*' -- "$link_target"
+                rm -- "$target"
+                log_info "Relink absolute target through stow: $target"
+            end
+        else if test -f "$target"; and not test -L "$target"; and command cmp -s "$src" "$target"
+            rm -- "$target"
+            log_info "Replace identical unmanaged target: $target"
+        end
+    end
+end
+
 log_section "Profile: $profile"
 
 if test "$remove_only" = yes
@@ -118,6 +145,8 @@ if test -d "$profile_home"
     log_step "Link profile dotfiles"
     log_info "Source: $profile_home"
     log_info "Target: $HOME"
+
+    reconcile_identical_targets "$profile_home"; or exit 1
 
     if not stow --verbose --restow --no-folding --target="$HOME" --dir="$profile_home" .
         log_error "Failed to stow profile: $profile"
