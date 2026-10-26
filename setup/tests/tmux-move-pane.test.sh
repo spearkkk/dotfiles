@@ -44,6 +44,11 @@ assert_root_key S-J 'run-shell .*tmux-move-pane down'
 assert_root_key S-K 'run-shell .*tmux-move-pane up'
 assert_root_key S-L 'run-shell .*tmux-move-pane right'
 
+if "$real_tmux" -L "$socket_name" list-keys -T root M-Enter >/dev/null 2>&1; then
+  fail alt_enter "Alt+Enter must remain available to the active pane"
+fi
+assert_root_key S-Enter 'split-window -v -c "#{pane_current_path}"'
+
 socket_path=$("$real_tmux" -L "$socket_name" display-message -p '#{socket_path}')
 tmux_env="$socket_path,$$,0"
 first_pane=$("$real_tmux" -L "$socket_name" display-message -p '#{pane_id}')
