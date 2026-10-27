@@ -32,6 +32,13 @@ done
 case ${1:-} in
   has-session) exit 0 ;;
   list-windows) printf '%s\n' "${FAKE_WINDOWS:-}" ;;
+  display-message)
+    case $last in
+      '#S:#W') printf '%s\n' 'test:active' ;;
+      '#W') printf '%s\n' 'active' ;;
+      *) exit 1 ;;
+    esac
+    ;;
   new-window|set-option|switch-client|attach-session) exit 0 ;;
   show-options)
     case $last in
@@ -143,6 +150,16 @@ TMUX_PANE=%7 run_cw dev-k8s fos-dev --pane || fail pane "cw exited $?"
 [ "$(grep -c '^reset-pane:' "$CW_HOOK_LOG")" -eq 1 ] || fail pane "pane reset did not run exactly once"
 [ "$(grep -c '^pane:' "$CW_HOOK_LOG")" -eq 2 ] || fail pane "both pane initializers did not run"
 grep -q 'set-option -p -t %7 @cw_context dev-k8s | fos-dev' "$FAKE_TMUX_LOG" || fail pane "pane context metadata was not stored"
+
+FAKE_CW_CONTEXT='dev-k8s | fos-dev' TMUX_PANE=%7 run_cw clear || fail clear_window "cw exited $?"
+[ "$(grep -c '^reset-window:test:active$' "$CW_HOOK_LOG")" -eq 1 ] || fail clear_window "window reset did not run exactly once"
+grep -q '^set-option -w -u -t test:active @cw_context$' "$FAKE_TMUX_LOG" || fail clear_window "window context metadata was not cleared"
+grep -q '^set-option -w -u -t test:active @cw_context_prod$' "$FAKE_TMUX_LOG" || fail clear_window "window prod metadata was not cleared"
+
+FAKE_CW_CONTEXT='dev-k8s | fos-dev' TMUX_PANE=%7 run_cw clear --pane || fail clear_pane "cw exited $?"
+[ "$(grep -c '^reset-pane:active$' "$CW_HOOK_LOG")" -eq 1 ] || fail clear_pane "pane reset did not run exactly once"
+grep -q '^set-option -p -t %7 @cw_context $' "$FAKE_TMUX_LOG" || fail clear_pane "pane context did not override window inheritance"
+grep -q '^set-option -p -t %7 @cw_context_prod 0$' "$FAKE_TMUX_LOG" || fail clear_pane "pane prod metadata did not override window inheritance"
 
 export FAKE_CW_CONTEXT='dev-k8s | fos-dev'
 export FAKE_CW_CONTEXT_PROD=0

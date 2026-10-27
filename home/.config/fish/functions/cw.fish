@@ -27,6 +27,7 @@ function cw --description 'Create/reuse a tmux window with a profile context'
     set -l expecting_session 0
     set -l list_only 0
     set -l current_pane 0
+    set -l clear_only 0
 
     for arg in $argv
         if test $expecting_session -eq 1
@@ -42,9 +43,12 @@ function cw --description 'Create/reuse a tmux window with a profile context'
                 set list_only 1
             case -P --pane current-pane
                 set current_pane 1
+            case clear
+                set clear_only 1
             case -h --help
                 echo "Usage: cw CONTEXT... [-s|--session SESSION]"
                 echo "       cw CONTEXT... --pane"
+                echo "       cw clear [--pane]"
                 echo "       cw --list"
                 echo
                 echo "CONTEXT values and init hooks are provided by the active profile."
@@ -63,6 +67,59 @@ function cw --description 'Create/reuse a tmux window with a profile context'
     if test $list_only -eq 1
         __cw_context --list
         return
+    end
+
+    if test $clear_only -eq 1
+        if test (count $contexts) -gt 0
+            echo "Usage: cw clear [--pane]" >&2
+            return 1
+        end
+        if not set -q TMUX_PANE
+            echo "cw clear requires running inside tmux" >&2
+            return 1
+        end
+
+        set -l context_label
+        set -l reset_target
+        set -l reset_key
+        if test $current_pane -eq 1
+            set context_label (tmux show-options -p -v -t "$TMUX_PANE" @cw_context 2>/dev/null)
+            set reset_target (tmux display-message -p -t "$TMUX_PANE" '#W')
+            set reset_key pane_reset
+        else
+            set reset_target (tmux display-message -p -t "$TMUX_PANE" '#S:#W')
+            set context_label (tmux show-options -w -v -t "$reset_target" @cw_context 2>/dev/null)
+            set reset_key reset
+        end
+
+        set -l reset_hooks
+        for context in (string split ' | ' -- "$context_label")
+            test -z "$context"; and continue
+            set -l spec (__cw_context "$context")
+            or return 1
+            set -l reset (__cw_get "$reset_key" $spec)
+            if test -n "$reset"; and not contains -- "$reset" $reset_hooks
+                set -a reset_hooks "$reset"
+            end
+        end
+
+        for reset in $reset_hooks
+            if not functions -q "$reset"
+                echo "cw $reset_key function not found: $reset" >&2
+                return 1
+            end
+            $reset "$reset_target"
+            or return 1
+        end
+
+        if test $current_pane -eq 1
+            tmux set-option -p -t "$TMUX_PANE" @cw_context "" 2>/dev/null
+            tmux set-option -p -t "$TMUX_PANE" @cw_context_prod 0 2>/dev/null
+        else
+            tmux set-option -w -u -t "$reset_target" @cw_context 2>/dev/null
+            tmux set-option -w -u -t "$reset_target" @cw_context_prod 2>/dev/null
+        end
+        return 0
     end
 
     if test (count $contexts) -eq 0
