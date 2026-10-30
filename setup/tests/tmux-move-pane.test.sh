@@ -43,6 +43,14 @@ assert_root_key S-H 'run-shell .*tmux-move-pane left'
 assert_root_key S-J 'run-shell .*tmux-move-pane down'
 assert_root_key S-K 'run-shell .*tmux-move-pane up'
 assert_root_key S-L 'run-shell .*tmux-move-pane right'
+if "$real_tmux" -L "$socket_name" list-keys -T root M-Q >/dev/null 2>&1 || \
+    "$real_tmux" -L "$socket_name" list-keys -T root M-S-Q >/dev/null 2>&1; then
+  fail aerospace_q 'Alt+Shift+q must remain owned by AeroSpace'
+fi
+
+split_hooks=$("$real_tmux" -L "$socket_name" show-hooks -g after-split-window)
+grep -Eq 'after-split-window\[10\][[:space:]]+select-layout -E' <<<"$split_hooks" || \
+  fail split_equalize 'missing indexed equal-size hook after pane-focus initialization'
 
 if "$real_tmux" -L "$socket_name" list-keys -T root M-Enter >/dev/null 2>&1; then
   fail alt_enter "Alt+Enter must remain available to the active pane"
