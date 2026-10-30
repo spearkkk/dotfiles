@@ -252,6 +252,12 @@ if not REPO_ROOT="$repo_root" mise exec lua@5.4 -- lua "$repo_root/setup/tests/f
     mark_fail "Sketchybar front app test failed"
 end
 
+log_step "Sketchybar profile loader"
+set -l lua_bin (mise where lua@5.4)/bin/lua
+if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-profile.test.sh"
+    mark_fail "Sketchybar profile loader test failed"
+end
+
 log_step "cw multi-context"
 if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
     mark_fail "cw multi-context test failed"
