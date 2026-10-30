@@ -174,20 +174,7 @@ function ctx --description 'Show compact shell context'
     end
 
     function _ctx_tmux_option --argument-names option
-        if contains -- "$option" @kube_context @fke_config
-            set -l inheritance_disabled (tmux show-options -p -v -t "$TMUX_PANE" @kube_context_disabled 2>/dev/null)
-            if test "$inheritance_disabled" = 1
-                return 1
-            end
-        end
-
-        set -l value (tmux show-options -p -v -t "$TMUX_PANE" $option 2>/dev/null)
-        if test -n "$value"
-            echo $value
-            return
-        end
-
-        tmux show-options -w -v -t "$TMUX_PANE" $option 2>/dev/null
+        tmux show-options -p -v -t "$TMUX_PANE" $option 2>/dev/null
     end
 
     function _ctx_emit
@@ -202,14 +189,14 @@ function ctx --description 'Show compact shell context'
                 set tmux_label "$tmux_session:$tmux_window.$tmux_pane"
             end
 
-            set -l tmux_kube_ctx (_ctx_tmux_option @kube_context)
+            set -l tmux_contexts (_ctx_tmux_option @contexts_display)
 
-            if test -n "$tmux_label"; and test -n "$tmux_kube_ctx"
-                _ctx_inner_box tmux "session|$tmux_label" "k8s|$tmux_kube_ctx"
+            if test -n "$tmux_label"; and test -n "$tmux_contexts"
+                _ctx_inner_box tmux "session|$tmux_label" "context|$tmux_contexts"
             else if test -n "$tmux_label"
                 _ctx_line tmux "$tmux_label"
-            else if test -n "$tmux_kube_ctx"
-                _ctx_line k8s $tmux_kube_ctx
+            else if test -n "$tmux_contexts"
+                _ctx_line context "$tmux_contexts"
             end
         end
 

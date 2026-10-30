@@ -1,0 +1,149 @@
+#!/bin/sh
+
+set -eu
+
+operation=${1:-}
+pane=${2:-}
+lock_name=tmux-pane-context-lock
+lock_held=0
+empty='{"schema":1,"revision":0,"contexts":[]}'
+
+usage() {
+  printf '%s\n' 'usage: tmux-pane-context list PANE | inject PANE DESCRIPTOR_JSON | eject PANE SLOT [INSTANCE] | state PANE INSTANCE STATE | clear PANE' >&2
+  exit 64
+}
+
+case $operation in
+  list|clear) [ "$#" -eq 2 ] || usage ;;
+  inject) [ "$#" -eq 3 ] || usage ;;
+  eject) [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || usage ;;
+  state) [ "$#" -eq 4 ] || usage ;;
+  *) usage ;;
+esac
+
+command -v jq >/dev/null 2>&1 || {
+  printf '%s\n' 'tmux-pane-context: jq is required' >&2
+  exit 69
+}
+
+read_contexts() {
+  value=$(tmux show-options -pqv -t "$pane" @contexts 2>/dev/null || :)
+  [ -n "$value" ] || value=$empty
+  printf '%s' "$value" | jq -ce '
+    select(.schema == 1 and (.revision | type == "number") and (.contexts | type == "array"))
+  ' 2>/dev/null || {
+    printf 'tmux-pane-context: invalid @contexts on %s\n' "$pane" >&2
+    exit 65
+  }
+}
+
+release_lock() {
+  [ "$lock_held" -eq 1 ] || return 0
+  tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :
+  lock_held=0
+}
+
+refresh_clients() {
+  tmux list-clients -F '#{client_name}' 2>/dev/null |
+    while IFS= read -r client; do
+      [ -n "$client" ] || continue
+      tmux refresh-client -S -t "$client" >/dev/null 2>&1 || :
+    done
+}
+
+write_contexts() {
+  next=$1
+  bytes=$(printf '%s' "$next" | wc -c | tr -d ' ')
+  if [ "$bytes" -gt 4096 ]; then
+    printf 'tmux-pane-context: @contexts exceeds 4096 bytes (%s)\n' "$bytes" >&2
+    return 65
+  fi
+
+  display=$(printf '%s' "$next" | jq -r '
+    [.contexts[] | .id +
+      (if .state == "connecting" then "…"
+       elif .state == "offline" then "○"
+       elif .state == "error" then "!"
+       else "" end)] | join(" | ")
+  ')
+  alert=$(printf '%s' "$next" | jq -r '
+    any(.contexts[]; .alert == true and (.state == "connecting" or .state == "active"))
+    | if . then "1" else "0" end
+  ')
+
+  tmux set-option -p -t "$pane" @contexts "$next"
+  tmux set-option -p -t "$pane" @contexts_display "$display"
+  tmux set-option -p -t "$pane" @contexts_alert "$alert"
+  refresh_clients
+}
+
+if [ "$operation" = list ]; then
+  read_contexts
+  exit 0
+fi
+
+trap release_lock 0 1 2 15
+tmux wait-for -L "$lock_name" >/dev/null 2>&1
+lock_held=1
+current=$(read_contexts)
+next=$current
+
+case $operation in
+  inject)
+    descriptor=$3
+    descriptor=$(printf '%s' "$descriptor" | jq -ce '
+      select(
+        (keys | sort) == ["alert","environment","id","instance","slot","state"] and
+        (.instance | type == "string" and length > 0) and
+        (.id | type == "string" and length > 0) and
+        (.slot | type == "string" and length > 0) and
+        (.environment | type == "string" and length > 0) and
+        (.alert | type == "boolean") and
+        (.state == "connecting" or .state == "active" or .state == "offline" or .state == "error")
+      )
+    ' 2>/dev/null) || {
+      printf '%s\n' 'tmux-pane-context: invalid descriptor' >&2
+      exit 65
+    }
+    next=$(printf '%s' "$current" | jq -c --argjson descriptor "$descriptor" '
+      .revision += 1 |
+      .contexts = ([.contexts[] | select(.slot != $descriptor.slot)] + [$descriptor])
+    ')
+    ;;
+  eject)
+    slot=$3
+    instance=${4:-}
+    matches=$(printf '%s' "$current" | jq -r --arg slot "$slot" --arg instance "$instance" '
+      any(.contexts[]; .slot == $slot and ($instance == "" or .instance == $instance))
+    ')
+    [ "$matches" = true ] || exit 0
+    next=$(printf '%s' "$current" | jq -c --arg slot "$slot" --arg instance "$instance" '
+      .revision += 1 |
+      .contexts = [.contexts[] | select(.slot != $slot or ($instance != "" and .instance != $instance))]
+    ')
+    ;;
+  state)
+    instance=$3
+    state=$4
+    case $state in connecting|active|offline|error) ;; *) usage ;; esac
+    old_state=$(printf '%s' "$current" | jq -r --arg instance "$instance" '
+      first(.contexts[] | select(.instance == $instance) | .state) // ""
+    ')
+    [ -n "$old_state" ] || exit 0
+    [ "$old_state" != "$state" ] || exit 0
+    next=$(printf '%s' "$current" | jq -c --arg instance "$instance" --arg state "$state" '
+      .revision += 1 |
+      .contexts |= map(if .instance == $instance then .state = $state else . end)
+    ')
+    ;;
+  clear)
+    has_contexts=$(printf '%s' "$current" | jq '.contexts | length')
+    [ "$has_contexts" -gt 0 ] || exit 0
+    next=$(printf '%s' "$current" | jq -c '
+      .revision += 1 |
+      .contexts = []
+    ')
+    ;;
+esac
+
+write_contexts "$next"

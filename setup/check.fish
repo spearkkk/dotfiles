@@ -186,6 +186,7 @@ require_command find
 require_command python3
 require_command ssh
 require_command stow
+require_command jq
 if test (uname) = Darwin
     require_command plutil
 end
@@ -222,6 +223,13 @@ end
 log_step "tmux pane attention"
 if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
     mark_fail "tmux pane attention test failed"
+end
+
+log_step "tmux pane context"
+if not test -x "$repo_root/home/.local/libexec/tmux-pane-context"
+    mark_fail "tmux pane context helper is not executable"
+else if not bash "$repo_root/setup/tests/tmux-pane-context.test.sh"
+    mark_fail "tmux pane context test failed"
 end
 
 log_step "tmux pane focus"
