@@ -34,13 +34,30 @@ chmod +x "$tmpdir/tmux"
 cat >"$tmpdir/context-helper" <<'HELPER'
 #!/bin/sh
 printf '%s\n' "$*" >>"$FAKE_CONTEXT_LOG"
+state_file=$FAKE_CONTEXT_STATE
+update_state() {
+  jq -c "$@" "$state_file" >"$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+}
 case $1 in
-  list)
-    if [ -n "${FAKE_CONTEXTS:-}" ]; then
-      printf '%s\n' "$FAKE_CONTEXTS"
-    else
-      printf '%s\n' '{"schema":1,"revision":0,"contexts":[]}'
+  list) cat "$state_file" ;;
+  inject)
+    if [ "$#" -eq 4 ]; then
+      actual=$(jq -r --argjson descriptor "$3" 'first(.contexts[] | select(.slot == $descriptor.slot) | .instance) // ""' "$state_file")
+      [ "$actual" = "$4" ] || exit 75
     fi
+    update_state --argjson descriptor "$3" \
+      '.revision += 1 | .contexts = ([.contexts[] | select(.slot != $descriptor.slot)] + [$descriptor])'
+    ;;
+  eject)
+    update_state --arg slot "$3" --arg instance "${4:-}" \
+      '.revision += 1 | .contexts = [.contexts[] | select(.slot != $slot or ($instance != "" and .instance != $instance))]'
+    ;;
+  state)
+    update_state --arg instance "$3" --arg state "$4" \
+      '.revision += 1 | .contexts |= map(if .instance == $instance then .state = $state else . end)'
+    ;;
+  clear)
+    update_state '.revision += 1 | .contexts = []'
     ;;
   *) exit 0 ;;
 esac
@@ -51,12 +68,18 @@ export PATH="$tmpdir:$PATH"
 export CW_CONTEXT_HELPER="$tmpdir/context-helper"
 export FAKE_TMUX_LOG="$tmpdir/tmux.log"
 export FAKE_CONTEXT_LOG="$tmpdir/context.log"
+export FAKE_CONTEXT_STATE="$tmpdir/context-state.json"
 export PROVIDER_LOG="$tmpdir/provider.log"
 
 run_fish() {
   : >"$FAKE_TMUX_LOG"
   : >"$FAKE_CONTEXT_LOG"
   : >"$PROVIDER_LOG"
+  if [[ -n ${FAKE_CONTEXTS:-} ]]; then
+    printf '%s\n' "$FAKE_CONTEXTS" >"$FAKE_CONTEXT_STATE"
+  else
+    printf '%s\n' '{"schema":1,"revision":0,"contexts":[]}' >"$FAKE_CONTEXT_STATE"
+  fi
   fish --no-config --command '
     source $argv[1]
 
@@ -72,6 +95,8 @@ run_fish() {
           printf "%s\n" name=other-k8s title=other-k8s type=kubernetes env=dev session=test cwd=/tmp inject=provider_inject restore=provider_restore eject=provider_eject
         case broken
           printf "%s\n" name=broken title=broken type=pulsar env=dev session=test cwd=/tmp inject=provider_fail restore=provider_restore eject=provider_eject
+        case broken-k8s
+          printf "%s\n" name=broken-k8s title=broken-k8s type=kubernetes env=dev session=test cwd=/tmp inject=provider_fail restore=provider_restore eject=provider_eject
         case "*"
           return 1
       end
@@ -139,6 +164,39 @@ if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken --pane'; then
   exit 1
 fi
 grep -q '^state %7 .* error$' "$FAKE_CONTEXT_LOG"
+
+old_context='{"instance":"old-1","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}'
+export FAKE_CONTEXTS="{\"schema\":1,\"revision\":1,\"contexts\":[$old_context]}"
+if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken-k8s --pane'; then
+  echo 'FAIL: replacement provider failure returned success' >&2
+  exit 1
+fi
+grep -q '^eject:%7:old-1:dev-k8s$' "$PROVIDER_LOG"
+grep -q '^fail:%7:.*:broken-k8s$' "$PROVIDER_LOG"
+grep -q '^eject:%7:.*:broken-k8s$' "$PROVIDER_LOG"
+grep -q '^restore:%7:old-1:dev-k8s$' "$PROVIDER_LOG"
+if [[ $(jq -c '.contexts' "$FAKE_CONTEXT_STATE") != "[$old_context]" ]]; then
+  printf 'FAIL: existing context was not restored: %s\n' \
+    "$(cat "$FAKE_CONTEXT_STATE")" >&2
+  exit 1
+fi
+unset FAKE_CONTEXTS
+
+old_context='{"instance":"old-1","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}'
+export FAKE_CONTEXTS="{\"schema\":1,\"revision\":1,\"contexts\":[$old_context]}"
+if TMUX=1 TMUX_PANE=%7 run_fish 'cw other-k8s broken --pane'; then
+  echo 'FAIL: multi-context provider failure returned success' >&2
+  exit 1
+fi
+assert_eq_batch=$(jq -c '.contexts' "$FAKE_CONTEXT_STATE")
+if [[ "$assert_eq_batch" != "[$old_context]" ]]; then
+  printf 'FAIL: batch failure did not restore original contexts: %s\n' \
+    "$assert_eq_batch" >&2
+  exit 1
+fi
+grep -q '^eject:%7:.*:other-k8s$' "$PROVIDER_LOG"
+grep -q '^restore:%7:old-1:dev-k8s$' "$PROVIDER_LOG"
+unset FAKE_CONTEXTS
 
 export FAKE_CONTEXTS='{"schema":1,"revision":3,"contexts":[{"instance":"old-1","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"},{"instance":"old-2","id":"prod-object","slot":"object-storage","environment":"prod","alert":true,"state":"offline"}]}'
 TMUX=1 TMUX_PANE=%7 run_fish 'cw clear'

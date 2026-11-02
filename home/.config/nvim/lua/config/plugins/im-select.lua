@@ -1,7 +1,7 @@
 return {
   {
     "keaising/im-select.nvim",
-    event = "VeryLazy",
+    lazy = false,
     opts = {
       default_im_select = "com.apple.keylayout.ABC",
       default_command = "/opt/homebrew/bin/im-select",
@@ -12,9 +12,7 @@ return {
         "CmdlineEnter",
         "CmdlineLeave",
       },
-      set_previous_events = {
-        "InsertEnter",
-      },
+      set_previous_events = {},
       keep_quiet_on_no_binary = false,
       async_switch_im = true,
     },

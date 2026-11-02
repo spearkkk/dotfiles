@@ -4,18 +4,44 @@ set -eu
 
 operation=${1:-}
 pane=${2:-}
-lock_name=tmux-pane-context-lock
-lock_held=0
 empty='{"schema":1,"revision":0,"contexts":[]}'
+jq_validation='
+  def safe_identifier:
+    if type != "string" then false
+    else length >= 1 and length <= 128 and test("^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    end;
+  def valid_context:
+    if type != "object" then false
+    else
+      (keys | sort) == ["alert","environment","id","instance","slot","state"] and
+      (.instance | safe_identifier) and
+      (.id | safe_identifier) and
+      (.slot | safe_identifier) and
+      (.environment | safe_identifier) and
+      (.alert | type == "boolean") and
+      (.state == "connecting" or .state == "active" or .state == "offline" or .state == "error")
+    end;
+  def valid_document:
+    if type != "object" then false
+    else
+      (keys | sort) == ["contexts","revision","schema"] and
+      .schema == 1 and
+      (.revision | type == "number" and . >= 0 and . == floor) and
+      (.contexts | type == "array") and
+      all(.contexts[]; valid_context) and
+      ([.contexts[].slot] | length) == ([.contexts[].slot] | unique | length) and
+      ([.contexts[].instance] | length) == ([.contexts[].instance] | unique | length)
+    end;
+'
 
 usage() {
-  printf '%s\n' 'usage: tmux-pane-context list PANE | inject PANE DESCRIPTOR_JSON | eject PANE SLOT [INSTANCE] | state PANE INSTANCE STATE | clear PANE' >&2
+  printf '%s\n' 'usage: tmux-pane-context list PANE | inject PANE DESCRIPTOR_JSON [EXPECTED_INSTANCE] | eject PANE SLOT [INSTANCE] | state PANE INSTANCE STATE | clear PANE' >&2
   exit 64
 }
 
 case $operation in
   list|clear) [ "$#" -eq 2 ] || usage ;;
-  inject) [ "$#" -eq 3 ] || usage ;;
+  inject) [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || usage ;;
   eject) [ "$#" -eq 3 ] || [ "$#" -eq 4 ] || usage ;;
   state) [ "$#" -eq 4 ] || usage ;;
   *) usage ;;
@@ -26,21 +52,43 @@ command -v jq >/dev/null 2>&1 || {
   exit 69
 }
 
+lock_mutation() {
+  command -v lockf >/dev/null 2>&1 || {
+    printf '%s\n' 'tmux-pane-context: lockf is required' >&2
+    exit 69
+  }
+
+  target=$(tmux display-message -p -t "$pane" '#{socket_path}|#{pane_id}' 2>/dev/null) || {
+    printf 'tmux-pane-context: pane not found: %s\n' "$pane" >&2
+    exit 65
+  }
+  socket_path=${target%|*}
+  resolved_pane=${target##*|}
+  socket_key=$(printf '%s' "$socket_path" | cksum)
+  socket_key=${socket_key%% *}
+  lock_file="${TMPDIR:-/tmp}/tmux-pane-context-${socket_key}-${resolved_pane#%}.lock"
+
+  [ "${TMUX_PANE_CONTEXT_LOCKED:-}" = "$lock_file" ] && return
+
+  if TMUX_PANE_CONTEXT_LOCKED="$lock_file" \
+      lockf -k -t 5 "$lock_file" "$0" "$@"; then
+    exit 0
+  else
+    status=$?
+    if [ "$status" -eq 75 ]; then
+      printf 'tmux-pane-context: timed out waiting for pane lock: %s\n' "$resolved_pane" >&2
+    fi
+    exit "$status"
+  fi
+}
+
 read_contexts() {
   value=$(tmux show-options -pqv -t "$pane" @contexts 2>/dev/null || :)
   [ -n "$value" ] || value=$empty
-  printf '%s' "$value" | jq -ce '
-    select(.schema == 1 and (.revision | type == "number") and (.contexts | type == "array"))
-  ' 2>/dev/null || {
+  printf '%s' "$value" | jq -ce "$jq_validation select(valid_document)" 2>/dev/null || {
     printf 'tmux-pane-context: invalid @contexts on %s\n' "$pane" >&2
     exit 65
   }
-}
-
-release_lock() {
-  [ "$lock_held" -eq 1 ] || return 0
-  tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :
-  lock_held=0
 }
 
 refresh_clients() {
@@ -51,60 +99,95 @@ refresh_clients() {
     done
 }
 
-write_contexts() {
-  next=$1
-  bytes=$(printf '%s' "$next" | wc -c | tr -d ' ')
-  if [ "$bytes" -gt 4096 ]; then
-    printf 'tmux-pane-context: @contexts exceeds 4096 bytes (%s)\n' "$bytes" >&2
-    return 65
-  fi
-
-  display=$(printf '%s' "$next" | jq -r '
+set_projection() {
+  projection_display=$(printf '%s' "$1" | jq -r '
     [.contexts[] | .id +
       (if .state == "connecting" then "…"
        elif .state == "offline" then "○"
        elif .state == "error" then "!"
        else "" end)] | join(" | ")
   ')
-  alert=$(printf '%s' "$next" | jq -r '
+  projection_alert=$(printf '%s' "$1" | jq -r '
     any(.contexts[]; .alert == true and (.state == "connecting" or .state == "active"))
     | if . then "1" else "0" end
   ')
+}
+
+projection_matches() {
+  set_projection "$1"
+  stored_display=$(tmux show-options -pqv -t "$pane" @contexts_display 2>/dev/null || :)
+  stored_alert=$(tmux show-options -pqv -t "$pane" @contexts_alert 2>/dev/null || :)
+  [ "$stored_display" = "$projection_display" ] &&
+    [ "$stored_alert" = "$projection_alert" ]
+}
+
+write_projection() {
+  set_projection "$1"
+  stored_display=$(tmux show-options -pqv -t "$pane" @contexts_display 2>/dev/null || :)
+  stored_alert=$(tmux show-options -pqv -t "$pane" @contexts_alert 2>/dev/null || :)
+
+  [ "$stored_display" = "$projection_display" ] ||
+    tmux set-option -p -t "$pane" @contexts_display "$projection_display"
+  [ "$stored_alert" = "$projection_alert" ] ||
+    tmux set-option -p -t "$pane" @contexts_alert "$projection_alert"
+}
+
+write_contexts() {
+  next=$1
+  next=$(printf '%s' "$next" | jq -ce "$jq_validation select(valid_document)" 2>/dev/null) || {
+    printf 'tmux-pane-context: refusing invalid @contexts for %s\n' "$pane" >&2
+    return 65
+  }
+  bytes=$(printf '%s' "$next" | wc -c | tr -d ' ')
+  if [ "$bytes" -gt 4096 ]; then
+    printf 'tmux-pane-context: @contexts exceeds 4096 bytes (%s)\n' "$bytes" >&2
+    return 65
+  fi
 
   tmux set-option -p -t "$pane" @contexts "$next"
-  tmux set-option -p -t "$pane" @contexts_display "$display"
-  tmux set-option -p -t "$pane" @contexts_alert "$alert"
+  write_projection "$next"
   refresh_clients
 }
 
 if [ "$operation" = list ]; then
-  read_contexts
+  current=$(read_contexts)
+  if ! projection_matches "$current"; then
+    lock_mutation "$@"
+    current=$(read_contexts)
+    if ! projection_matches "$current"; then
+      write_projection "$current"
+      refresh_clients
+    fi
+  fi
+  printf '%s\n' "$current"
   exit 0
 fi
 
-trap release_lock 0 1 2 15
-tmux wait-for -L "$lock_name" >/dev/null 2>&1
-lock_held=1
+lock_mutation "$@"
 current=$(read_contexts)
+if ! projection_matches "$current"; then
+  write_projection "$current"
+  refresh_clients
+fi
 next=$current
 
 case $operation in
   inject)
     descriptor=$3
-    descriptor=$(printf '%s' "$descriptor" | jq -ce '
-      select(
-        (keys | sort) == ["alert","environment","id","instance","slot","state"] and
-        (.instance | type == "string" and length > 0) and
-        (.id | type == "string" and length > 0) and
-        (.slot | type == "string" and length > 0) and
-        (.environment | type == "string" and length > 0) and
-        (.alert | type == "boolean") and
-        (.state == "connecting" or .state == "active" or .state == "offline" or .state == "error")
-      )
-    ' 2>/dev/null) || {
+    descriptor=$(printf '%s' "$descriptor" | jq -ce "$jq_validation select(valid_context)" 2>/dev/null) || {
       printf '%s\n' 'tmux-pane-context: invalid descriptor' >&2
       exit 65
     }
+    # Optional compare-and-set under the pane lock; empty means unoccupied.
+    if [ "$#" -eq 4 ]; then
+      occupant=$(printf '%s' "$current" | jq -r --argjson descriptor "$descriptor" '
+        first(.contexts[] | select(.slot == $descriptor.slot) | .instance) // ""
+      ')
+      if [ "$occupant" != "$4" ]; then
+        printf '%s\n' 'tmux-pane-context: slot changed; refusing replacement' >&2
+        exit 65
+      fi
+    fi
     next=$(printf '%s' "$current" | jq -c --argjson descriptor "$descriptor" '
       .revision += 1 |
       .contexts = ([.contexts[] | select(.slot != $descriptor.slot)] + [$descriptor])

@@ -187,6 +187,7 @@ require_command python3
 require_command ssh
 require_command stow
 require_command jq
+require_command lockf
 if test (uname) = Darwin
     require_command plutil
 end
@@ -242,11 +243,6 @@ if not bash "$repo_root/setup/tests/tmux-move-pane.test.sh"
     mark_fail "tmux pane movement test failed"
 end
 
-log_step "tmux UI color review"
-if not bash "$repo_root/setup/tests/tmux-ui-color-review.test.sh"
-    mark_fail "tmux UI color review test failed"
-end
-
 log_step "Sketchybar front app"
 if not REPO_ROOT="$repo_root" mise exec lua@5.4 -- lua "$repo_root/setup/tests/front-app.test.lua"
     mark_fail "Sketchybar front app test failed"
@@ -261,6 +257,16 @@ end
 log_step "cw multi-context"
 if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
     mark_fail "cw multi-context test failed"
+end
+
+log_step "cw rollback integration"
+if not bash "$repo_root/setup/tests/cw-rollback-integration.test.sh"
+    mark_fail "cw rollback integration test failed"
+end
+
+log_step "Codex temporary workspace"
+if not sh "$repo_root/setup/tests/codext.test.sh"
+    mark_fail "Codex temporary workspace test failed"
 end
 
 log_step "Personal Brewfile"

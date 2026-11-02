@@ -95,4 +95,37 @@ local fake_ruff = { server_capabilities = { hoverProvider = true } }
 configured.ruff.on_attach(fake_ruff)
 assert(fake_ruff.server_capabilities.hoverProvider == false, "Ruff hover must be disabled in favor of BasedPyright")
 
+local zen_specs = dofile(repo_root .. "/home/.config/nvim/lua/config/plugins/zen-mode.lua")
+local zen = zen_specs[1]
+assert(zen[1] == "folke/zen-mode.nvim", "Zen Mode plugin is not configured")
+assert(zen.cmd == "ZenMode", "Zen Mode command trigger is not configured")
+assert(zen.keys[1][1] == "<leader>z", "Zen Mode toggle key is not configured")
+assert(zen.opts.border == "rounded", "Zen Mode border must be rounded")
+assert(zen.opts.zindex == 40, "Zen Mode zindex must remain 40")
+assert(zen.opts.window.width == 120 and zen.opts.window.height == 1, "Zen Mode dimensions are incorrect")
+assert(zen.opts.window.backdrop == 0.8, "Zen Mode backdrop is incorrect")
+assert(vim.deep_equal(zen.opts.window.options, {
+  wrap = true,
+  linebreak = true,
+  number = true,
+  relativenumber = true,
+  cursorline = true,
+  cursorcolumn = false,
+  signcolumn = "yes",
+  foldcolumn = "1",
+  list = false,
+}), "Zen Mode window options are incorrect")
+assert(vim.deep_equal(zen.opts.plugins, {
+  options = { enabled = true, ruler = false, showcmd = false },
+  twilight = { enabled = false },
+  gitsigns = { enabled = false },
+  tmux = { enabled = false },
+  diagnostics = { enabled = false },
+  todo = { enabled = false },
+  kitty = { enabled = false },
+  alacritty = { enabled = false },
+  wezterm = { enabled = false },
+  neovide = { enabled = false },
+}), "Zen Mode plugin options are incorrect")
+
 print("PASS: nvim-tooling")
