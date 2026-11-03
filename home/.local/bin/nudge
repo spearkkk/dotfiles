@@ -1,0 +1,261 @@
+#!/bin/bash
+# Bash 3.2 transport only. Request policy and defaults belong to the Lua service.
+set -u
+export LC_ALL=C
+umask 077
+
+usage() {
+  cat <<'HELP'
+Usage: nudge send [fields | --json FILE|-] [--dry-run]
+       nudge list [--source SOURCE]
+       nudge inspect|dismiss ID
+       nudge inspect|dismiss --id ID | --source SOURCE --key KEY
+       nudge doctor|capabilities
+
+Send fields:
+  --version NUMBER       --source TEXT         --event TEXT
+  --key TEXT             --severity TEXT       --title TEXT
+  --subtitle TEXT        --body TEXT           --context-json JSON
+  --preset TEXT          --ttl-seconds NUMBER  --dedupe-seconds NUMBER
+
+--json reads one request object, exclusively of send fields. --dry-run is
+compatible with either input form. Defaults and validation live in the service.
+Hammerspoon must already be running; nudge never launches it or prompts.
+Preflight and IPC share a two-second deadline. A timeout has unknown outcome;
+no request is automatically retried.
+
+Notifications and local state are plaintext. Do not include secrets in any
+request fields; command-line arguments can also be visible to other processes.
+
+Exit codes: 0 success, 2 arguments/request/config, 3 connectivity/timeout,
+            4 dependency/store/internal, 5 stored but renderer failed.
+HELP
+}
+
+fail() {
+  local code=$1 message=$2 extra=''
+  [ "${3-}" != unknown ] || extra=',"result":"unknown"'
+  # All messages are fixed transport diagnostics, never user input or hs errors.
+  printf 'nudge: %s\n' "$message" >&2
+  printf '{"ok":false,"exit_code":%s,"error":"%s"%s}\n' "$code" "$message" "$extra"
+  exit "$code"
+}
+
+operation=${1-}
+case "$operation" in
+  -h|--help|help) usage; exit 0 ;;
+  send|list|inspect|dismiss|doctor|capabilities) shift ;;
+  *) fail 2 'Expected a supported operation; use --help.' ;;
+esac
+
+jq_args=(--arg operation "$operation")
+filter='{operation:$operation}'
+[ "$operation" != send ] || filter="$filter | .request = {}"
+seen='|'
+fields=0
+index=0
+json_file=''
+has_json=false
+has_id=false
+has_source=false
+has_key=false
+while [ "$#" -gt 0 ]; do
+  option=$1
+  shift
+  field=''
+  kind=text
+  case "$option" in
+    -h|--help) usage; exit 0 ;;
+    --dry-run)
+      [ "$operation" = send ] || fail 2 'Flag not supported for this operation.'
+      field=dry_run; kind=boolean; value=true
+      ;;
+    --json)
+      [ "$operation" = send ] || fail 2 'Flag not supported for this operation.'
+      field=json; kind=file
+      ;;
+    --id)
+      case "$operation" in inspect|dismiss) field=id ;; *) fail 2 'Flag not supported for this operation.' ;; esac
+      ;;
+    --source)
+      case "$operation" in
+        send) field=request.source ;;
+        list|inspect|dismiss) field=source ;;
+        *) fail 2 'Flag not supported for this operation.' ;;
+      esac
+      ;;
+    --key)
+      case "$operation" in
+        send) field=request.key ;;
+        inspect|dismiss) field=key ;;
+        *) fail 2 'Flag not supported for this operation.' ;;
+      esac
+      ;;
+    --version|--event|--severity|--title|--subtitle|--body|--context-json|--preset|--ttl-seconds|--dedupe-seconds)
+      [ "$operation" = send ] || fail 2 'Flag not supported for this operation.'
+      case "$option" in
+        --version) field=request.version; kind=number ;;
+        --event) field=request.event ;;
+        --severity) field=request.severity ;;
+        --title) field=request.content.title ;;
+        --subtitle) field=request.content.subtitle ;;
+        --body) field=request.content.body ;;
+        --context-json) field=request.context; kind=json ;;
+        --preset) field=request.policy.preset ;;
+        --ttl-seconds) field=request.policy.ttl_seconds; kind=number ;;
+        --dedupe-seconds) field=request.policy.dedupe_seconds; kind=number ;;
+      esac
+      ;;
+    -*) fail 2 'Unknown flag; use --help.' ;;
+    *)
+      case "$operation" in inspect|dismiss) field=id; kind=positional; value=$option ;; *) fail 2 'Unexpected positional argument.' ;; esac
+      ;;
+  esac
+  case "$seen" in *"|$field|"*) fail 2 'Duplicate flag or selector.' ;; esac
+  seen="$seen$field|"
+  case "$kind" in
+    boolean|positional) ;;
+    *) [ "$#" -gt 0 ] || fail 2 'Missing flag value.'; value=$1; shift ;;
+  esac
+  case "$field" in
+    json) json_file=$value; has_json=true; continue ;;
+    id) has_id=true ;;
+    source) has_source=true ;;
+    key) has_key=true ;;
+    request.*) fields=$((fields + 1)) ;;
+  esac
+  # Validate bytes before jq could replace malformed UTF-8 with U+FFFD.
+  printf '%s' "$value" | iconv -f UTF-8 -t UTF-8 > /dev/null 2>&1 || fail 2 'Flag value is not valid UTF-8.'
+  jq_args+=(--arg "v$index" "$value")
+  expression="\$v$index"
+  case "$kind" in
+    number|json)
+      # Keep raw fragments as strings until Lua's strict decoder sees them.
+      # jq accepts/repairs tokens such as 01, NaN, and lone UTF-16 surrogates.
+      raw_field=${field#request.}
+      filter="$filter | .raw_fields[\"$raw_field\"] = $expression"
+      ;;
+    boolean) filter="$filter | .$field = true" ;;
+    *) filter="$filter | .$field = $expression" ;;
+  esac
+  index=$((index + 1))
+done
+
+if "$has_json" && [ "$fields" -ne 0 ]; then fail 2 'JSON input cannot be combined with send fields.'; fi
+case "$operation" in
+  inspect|dismiss)
+    if "$has_id"; then
+      if "$has_source" || "$has_key"; then fail 2 'Use ID or source and key, not both.'; fi
+    elif ! "$has_source" || ! "$has_key"; then
+      fail 2 'Provide ID or both source and key.'
+    fi
+    ;;
+esac
+
+command -v jq > /dev/null 2>&1 || fail 4 'Required dependency jq is unavailable.'
+hs_bin=$(command -v hs) || fail 3 'Required dependency hs is unavailable.'
+command -v pgrep > /dev/null 2>&1 || fail 3 'Required process check is unavailable.'
+
+# Resolve both individual stow links and folded directories. Never prefer an
+# unrelated installed entry when this executable came from an unstowed worktree.
+script=${BASH_SOURCE[0]}
+case "$script" in */*) ;; *) script=$(command -v "$script") ;; esac
+links=0
+while :; do
+  directory=$(CDPATH= cd -P -- "$(dirname -- "$script")" && pwd -P) || fail 4 'Cannot locate the IPC entry.'
+  script="$directory/$(basename -- "$script")"
+  [ -L "$script" ] || break
+  links=$((links + 1))
+  [ "$links" -le 40 ] || fail 4 'Cannot resolve the executable path.'
+  target=$(readlink "$script") || fail 4 'Cannot resolve the executable path.'
+  case "$target" in /*) script=$target ;; *) script="$directory/$target" ;; esac
+done
+local_root=$(CDPATH= cd -P -- "$directory/.." && pwd -P) || fail 4 'Cannot locate the IPC entry.'
+ipc="$local_root/libexec/nudge-ipc.lua"
+[ -r "$ipc" ] || fail 4 'The fixed IPC entry is unavailable.'
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/nudge.XXXXXXXX") || fail 4 'Cannot create private transport files.'
+worker=''
+watchdog=''
+stop_job() {
+  [ -n "$1" ] || return 0
+  # Monitor mode gives each job its own process group, including hs descendants.
+  kill -KILL -- "-$1" 2>/dev/null || :
+  wait "$1" 2>/dev/null || :
+}
+cleanup() {
+  stop_job "$watchdog"
+  stop_job "$worker"
+  rm -rf -- "$work"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+if "$has_json"; then
+  if [ "$json_file" = - ]; then
+    head -c 65537 > "$work/request" || fail 2 'Cannot read JSON input.'
+  else
+    [ -f "$json_file" ] && [ -r "$json_file" ] || fail 2 'Cannot read JSON input file.'
+    head -c 65537 < "$json_file" > "$work/request" 2>/dev/null || fail 2 'Cannot read JSON input file.'
+  fi
+  [ "$(wc -c < "$work/request")" -le 65536 ] || fail 2 'JSON input exceeds 64 KiB.'
+  iconv -f UTF-8 -t UTF-8 "$work/request" > /dev/null 2>&1 || fail 2 'JSON input is not valid UTF-8.'
+  jq_args+=(--rawfile request "$work/request")
+  filter="$filter | .request_json = \$request | del(.request)"
+fi
+envelope=$(jq -cn "${jq_args[@]}" "$filter" 2>/dev/null) || fail 2 'Cannot serialize request.'
+limit=65536
+if "$has_json"; then limit=132096; fi
+[ "${#envelope}" -le "$limit" ] || fail 2 'Request envelope exceeds size limit.'
+
+# hs -t has separate send/receive budgets. One watchdog bounds the whole IPC
+# attempt, including the startup check; killing its group also stops descendants.
+set -m
+(
+  pgrep -x Hammerspoon > /dev/null 2>&1 || exit 3
+  # hs prompts to launch by default. The preflight avoids that path; EOF prevents
+  # an affirmative answer if Hammerspoon exits between the check and connection.
+  exec "$hs_bin" -q -n -t 2 "$ipc" "$envelope"
+) < /dev/null > "$work/response" 2> "$work/transport-error" &
+worker=$!
+(
+  sleep 2
+  : > "$work/timed-out"
+  kill -KILL -- "-$worker" 2>/dev/null || :
+) > /dev/null 2>&1 &
+watchdog=$!
+set +m
+status=0
+wait "$worker" 2>/dev/null || status=$?
+stop_job "$watchdog"
+watchdog=''
+stop_job "$worker"
+worker=''
+[ ! -e "$work/timed-out" ] || fail 3 'IPC timed out; outcome unknown. Do not retry automatically.' unknown
+[ "$status" -eq 0 ] || fail 3 'Hammerspoon is unavailable or IPC failed.' unknown
+
+# Never print unvalidated IPC output or private hs diagnostics.
+iconv -f UTF-8 -t UTF-8 "$work/response" > /dev/null 2>&1 || fail 3 'Invalid IPC response; outcome unknown.' unknown
+# jq's JSON parser also accepts non-JSON numeric tokens. Check the lexical
+# grammar before parsing a reply; object/array structure is checked by jq below.
+# UTF-16 escapes must be non-surrogates or a complete high/low surrogate pair.
+jq -Rse '
+  def string_token:
+    "\"(?:[^\"\\\\\\x00-\\x1f]+|\\\\(?:[\"\\\\/bfnrt]|u(?:[0-9a-cA-Ce-fE-F][0-9a-fA-F]{3}|[dD][0-7][0-9a-fA-F]{2}|[dD][89abAB][0-9a-fA-F]{2}\\\\u[dD][cdefCDEF][0-9a-fA-F]{2})))*\"";
+  def boundary: "(?=[ \\t\\r\\n,}\\]]|$)";
+  def number_token: "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?" + boundary;
+  test("\\A(?:[ \\t\\r\\n]|" + string_token + "|" + number_token
+    + "|(?:true|false|null)" + boundary + "|[{}\\[\\],:])*\\z")
+' "$work/response" >/dev/null 2>&1 || fail 3 'Invalid IPC response; outcome unknown.' unknown
+jq -cse '
+  if length == 1 and (.[0] | type == "object"
+    and (.ok | type == "boolean")
+    and (.exit_code == 0 or .exit_code == 2 or .exit_code == 3 or .exit_code == 4 or .exit_code == 5)
+    and (.ok == (.exit_code == 0)))
+  then .[0] else error("response") end
+' "$work/response" > "$work/validated" 2>/dev/null || fail 3 'Invalid IPC response; outcome unknown.' unknown
+code=$(jq -r '.exit_code | floor' "$work/validated")
+cat "$work/validated"
+exit "$code"
