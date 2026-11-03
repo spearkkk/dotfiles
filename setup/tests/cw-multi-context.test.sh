@@ -14,17 +14,17 @@ printf '%s\n' "$*" >>"$FAKE_TMUX_LOG"
 last=
 for arg do last=$arg; done
 case ${1:-} in
-  has-session) exit 0 ;;
+  has-session) exit "${FAKE_SESSION_FAIL:-0}" ;;
   list-windows) printf '%s\n' '1:other' ;;
   list-panes) printf '%s\n' "${FAKE_PANES:-}" ;;
   display-message)
     case $last in
       '#S') printf '%s\n' test ;;
-      '#{pane_id}') printf '%s\n' "${TMUX_PANE:-%7}" ;;
+      '#{pane_id}') printf '%s\n' %4 ;;
       *) exit 1 ;;
     esac
     ;;
-  new-window) printf '%s\n' %9 ;;
+  split-window) [ "${FAKE_SPLIT_FAIL:-0}" = 0 ] || exit 1; printf '%s\n' %9 ;;
   send-keys|switch-client|attach-session|select-pane) exit 0 ;;
   *) exit 2 ;;
 esac
@@ -127,39 +127,60 @@ fi
 grep -q 'context slot already selected: kubernetes' "$tmpdir/stderr"
 [[ ! -s "$FAKE_TMUX_LOG" ]]
 
-run_fish 'cw dev-k8s prod-object'
-grep -q 'new-window -d -P -F #{pane_id} -t test -n dev-k8s+prod-object -c /tmp' "$FAKE_TMUX_LOG"
-grep -q 'send-keys -t %9 .*__cw_apply_context.*dev-k8s.*prod-object.*C-m' "$FAKE_TMUX_LOG"
-grep -q '^switch-client -t %9$' "$FAKE_TMUX_LOG"
-if grep -q 'set-option -w\|@cw_context\|@kube_context\|@aws_profile' "$FAKE_TMUX_LOG"; then
-  echo 'FAIL: cw wrote window/provider-specific options' >&2
-  exit 1
-fi
-
-export FAKE_PANES='%4|{"schema":1,"revision":2,"contexts":[{"instance":"a","id":"prod-object","slot":"object-storage","environment":"prod","alert":true,"state":"active"},{"instance":"b","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}]}'
-run_fish 'cw dev-k8s prod-object'
-grep -q '^switch-client -t %4$' "$FAKE_TMUX_LOG"
-if grep -q '^new-window\|^send-keys' "$FAKE_TMUX_LOG"; then
-  echo 'FAIL: exact existing pane was reinitialized' >&2
-  exit 1
-fi
-unset FAKE_PANES
-
-export FAKE_PANES='%5|{"schema":1,"revision":1,"contexts":[{"instance":"alias","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}]}'
-run_fish 'cw k8s-dev'
-grep -q '^switch-client -t %5$' "$FAKE_TMUX_LOG"
-if grep -q '^new-window\|^send-keys' "$FAKE_TMUX_LOG"; then
-  echo 'FAIL: alias did not reuse pane with canonical context id' >&2
-  exit 1
-fi
-unset FAKE_PANES
-
-TMUX=1 TMUX_PANE=%7 run_fish 'cw dev-k8s prod-object --pane'
+# Default applies in the caller, regardless of profile session defaults.
+TMUX=1 TMUX_PANE=%7 run_fish 'cw dev-k8s prod-object'
 [[ $(grep -c '^inject:' "$PROVIDER_LOG") -eq 2 ]]
 [[ $(grep -c '^inject %7 ' "$FAKE_CONTEXT_LOG") -eq 2 ]]
 [[ $(grep -c '^state %7 .* active$' "$FAKE_CONTEXT_LOG") -eq 2 ]]
+[[ ! -s "$FAKE_TMUX_LOG" ]]
 
-if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken --pane'; then
+# Explicit creation never reuses a pane with the same context set.
+export FAKE_PANES='%4|{"contexts":[{"id":"dev-k8s"},{"id":"prod-object"}]}'
+for flags in '--pane' '-P'; do
+  TMUX=1 TMUX_PANE=%7 run_fish "cw dev-k8s prod-object $flags"
+  grep -q '^split-window -h -d -P -F #{pane_id} -t %7 -c /tmp$' "$FAKE_TMUX_LOG"
+  grep -q '^send-keys -t %9 cw dev-k8s prod-object C-m$' "$FAKE_TMUX_LOG"
+  grep -q '^switch-client -t %9$' "$FAKE_TMUX_LOG"
+  [[ ! -s "$FAKE_CONTEXT_LOG" && ! -s "$PROVIDER_LOG" ]]
+  ! grep -Eq '^new-window|^list-panes' "$FAKE_TMUX_LOG"
+done
+unset FAKE_PANES
+TMUX=1 TMUX_PANE=%7 run_fish 'cw dev-k8s --pane --bottom'
+grep -q '^split-window -v .* -t %7 -c /tmp$' "$FAKE_TMUX_LOG"
+
+# Explicit session overrides the caller pane and profile default session.
+for flags in '--session other' '--pane --session other' '-s other'; do
+  TMUX=1 TMUX_PANE=%7 run_fish "cw dev-k8s $flags"
+  grep -q '^display-message -p -t =other: #{pane_id}$' "$FAKE_TMUX_LOG"
+  grep -q '^split-window -h .* -t %4 -c /tmp$' "$FAKE_TMUX_LOG"
+done
+run_fish 'set -e TMUX_PANE; cw dev-k8s --session other --bottom'
+grep -q '^split-window -v .* -t %4 -c /tmp$' "$FAKE_TMUX_LOG"
+
+for invocation in 'cw dev-k8s' 'cw dev-k8s --pane'; do
+  if run_fish "set -e TMUX_PANE; $invocation"; then
+    echo 'FAIL: current-pane operation accepted outside tmux' >&2; exit 1
+  fi
+  [[ ! -s "$FAKE_TMUX_LOG" && ! -s "$FAKE_CONTEXT_LOG" ]]
+done
+for invocation in 'cw dev-k8s --bottom' 'cw dev-k8s --session' 'cw dev-k8s --session ""' 'cw clear --pane' 'cw dev-k8s --unknown'; do
+  if TMUX=1 TMUX_PANE=%7 run_fish "$invocation"; then
+    echo "FAIL: invalid arguments accepted: $invocation" >&2; exit 1
+  fi
+  [[ ! -s "$FAKE_TMUX_LOG" && ! -s "$FAKE_CONTEXT_LOG" ]]
+done
+if FAKE_SESSION_FAIL=1 run_fish 'cw dev-k8s --session missing'; then
+  echo 'FAIL: missing session accepted' >&2; exit 1
+fi
+! grep -Eq '^split-window|^send-keys' "$FAKE_TMUX_LOG"
+if FAKE_SPLIT_FAIL=1 TMUX=1 TMUX_PANE=%7 run_fish 'cw dev-k8s --pane'; then
+  echo 'FAIL: split failure ignored' >&2; exit 1
+fi
+! grep -Eq '^send-keys|^switch-client' "$FAKE_TMUX_LOG"
+TMUX=1 TMUX_PANE=%7 run_fish 'cw k8s-dev'
+grep -q '^inject:%7:.*:dev-k8s$' "$PROVIDER_LOG"
+
+if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken'; then
   echo 'FAIL: provider failure returned success' >&2
   exit 1
 fi
@@ -167,7 +188,7 @@ grep -q '^state %7 .* error$' "$FAKE_CONTEXT_LOG"
 
 old_context='{"instance":"old-1","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}'
 export FAKE_CONTEXTS="{\"schema\":1,\"revision\":1,\"contexts\":[$old_context]}"
-if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken-k8s --pane'; then
+if TMUX=1 TMUX_PANE=%7 run_fish 'cw broken-k8s'; then
   echo 'FAIL: replacement provider failure returned success' >&2
   exit 1
 fi
@@ -184,7 +205,7 @@ unset FAKE_CONTEXTS
 
 old_context='{"instance":"old-1","id":"dev-k8s","slot":"kubernetes","environment":"dev","alert":false,"state":"active"}'
 export FAKE_CONTEXTS="{\"schema\":1,\"revision\":1,\"contexts\":[$old_context]}"
-if TMUX=1 TMUX_PANE=%7 run_fish 'cw other-k8s broken --pane'; then
+if TMUX=1 TMUX_PANE=%7 run_fish 'cw other-k8s broken'; then
   echo 'FAIL: multi-context provider failure returned success' >&2
   exit 1
 fi
@@ -221,5 +242,19 @@ if grep -Eq '@(kube_context|fke_config|aws_profile|kube_context_disabled)' "$rep
   exit 1
 fi
 grep -q '@contexts_display' "$repo_root/home/.config/fish/functions/ctx.fish"
+
+# The optional, local-only compatibility wrapper must not turn its current-pane
+# mode into a split merely because cw changed its flag contract.
+cx_file="$repo_root/profiles/work/home/.config/fish/functions/cx.fish"
+if [[ -f "$cx_file" ]]; then
+  TMUX_PANE=%7 fish --no-config -c '
+    source $argv[1]
+    function cw; string join "|" -- $argv; end
+    test (cx demo) = demo; or exit 1
+    test (cx demo --pane) = demo; or exit 1
+    test (cx demo --new) = "demo|--pane"; or exit 1
+    test (cx demo --new --session other) = "demo|--session|other"; or exit 1
+  ' "$cx_file"
+fi
 
 echo 'PASS: cw-multi-context'

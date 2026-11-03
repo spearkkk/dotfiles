@@ -109,6 +109,26 @@ make -C setup/launchagents status
 fish setup/check.fish
 ```
 
+## cw pane contexts
+
+`cw` uses the contexts defined by your profile. Without placement options it
+applies them in the current tmux pane; it does not change windows or reuse a
+different pane with matching contexts.
+
+```fish
+cw CONTEXT                       # current pane
+cw CONTEXT --pane                # new pane to the right
+cw CONTEXT --pane --bottom       # new pane below
+cw CONTEXT --session SESSION     # new pane beside that session's active pane
+cw CONTEXT --session SESSION --bottom
+cw clear                         # clear contexts in the current pane
+```
+
+`--pane` (`-P`) and `--session` (`-s`) always create a fresh split in the target
+window. `--bottom` requires one of them. The named session must already exist;
+outside tmux, specify `--session`. Profile session defaults no longer select the
+destination. Multiple contexts still apply to one pane, with rollback on failure.
+
 ## tmux activity status
 
 The tmux window list shows unread attention from background panes:

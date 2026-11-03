@@ -76,9 +76,9 @@ function test_eject --argument-names pane instance
 end
 
 if test "$scenario" = batch; or test "$scenario" = conflict_after_eject
-    cw new broken --pane
+    cw new broken
 else
-    cw new --pane
+    cw new
 end
 set -l result $status
 test $result -ne 0; or exit 10

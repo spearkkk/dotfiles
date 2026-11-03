@@ -269,6 +269,11 @@ if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
     mark_fail "cw multi-context test failed"
 end
 
+log_step "cw pane placement"
+if not bash "$repo_root/setup/tests/cw-pane-placement.test.sh"
+    mark_fail "cw pane placement test failed"
+end
+
 log_step "cw rollback integration"
 if not bash "$repo_root/setup/tests/cw-rollback-integration.test.sh"
     mark_fail "cw rollback integration test failed"

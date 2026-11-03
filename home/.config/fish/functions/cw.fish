@@ -20,15 +20,6 @@ function __cw_context_helper
     end
 end
 
-function __cw_session
-    if set -q TMUX_PANE
-        tmux display-message -p -t "$TMUX_PANE" '#S'
-        return
-    end
-
-    tmux list-sessions -F '#S' 2>/dev/null | head -n 1
-end
-
 function __cw_instance
     printf 'ctx-%s-%s-%s\n' (date +%s) %self (random)
 end
@@ -277,35 +268,26 @@ function __cw_clear_pane --argument-names pane
     "$helper" clear "$pane"
 end
 
-function __cw_find_exact_pane --argument-names session expected
-    for row in (tmux list-panes -s -t "$session" -F '#{pane_id}|#{@contexts}' 2>/dev/null)
-        set -l fields (string split -m1 '|' -- "$row")
-        test (count $fields) -eq 2; or continue
-        test -n "$fields[2]"; or continue
-        set -l actual (printf '%s' "$fields[2]" | jq -r '.contexts[].id' 2>/dev/null | sort | string join ',')
-        if test "$actual" = "$expected"
-            echo "$fields[1]"
-            return 0
-        end
-    end
-    return 1
-end
-
 function __cw_focus_pane --argument-names pane session
     tmux switch-client -t "$pane" 2>/dev/null
     or tmux attach-session -t "$session"
 end
 
-function cw --description 'Create or reuse a tmux pane with profile contexts'
+function cw --description 'Apply contexts to the current pane or a new split'
     set -l contexts
     set -l session
     set -l expecting_session 0
     set -l list_only 0
-    set -l current_pane 0
+    set -l new_pane 0
+    set -l bottom 0
     set -l clear_only 0
 
     for arg in $argv
         if test $expecting_session -eq 1
+            if test -z "$arg"; or string match -q -- '-*' "$arg"
+                echo 'cw --session requires a session name' >&2
+                return 1
+            end
             set session $arg
             set expecting_session 0
             continue
@@ -314,22 +296,46 @@ function cw --description 'Create or reuse a tmux pane with profile contexts'
         switch $arg
             case -s --session
                 set expecting_session 1
+                set new_pane 1
             case -l --list list
                 set list_only 1
-            case -P --pane current-pane
-                set current_pane 1
+            case -P --pane
+                set new_pane 1
+            case --bottom
+                set bottom 1
             case clear
                 set clear_only 1
             case -h --help
-                echo 'Usage: cw CONTEXT... [-s|--session SESSION]'
-                echo '       cw CONTEXT... --pane'
-                echo '       cw clear [--pane]'
+                echo 'Usage: cw CONTEXT... [--pane | -s|--session SESSION] [--bottom]'
+                echo '       cw clear'
                 echo '       cw --list'
                 echo
-                echo 'Contexts are always applied to exactly one tmux pane.'
+                echo 'Default: apply to the current pane (requires tmux).'
+                echo '--pane/-P: create a new pane to the right of the current pane.'
+                echo '--session/-s: create a new pane beside that session\'s active pane.'
+                echo '--bottom: split below instead; requires --pane or --session.'
+                echo 'New panes are always created, never reused. The session must exist.'
                 return
+            case '-*'
+                echo "cw unknown option: $arg" >&2
+                return 1
             case '*'
                 set -a contexts $arg
+        end
+    end
+
+    if test $expecting_session -eq 1
+        echo 'cw --session requires a session name' >&2
+        return 1
+    end
+    if test $bottom -eq 1; and test $new_pane -eq 0
+        echo 'cw --bottom requires --pane or --session' >&2
+        return 1
+    end
+    if test $clear_only -eq 1; or test $list_only -eq 1
+        if test $new_pane -eq 1; or test $bottom -eq 1; or test (count $contexts) -gt 0; or test (math $clear_only + $list_only) -gt 1
+            echo 'Usage: cw clear | cw --list (without pane options or contexts)' >&2
+            return 1
         end
     end
 
@@ -344,10 +350,6 @@ function cw --description 'Create or reuse a tmux pane with profile contexts'
     end
 
     if test $clear_only -eq 1
-        if test (count $contexts) -gt 0
-            echo 'Usage: cw clear [--pane]' >&2
-            return 1
-        end
         if not set -q TMUX_PANE
             echo 'cw clear requires running inside tmux' >&2
             return 1
@@ -357,15 +359,12 @@ function cw --description 'Create or reuse a tmux pane with profile contexts'
     end
 
     if test (count $contexts) -eq 0
-        echo 'Usage: cw CONTEXT... [-s|--session SESSION]' >&2
+        echo 'Usage: cw CONTEXT... [--pane | --session SESSION] [--bottom]' >&2
         return 1
     end
 
     set -l slots
-    set -l canonical_contexts
-    set -l titles
     set -l cwd
-    set -l default_session
     for context in $contexts
         set -l spec (__cw_context "$context")
         or return 1
@@ -379,9 +378,6 @@ function cw --description 'Create or reuse a tmux pane with profile contexts'
             return 1
         end
         set -a slots "$slot"
-        set -l canonical (__cw_get name $spec)
-        test -n "$canonical"; or set canonical "$context"
-        set -a canonical_contexts "$canonical"
 
         for hook in inject restore eject
             set -l function_name (__cw_get "$hook" $spec)
@@ -391,46 +387,44 @@ function cw --description 'Create or reuse a tmux pane with profile contexts'
             end
         end
 
-        set -l title (__cw_get title $spec)
-        test -n "$title"; or set title "$context"
-        set -a titles "$title"
         test -n "$cwd"; or set cwd (__cw_get cwd $spec)
-        test -n "$default_session"; or set default_session (__cw_get session $spec)
     end
 
-    set -l title (string join + -- $titles)
     test -n "$cwd"; or set cwd ~
 
-    if test $current_pane -eq 1
+    if test $new_pane -eq 0
         if not set -q TMUX_PANE
-            echo 'cw --pane requires running inside tmux' >&2
+            echo 'cw requires running inside tmux; use --session SESSION from outside' >&2
             return 1
         end
         __cw_apply_context "$TMUX_PANE" $contexts
         return
     end
 
-    test -n "$session"; or set session "$default_session"
-    test -n "$session"; or set session (__cw_session)
-    if test -z "$session"
-        echo 'tmux session not found; pass --session SESSION' >&2
-        return 1
-    end
-    if not tmux has-session -t "$session" 2>/dev/null
-        echo "tmux session not found: $session" >&2
-        return 1
+    set -l target
+    if test -n "$session"
+        if not tmux has-session -t "=$session" 2>/dev/null
+            echo "tmux session not found: $session" >&2
+            return 1
+        end
+        set target (tmux display-message -p -t "=$session:" '#{pane_id}')
+        or return 1
+    else
+        if not set -q TMUX_PANE
+            echo 'cw --pane requires running inside tmux; use --session SESSION from outside' >&2
+            return 1
+        end
+        set target "$TMUX_PANE"
+        set session (tmux display-message -p -t "$target" '#S')
+        or return 1
     end
 
-    set -l expected (printf '%s\n' $canonical_contexts | sort | string join ',')
-    set -l pane (__cw_find_exact_pane "$session" "$expected")
-    if test -n "$pane"
-        __cw_focus_pane "$pane" "$session"
-        return
-    end
-
-    set pane (tmux new-window -d -P -F '#{pane_id}' -t "$session" -n "$title" -c "$cwd")
+    set -l direction -h
+    test $bottom -eq 0; or set direction -v
+    set -l pane (tmux split-window $direction -d -P -F '#{pane_id}' -t "$target" -c "$cwd")
     or return 1
-    set -l command '__cw_apply_context '(string escape -- "$pane" $contexts)
+    # Use the public entrypoint so fish autoloads it in the new shell, too.
+    set -l command 'cw '(string join ' ' -- (string escape -- $contexts))
     tmux send-keys -t "$pane" "$command" C-m
     or return 1
     __cw_focus_pane "$pane" "$session"
