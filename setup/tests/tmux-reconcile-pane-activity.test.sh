@@ -3,8 +3,8 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-controller="$repo_root/home/.local/libexec/tmux-pane-attention"
-fish_config="$repo_root/home/.config/fish/conf.d/0200-tmux-pane-attention.fish"
+controller="$repo_root/home/.local/libexec/tmux-reconcile-pane-activity"
+fish_config="$repo_root/home/.config/fish/conf.d/0200-tmux-pane-activity.fish"
 tmux_config="$repo_root/home/.tmux.conf"
 renderer="$repo_root/home/.tmux/scripts/status-box.sh"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-pane-activity.XXXXXX")
@@ -147,22 +147,27 @@ assert_not_called stale_pane 'set-option -p'
 
 export FAKE_MUTATION_FAIL=1
 run_controller command-done %1 || true
-assert_called lock_release '^wait-for -U tmux-pane-attention-lock$'
+assert_called lock_release '^wait-for -U tmux-pane-activity-lock$'
 unset FAKE_MUTATION_FAIL
 
 # Fish forwards long-command completion with an explicit pane ID.
 fish_home="$tmpdir/fish-home"
 mkdir -p "$fish_home/.local/libexec"
-cat >"$fish_home/.local/libexec/tmux-pane-attention" <<'FISH_HELPER'
+cat >"$fish_home/.local/libexec/tmux-reconcile-pane-activity" <<'FISH_HELPER'
 #!/bin/sh
 printf '%s|%s\n' "$1" "$2" >>"$FISH_HELPER_LOG"
 FISH_HELPER
-chmod +x "$fish_home/.local/libexec/tmux-pane-attention"
+chmod +x "$fish_home/.local/libexec/tmux-reconcile-pane-activity"
 : >"$tmpdir/fish.log"
-env HOME="$fish_home" FISH_HELPER_LOG="$tmpdir/fish.log" TMUX=1 TMUX_PANE=%9 TMUX_ATTENTION_MIN_SECONDS=10 \
+env HOME="$fish_home" FISH_HELPER_LOG="$tmpdir/fish.log" TMUX=1 TMUX_PANE=%9 TMUX_ACTIVITY_MIN_SECONDS=10 \
   fish --no-config --interactive --command "source '$fish_config'; set -g CMD_DURATION 10000; emit fish_postexec" \
   >/dev/null 2>&1
 [[ $(cat "$tmpdir/fish.log") == 'command-done|%9' ]]
+: >"$tmpdir/fish.log"
+env HOME="$fish_home" FISH_HELPER_LOG="$tmpdir/fish.log" TMUX=1 TMUX_PANE=%9 TMUX_ACTIVITY_MIN_SECONDS=10 \
+  fish --no-config --interactive --command "source '$fish_config'; set -g CMD_DURATION 9999; emit fish_postexec" \
+  >/dev/null 2>&1
+[[ ! -s "$tmpdir/fish.log" ]]
 
 grep -q 'pane-title-changed.*@activity_reconcile_pending.*reconcile-title' "$tmux_config"
 grep -q 'client-focus-in.*acknowledge-visible' "$tmux_config"
@@ -183,3 +188,7 @@ renderer_output=$("$renderer" '#112233' '#AABBCC' '#445566' 'xcontext○')
 case $renderer_output in *' context○ '*) ;; *) exit 1 ;; esac
 
 echo 'PASS: tmux-pane-activity'
+
+# Old entrypoints are intentionally removed; sessions are recreated by the user.
+[[ ! -e "$repo_root/home/.local/libexec/tmux-pane-attention" ]]
+[[ ! -L "$repo_root/home/.local/libexec/tmux-pane-attention" ]]

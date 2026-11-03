@@ -16,7 +16,7 @@ function __cw_context_helper
     if set -q CW_CONTEXT_HELPER
         echo "$CW_CONTEXT_HELPER"
     else
-        echo "$HOME/.local/libexec/tmux-pane-context"
+        echo "$HOME/.local/libexec/tmux-manage-pane-context"
     end
 end
 

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ko" data-emphasis="both">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Nudge — Simhae toast study</title>
+  <style>
+    /* Palette source: ../themes/simhae/palette.yaml. Main: pelagic. */
+    :root {
+      --base00: #0A1F2E;
+      --base01: #142C3E;
+      --base02: #1C3A50;
+      --base03: #24425C;
+      --base04: #4A6E86;
+      --base05: #C6D8E4;
+      --base06: #D6E2E8;
+      --base07: #ECF0F4;
+      --base08: #C47A72;
+      --base09: #C8945A;
+      --base0A: #C8AE6A;
+      --base0B: #68BE92;
+      --base0C: #50C4C0;
+      --base0D: #7896CC;
+      --base0E: #9A7EC8;
+      --base0F: #8C6040;
+      --base10: #071420;
+      --base11: #D08880;
+      --base12: #D4A870;
+      --base13: #D4BE82;
+      --base14: #80CCAA;
+      --base15: #68D4D0;
+      --base16: #90AED8;
+      --base17: #AE96D4;
+    }
+    :root { --ink: var(--base06); --muted: var(--base05); --line: var(--base03); --paper: var(--base10); --accent: var(--base0C); }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; -webkit-font-smoothing: antialiased; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 3px solid var(--base0C); outline-offset: 4px; }
+    .page { max-width: 1440px; padding: 30px 48px 28px; margin: auto; }
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 750; letter-spacing: -.8px; }
+    .brand-mark { width: 25px; height: 25px; border: 6px solid var(--accent); border-radius: 50%; position: relative; }
+    .brand-mark::after { content: ""; position: absolute; width: 8px; height: 8px; background: var(--paper); right: -6px; bottom: -6px; }
+    .edition, .eyebrow, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .edition { color: var(--muted); font-size: 11px; letter-spacing: 1.3px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 36px 0 30px; }
+    .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 1.8px; color: var(--accent); margin: 0 0 14px; }
+    h1 { font-size: clamp(28px, 3.5vw, 44px); line-height: 1.2; font-weight: 650; letter-spacing: -1.9px; margin: 0; }
+    .intro p:last-child { margin: 13px 0 0; font-size: 14px; color: var(--muted); line-height: 1.8; }
+    .concept-tag { white-space: nowrap; border: 1px solid var(--line); border-radius: 100px; padding: 9px 13px; font-size: 11px; color: var(--muted); }
+    .workspace { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .controls { padding-top: 4px; }
+    .section-label { font-size: 10px; letter-spacing: 1.7px; color: var(--muted); margin: 0 0 12px; font-weight: 650; }
+    .control-block { padding-bottom: 23px; margin-bottom: 23px; border-bottom: 1px solid var(--line); }
+    .segmented { display: flex; background: var(--base02); padding: 4px; border-radius: 9px; gap: 3px; }
+    .segmented button { border: 0; background: transparent; padding: 8px 10px; flex: 1; border-radius: 6px; font-size: 12px; color: var(--muted); }
+    .segmented button[aria-pressed="true"] { background: var(--base03); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--base10) 7.06%, transparent); }
+    .play { width: 100%; background: var(--accent); color: var(--base00); border: 0; border-radius: 9px; padding: 12px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+    .play:hover { background: var(--base15); }
+    .hint { font-size: 11px; line-height: 1.8; color: var(--muted); margin: 11px 0 0; }
+    .samples { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .samples button { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: transparent; padding: 10px 11px; border-radius: 8px; font-size: 12px; color: var(--ink); }
+    .samples button:hover { background: var(--base02); }
+    .sample-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sample); }
+    .reset { display: block; margin-top: 14px; padding: 0; background: none; border: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 4px; font-size: 11px; }
+    .decision { display: flex; gap: 9px; font-size: 12px; line-height: 1.7; margin: 8px 0; color: var(--muted); }
+    .decision span:first-child { color: var(--accent); }
+    .preview-frame { border: 1px solid var(--base03); border-radius: 15px; overflow: hidden; box-shadow: 0 15px 35px color-mix(in srgb, var(--base10) 3.92%, transparent); }
+    .preview-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 16px; background: var(--base01); border-bottom: 1px solid var(--base03); font-size: 10px; }
+    .preview-title { letter-spacing: .5px; color: var(--base05); }
+    .mode-label { display: flex; align-items: center; gap: 6px; color: var(--base05); }
+    .mode-label::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--base0B); }
+    .desktop { height: 590px; position: relative; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse at 15% 95%, var(--base02) 0, transparent 60%), radial-gradient(ellipse at 80% 10%, var(--base01) 0, transparent 55%), var(--base00); }
+    .desktop::before { content: ""; position: absolute; width: 780px; height: 780px; border: 1px solid color-mix(in srgb, var(--base0C) 9.02%, transparent); border-radius: 50%; transform: rotate(-35deg) scaleY(.5); left: -370px; top: -160px; z-index: -1; box-shadow: 0 0 0 65px color-mix(in srgb, var(--base0C) 1.96%, transparent), 0 0 0 130px color-mix(in srgb, var(--base0C) 1.57%, transparent), 0 0 0 195px color-mix(in srgb, var(--base0C) 1.18%, transparent); }
+    .menubar { height: 29px; display: flex; justify-content: space-between; align-items: center; padding: 0 17px; color: var(--base05); font-size: 10px; background: color-mix(in srgb, var(--base10) 18.82%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--base07) 2.35%, transparent); }
+    .menu-left { display: flex; gap: 14px; align-items: center; }
+    .menu-icon { width: 10px; height: 10px; background: currentColor; border-radius: 3px; opacity: .8; }
+    .editor { position: absolute; left: 26px; top: 105px; width: 51%; height: 280px; background: color-mix(in srgb, var(--base10) 69.02%, transparent); border: 1px solid color-mix(in srgb, var(--base07) 7.06%, transparent); border-radius: 10px; box-shadow: 0 15px 32px color-mix(in srgb, var(--base10) 7.06%, transparent); overflow: hidden; color: var(--base05); }
+    .editor-header { display: flex; gap: 5px; align-items: center; height: 33px; border-bottom: 1px solid color-mix(in srgb, var(--base07) 3.92%, transparent); padding: 0 12px; }
+    .traffic { width: 6px; height: 6px; background: var(--base04); border-radius: 50%; }
+    .editor-title { margin: auto; font-size: 9px; opacity: .65; padding-right: 25px; }
+    .editor-content { padding: 22px 19px; font-size: 11px; line-height: 2.1; white-space: nowrap; opacity: .65; }
+    .editor-content .quiet { color: var(--base05); }
+    .editor-content .green { color: var(--base0B); }
+    .caret { display: inline-block; height: 12px; width: 6px; background: var(--base0B); vertical-align: middle; }
+    .desktop-note { position: absolute; bottom: 22px; left: 24px; font-size: 10px; color: color-mix(in srgb, var(--base05) 47.06%, transparent); letter-spacing: 1px; }
+    .toast-stack { position: absolute; top: 43px; right: 14px; width: min(360px, calc(100% - 28px)); display: grid; gap: 10px; }
+    .toast { --status: var(--base0D); height: 164px; display: grid; grid-template-rows: 82px 78px; border-radius: 13px; overflow: hidden; color: var(--base06); background: var(--base01); border: 2px solid var(--base03); box-shadow: 0 8px 24px color-mix(in srgb, var(--base10) 20.78%, transparent), 0 1px 3px color-mix(in srgb, var(--base10) 12.55%, transparent); pointer-events: none; }
+    .toast[data-severity="success"] { --status: var(--base0B); }
+    .toast[data-severity="warning"] { --status: var(--base0A); }
+    .toast[data-severity="error"] { --status: var(--base08); }
+    .toast-heading { min-width: 0; overflow: hidden; padding: 11px 16px; background: var(--base01); }
+    :root[data-emphasis="border"] .toast,
+    :root[data-emphasis="both"] .toast { border-color: var(--status); }
+    :root[data-emphasis="header"] .toast-heading,
+    :root[data-emphasis="both"] .toast-heading { background: color-mix(in srgb, var(--status) 14%, var(--base01)); }
+    .toast-meta { display: flex; align-items: center; gap: 7px; height: 14px; margin-bottom: 6px; font-size: 10px; line-height: 14px; }
+    .status-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border: 1px solid currentColor; border-radius: 50%; color: var(--status); font-size: 9px; font-weight: 700; }
+    .status-name { flex-shrink: 0; color: var(--status); font-weight: 600; }
+    .source { flex-shrink: 0; max-width: 85px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--base05); padding-left: 8px; border-left: 1px solid color-mix(in srgb, var(--base07) 14.90%, transparent); font-size: 10px; letter-spacing: .3px; }
+    .toast h2 { font-size: 15px; font-weight: 650; line-height: 20px; letter-spacing: -.25px; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+    .toast-project { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--base05); }
+    .toast-content { min-width: 0; overflow: hidden; padding: 9px 16px; }
+    .toast-body { font-size: 12px; line-height: 20px; max-height: 60px; color: var(--base05); margin: 0; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+    .preview-caption { display: flex; justify-content: space-between; gap: 12px; padding: 13px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
+    .specs { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 29px; padding: 18px 0; }
+    .spec { padding-left: 22px; border-left: 1px solid var(--line); }
+    .spec:first-child { padding-left: 0; border: 0; }
+    .spec strong { font-size: 22px; letter-spacing: -.8px; font-weight: 500; }
+    .spec strong small { font-size: 11px; letter-spacing: 0; font-weight: 400; color: var(--muted); }
+    .spec p { margin: 6px 0 0; font-size: 10px; color: var(--muted); }
+    footer { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 10px; line-height: 1.8; padding-top: 18px; }
+    @media (min-width: 1400px) { .desktop { height: 610px; } }
+    @media (max-width: 1000px) { .page { padding: 24px; } .workspace { grid-template-columns: 190px minmax(0, 1fr); gap: 20px; } .editor { left: 15px; width: 65%; } .concept-tag { display: none; } }
+    @media (max-width: 760px) { .page { padding: 20px 16px; } .edition { font-size: 9px; letter-spacing: .6px; } .intro { padding: 28px 0 24px; } .workspace { display: flex; flex-direction: column-reverse; gap: 22px; } .preview { width: 100%; } .desktop { height: 590px; } .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; } .control-block { margin: 0; } .control-block:first-child { grid-column: 1 / -1; } .principles { grid-column: 1 / -1; } .principles .decision { display: inline-flex; margin-right: 12px; } .editor { top: 160px; width: 75%; } .preview-caption { flex-wrap: wrap; } .specs { margin-top: 20px; } .spec { padding-left: 10px; } .spec strong { font-size: 20px; } footer { flex-direction: column; gap: 4px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>nudge</div>
+      <div class="edition">SIMHAE / TOAST STUDY 01</div>
+    </header>
+    <section class="intro">
+      <div>
+        <p class="eyebrow">A LITTLE SIGNAL. NOTHING MORE.</p>
+        <h1>잠깐, 필요한 만큼만.</h1>
+        <p>작업을 멈추게 하지 않고, 알아야 할 것만 조용히 전합니다.</p>
+      </div>
+      <span class="concept-tag">Simhae Pelagic · 구현 전 미리보기</span>
+    </section>
+    <div class="workspace">
+      <aside class="controls" aria-label="미리보기 조작">
+        <section class="control-block">
+          <h2 class="section-label">01 / SEVERITY SIGNAL</h2>
+          <div class="segmented" role="group" aria-label="Severity 강조 방식">
+            <button type="button" data-emphasis-choice="border" aria-pressed="false">테두리만</button>
+            <button type="button" data-emphasis-choice="header" aria-pressed="false">헤더만</button>
+            <button type="button" data-emphasis-choice="both" aria-pressed="true">둘 다</button>
+          </div>
+          <p class="hint" id="emphasis-hint" role="status">추천 · 상태 색 테두리 2px + 헤더 배경 14%. 제목과 본문 글자색은 그대로 유지합니다.</p>
+        </section>
+        <section class="control-block">
+          <h2 class="section-label">02 / PREVIEW</h2>
+          <p class="hint">Simhae Pelagic 팔레트를 사용합니다.</p>
+          <button type="button" class="play" id="play">▶ &nbsp; 3초 토스트 재생</button>
+          <p class="hint" id="mode-hint">지금은 디자인을 살펴보는 정지 화면입니다. 재생하면 3초 후 사라집니다.</p>
+        </section>
+        <section class="control-block">
+          <h2 class="section-label">03 / TRY A NUDGE</h2>
+          <div class="samples">
+            <button type="button" data-send="success"><span class="sample-dot" style="--sample:var(--base0B)" aria-hidden="true"></span>성공</button>
+            <button type="button" data-send="info"><span class="sample-dot" style="--sample:var(--base0D)" aria-hidden="true"></span>정보</button>
+            <button type="button" data-send="warning"><span class="sample-dot" style="--sample:var(--base0A)" aria-hidden="true"></span>주의</button>
+            <button type="button" data-send="error"><span class="sample-dot" style="--sample:var(--base08)" aria-hidden="true"></span>오류</button>
+          </div>
+          <p class="hint">추가한 카드는 3초 동안 표시됩니다.<br>네 번째 카드가 오면 가장 오래된 카드를 숨깁니다.<br>정보: 본문 없음 · 오류: 3줄 초과 예시</p>
+          <button type="button" class="reset" id="reset">처음 디자인으로 돌아가기 ↗</button>
+        </section>
+        <section class="principles">
+          <h2 class="section-label">LESS, ON PURPOSE</h2>
+          <p class="decision"><span aria-hidden="true">—</span><span>소리 없이, 포커스는 그대로</span></p>
+          <p class="decision"><span aria-hidden="true">—</span><span>클릭 액션과 닫기 버튼 없음</span></p>
+          <p class="decision"><span aria-hidden="true">—</span><span>알림센터·다시 보기 없음</span></p>
+        </section>
+      </aside>
+      <section class="preview" aria-label="가상 데스크톱의 토스트 디자인">
+        <div class="preview-frame">
+          <div class="preview-toolbar"><span class="preview-title mono">SIMHAE DESKTOP</span><span class="mode-label" id="mode-label" role="status">디자인 보기 · 자동 숨김 꺼짐</span></div>
+          <div class="desktop" id="desktop">
+            <div class="menubar" aria-hidden="true"><div class="menu-left"><span class="menu-icon"></span><b>Terminal</b><span>Shell</span><span>Edit</span><span>View</span></div><span>Tue &nbsp; 09:41</span></div>
+            <div class="editor" aria-hidden="true">
+              <div class="editor-header"><i class="traffic"></i><i class="traffic"></i><i class="traffic"></i><span class="editor-title mono">workspace — fish</span></div>
+              <div class="editor-content mono"><span class="quiet">~/workspace</span><br>❯ npm run test<br><br><span class="green">✓ contract<br>✓ persistence<br>✓ service</span><br><br>❯ <span class="caret"></span></div>
+            </div>
+            <div class="toast-stack" id="toast-stack" aria-label="표시 중인 알림"></div>
+            <div class="desktop-note mono" aria-hidden="true">YOUR FOCUS STAYS HERE.</div>
+          </div>
+        </div>
+        <div class="preview-caption"><span>360 × 164px 고정 · 본문은 없어도 3줄 공간 유지</span><span id="count" role="status">3 / 3 visible</span></div>
+      </section>
+    </div>
+    <section class="specs" aria-label="디자인 기본값 제안">
+      <div class="spec"><strong>360 <small>px</small></strong><p>너비 360 × 높이 164 · 좁은 화면은 너비만 축소</p></div>
+      <div class="spec"><strong>3 <small>sec</small></strong><p>표시 시간 · 호버해도 그대로</p></div>
+      <div class="spec"><strong>3 <small>cards</small></strong><p>동시 표시 · 지연 재생 없음</p></div>
+      <div class="spec"><strong>0 <small>actions</small></strong><p>인지에만 집중 · 액션은 다음 단계</p></div>
+    </section>
+    <footer><span>디자인 검토용 HTML입니다. 실제 알림·저장 데이터·Hammerspoon 설정에는 영향을 주지 않습니다.</span><span>색상 원본: share/themes/simhae/palette.yaml · Canvas 구현 시 글꼴·그림자는 실환경에서 조정합니다.</span></footer>
+  </main>
+  <script>
+    'use strict';
+    const samples = {
+      success: { label: '성공', symbol: '✓', source: 'BUILD', title: '빌드가 완료됐어요', subtitle: 'project-alpha', body: '테스트 42개가 모두 통과했습니다.\n다음 작업을 이어가세요.' },
+      info: { label: '정보', symbol: 'i', source: 'TASK', title: '작업 결과가 준비됐어요' },
+      warning: { label: '주의', symbol: '!', source: 'REVIEW', title: '확인이 필요한 변경이 있어요', body: '검토할 항목 2개를 찾았습니다.\n설정 파일과 의존성이 변경됐습니다.\n편할 때 작업 중인 앱에서 확인하세요.' },
+      error: { label: '오류', symbol: '×', source: 'BUILD', title: '작업을 마치지 못했어요', subtitle: 'project-alpha', body: '의존성을 가져오는 중 연결이 끊겼습니다. 네트워크 상태를 확인한 뒤 다시 시도하세요. 이 긴 본문은 카드의 높이를 제한하기 위한 예제로, 최대 세 줄 이후의 내용은 생략됩니다.' }
+    };
+    const stack = document.getElementById('toast-stack');
+    const timers = new Map();
+    let sequence = 0;
+    let live = false;
+    function textElement(tag, className, value) {
+      const node = document.createElement(tag);
+      node.className = className;
+      node.textContent = value;
+      return node;
+    }
+    function updateCount() {
+      document.getElementById('count').textContent = `${stack.children.length} / 3 visible`;
+    }
+    function removeCard(card) {
+      clearTimeout(timers.get(card));
+      timers.delete(card);
+      card.remove();
+      updateCount();
+    }
+    function clearCards() {
+      [...stack.children].forEach(removeCard);
+    }
+    function addCard(severity, timed) {
+      const data = samples[severity];
+      const card = document.createElement('article');
+      card.className = 'toast';
+      card.dataset.severity = severity;
+      card.dataset.id = String(++sequence);
+      const meta = textElement('div', 'toast-meta', '');
+      const icon = textElement('span', 'status-icon', data.symbol);
+      icon.setAttribute('aria-hidden', 'true');
+      meta.append(icon, textElement('span', 'status-name', data.label), textElement('span', 'source mono', data.source));
+      if (data.subtitle) meta.append(textElement('span', 'toast-project', '· ' + data.subtitle));
+      const heading = textElement('div', 'toast-heading', '');
+      heading.append(meta, textElement('h2', '', data.title));
+      const content = textElement('div', 'toast-content', '');
+      if (data.body) content.append(textElement('p', 'toast-body', data.body));
+      card.append(heading, content);
+      stack.prepend(card);
+      while (stack.children.length > 3) removeCard(stack.lastElementChild);
+      if (timed) timers.set(card, setTimeout(() => removeCard(card), 3000));
+      updateCount();
+    }
+    function setMode(isLive) {
+      live = isLive;
+      document.getElementById('mode-label').textContent = live ? '토스트 재생 · 3초 후 자동 숨김' : '디자인 보기 · 자동 숨김 꺼짐';
+      document.getElementById('mode-hint').textContent = live ? '실제 표시 방식의 예시입니다. 사라진 알림은 다시 나타나지 않습니다.' : '지금은 디자인을 살펴보는 정지 화면입니다. 재생하면 3초 후 사라집니다.';
+    }
+    function showExamples(isLive) {
+      clearCards();
+      setMode(isLive);
+      ['info', 'warning', 'success'].forEach(severity => addCard(severity, isLive));
+    }
+    const emphasisHints = {
+      border: '상태 색 테두리 2px만 적용합니다. 헤더와 본문 배경은 같은 남색입니다.',
+      header: '헤더에 상태 색을 14% 섞습니다. 테두리는 중립적인 남색으로 유지합니다.',
+      both: '추천 · 상태 색 테두리 2px + 헤더 배경 14%. 제목과 본문 글자색은 그대로 유지합니다.'
+    };
+    document.querySelectorAll('[data-emphasis-choice]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.documentElement.dataset.emphasis = button.dataset.emphasisChoice;
+        document.getElementById('emphasis-hint').textContent = emphasisHints[button.dataset.emphasisChoice];
+        document.querySelectorAll('[data-emphasis-choice]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+      });
+    });
+    document.querySelectorAll('[data-send]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (!live) { clearCards(); setMode(true); }
+        addCard(button.dataset.send, true);
+      });
+    });
+    document.getElementById('play').addEventListener('click', () => showExamples(true));
+    document.getElementById('reset').addEventListener('click', () => showExamples(false));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && live) clearCards();
+    });
+    window.addEventListener('pagehide', clearCards);
+    showExamples(false);
+  </script>
+</body>
+</html>

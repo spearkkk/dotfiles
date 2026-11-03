@@ -17,7 +17,7 @@ exec "$real_tmux" -L "$socket" "\$@"
 EOF
 chmod +x "$tmpdir/tmux"
 export PATH="$tmpdir:$PATH"
-export CW_CONTEXT_HELPER="$repo_root/home/.local/libexec/tmux-pane-context"
+export CW_CONTEXT_HELPER="$repo_root/home/.local/libexec/tmux-manage-pane-context"
 tmux -f /dev/null new-session -d -s rollback
 export TMUX_PANE
 TMUX_PANE=$(tmux display-message -p -t rollback: '#{pane_id}')

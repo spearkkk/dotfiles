@@ -35,7 +35,7 @@ jq_validation='
 '
 
 usage() {
-  printf '%s\n' 'usage: tmux-pane-context list PANE | inject PANE DESCRIPTOR_JSON [EXPECTED_INSTANCE] | eject PANE SLOT [INSTANCE] | state PANE INSTANCE STATE | clear PANE' >&2
+  printf '%s\n' 'usage: tmux-manage-pane-context list PANE | inject PANE DESCRIPTOR_JSON [EXPECTED_INSTANCE] | eject PANE SLOT [INSTANCE] | state PANE INSTANCE STATE | clear PANE' >&2
   exit 64
 }
 
@@ -48,25 +48,25 @@ case $operation in
 esac
 
 command -v jq >/dev/null 2>&1 || {
-  printf '%s\n' 'tmux-pane-context: jq is required' >&2
+  printf '%s\n' 'tmux-manage-pane-context: jq is required' >&2
   exit 69
 }
 
 lock_mutation() {
   command -v lockf >/dev/null 2>&1 || {
-    printf '%s\n' 'tmux-pane-context: lockf is required' >&2
+    printf '%s\n' 'tmux-manage-pane-context: lockf is required' >&2
     exit 69
   }
 
   target=$(tmux display-message -p -t "$pane" '#{socket_path}|#{pane_id}' 2>/dev/null) || {
-    printf 'tmux-pane-context: pane not found: %s\n' "$pane" >&2
+    printf 'tmux-manage-pane-context: pane not found: %s\n' "$pane" >&2
     exit 65
   }
   socket_path=${target%|*}
   resolved_pane=${target##*|}
   socket_key=$(printf '%s' "$socket_path" | cksum)
   socket_key=${socket_key%% *}
-  lock_file="${TMPDIR:-/tmp}/tmux-pane-context-${socket_key}-${resolved_pane#%}.lock"
+  lock_file="${TMPDIR:-/tmp}/tmux-manage-pane-context-${socket_key}-${resolved_pane#%}.lock"
 
   [ "${TMUX_PANE_CONTEXT_LOCKED:-}" = "$lock_file" ] && return
 
@@ -76,7 +76,7 @@ lock_mutation() {
   else
     status=$?
     if [ "$status" -eq 75 ]; then
-      printf 'tmux-pane-context: timed out waiting for pane lock: %s\n' "$resolved_pane" >&2
+      printf 'tmux-manage-pane-context: timed out waiting for pane lock: %s\n' "$resolved_pane" >&2
     fi
     exit "$status"
   fi
@@ -86,7 +86,7 @@ read_contexts() {
   value=$(tmux show-options -pqv -t "$pane" @contexts 2>/dev/null || :)
   [ -n "$value" ] || value=$empty
   printf '%s' "$value" | jq -ce "$jq_validation select(valid_document)" 2>/dev/null || {
-    printf 'tmux-pane-context: invalid @contexts on %s\n' "$pane" >&2
+    printf 'tmux-manage-pane-context: invalid @contexts on %s\n' "$pane" >&2
     exit 65
   }
 }
@@ -135,12 +135,12 @@ write_projection() {
 write_contexts() {
   next=$1
   next=$(printf '%s' "$next" | jq -ce "$jq_validation select(valid_document)" 2>/dev/null) || {
-    printf 'tmux-pane-context: refusing invalid @contexts for %s\n' "$pane" >&2
+    printf 'tmux-manage-pane-context: refusing invalid @contexts for %s\n' "$pane" >&2
     return 65
   }
   bytes=$(printf '%s' "$next" | wc -c | tr -d ' ')
   if [ "$bytes" -gt 4096 ]; then
-    printf 'tmux-pane-context: @contexts exceeds 4096 bytes (%s)\n' "$bytes" >&2
+    printf 'tmux-manage-pane-context: @contexts exceeds 4096 bytes (%s)\n' "$bytes" >&2
     return 65
   fi
 
@@ -175,7 +175,7 @@ case $operation in
   inject)
     descriptor=$3
     descriptor=$(printf '%s' "$descriptor" | jq -ce "$jq_validation select(valid_context)" 2>/dev/null) || {
-      printf '%s\n' 'tmux-pane-context: invalid descriptor' >&2
+      printf '%s\n' 'tmux-manage-pane-context: invalid descriptor' >&2
       exit 65
     }
     # Optional compare-and-set under the pane lock; empty means unoccupied.
@@ -184,7 +184,7 @@ case $operation in
         first(.contexts[] | select(.slot == $descriptor.slot) | .instance) // ""
       ')
       if [ "$occupant" != "$4" ]; then
-        printf '%s\n' 'tmux-pane-context: slot changed; refusing replacement' >&2
+        printf '%s\n' 'tmux-manage-pane-context: slot changed; refusing replacement' >&2
         exit 65
       fi
     fi

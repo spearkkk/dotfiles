@@ -2,16 +2,19 @@
 
 operation=${1:-}
 target=${2:-}
-lock_name=tmux-pane-attention-lock
+lock_name=tmux-pane-activity-lock
 lock_held=0
 status_dirty=0
 pane_rows=
 client_rows=
 focused_panes=
 dirty_windows=
+notify_pane=
+notify_state=
+notify_token=
 
 usage() {
-  printf '%s\n' 'usage: tmux-pane-attention reconcile-title PANE | reconcile-window WINDOW | reconcile-all | acknowledge-visible | command-done PANE' >&2
+  printf '%s\n' 'usage: tmux-reconcile-pane-activity reconcile-title PANE | reconcile-window WINDOW | reconcile-all | acknowledge-visible | command-done PANE' >&2
   exit 64
 }
 
@@ -122,7 +125,30 @@ set_activity() {
   if tmux set-option -p -t "$pane" @activity "$desired" >/dev/null 2>&1; then
     status_dirty=1
     mark_window_dirty "$(pane_window "$pane")"
+    # Invalidate queued work on every transition, including silent recovery.
+    tmux set-option -pu -t "$pane" @activity_nudge_token >/dev/null 2>&1 || :
+    case "$operation:$desired" in
+      reconcile-title:waiting|reconcile-title:completed|command-done:completed)
+        if ! is_focused "$pane" && [ -x "$HOME/.local/libexec/tmux-notify-pane-activity" ]; then
+          token=$(/usr/bin/uuidgen 2>/dev/null) || return
+          if tmux set-option -p -t "$pane" @activity_nudge_token "$token" >/dev/null 2>&1; then
+            notify_pane=$pane
+            notify_state=$desired
+            notify_token=$token
+          fi
+        fi
+        ;;
+    esac
   fi
+}
+
+dispatch_notification() {
+  [ -n "$notify_token" ] || return 0
+  # Only server-generated pane IDs, fixed state names and UUIDs enter this shell
+  # command. Names, titles and other metadata are read by the worker as data.
+  tmux run-shell -b -t "$notify_pane" \
+    "\"\$HOME/.local/libexec/tmux-notify-pane-activity\" '$notify_pane' '$notify_state' '$notify_token'" \
+    >/dev/null 2>&1 || :
 }
 
 classify_title() {
@@ -252,4 +278,5 @@ esac
 sync_windows
 release_lock
 refresh_status
+dispatch_notification
 exit 0

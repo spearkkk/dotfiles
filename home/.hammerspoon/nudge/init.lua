@@ -17,19 +17,33 @@ function M.new(deps)
   local self = {state=core.empty(), renderer=deps.renderer, applied_revision=nil,
     renderer_dirty=true, last_render_error=nil, storage_error=nil, busy=false}
   local store, clock = deps.store, deps.clock
-  local function render_info()
+  local function renderer_status(id)
+    if not self.renderer.status then return {presented=false,displayed_count=0} end
+    local ok,status=pcall(function() return self.renderer:status(id) end)
+    if not ok or type(status)~='table' or status.error then
+      self.renderer_dirty=true
+      self.last_render_error='Renderer application failed; full restore will be retried'
+      return {presented=false,displayed_count=0}
+    end
+    return status
+  end
+  local function render_info(id)
+    local status=renderer_status(id)
     return {status=self.renderer_dirty and 'failed' or 'applied',
-      renderer=self.renderer.kind or 'debug', presented=false}
+      renderer=self.renderer.kind or 'debug', presented=status.presented==true,
+      displayed_count=status.displayed_count or 0}
   end
   local function render(events, force, now)
+    renderer_status() -- asynchronous Canvas failures also require reconciliation
     local ok = pcall(function()
       if force or self.renderer_dirty then
         self.renderer:restore(core.visible(self.state, now))
-      else
-        for _, event in ipairs(events or {}) do
-          if event.kind=='upsert' then self.renderer:upsert(event.record)
-          else self.renderer:remove(event.id,event.reason) end
-        end
+      end
+      -- A restore seeds durable state, but is not a new toast event. Deliver the
+      -- current transaction as well, even when recovering a dirty renderer.
+      for _, event in ipairs(events or {}) do
+        if event.kind=='upsert' then self.renderer:upsert(event.record)
+        else self.renderer:remove(event.id,event.reason) end
       end
     end)
     if not ok then
@@ -95,7 +109,7 @@ function M.new(deps)
     expire(clock())
     render({},true,clock())
     self.timer=deps.timer(1,function()
-      if self.busy then return end
+      if self.stopped or self.busy then return end
       self.busy=true
       local tick_ok=pcall(function() expire(clock()) end)
       if not tick_ok then self.storage_error='Expiry timer failed; will retry' end
@@ -124,7 +138,7 @@ function M.new(deps)
     if not valid then return error_response(nil,2,diagnostic(request,'Invalid request fields or values')) end
     local operation=request.operation
     if operation=='capabilities' then
-      return {ok=true,operation=operation,exit_code=0,version=1,renderer='debug',
+      return {ok=true,operation=operation,exit_code=0,version=1,renderer=self.renderer.kind or 'debug',
         presented=false, max_request_bytes=65536,max_active=1000,max_snapshot_bytes=8388608,
         operations=contract.array{'send','list','inspect','dismiss','doctor','capabilities'},
         defaults={ttl_seconds=86400,dedupe_seconds=10},stored=false}
@@ -132,13 +146,14 @@ function M.new(deps)
     if operation=='doctor' then
       if not self.startup_error then expire(clock()) end
       local count_ok,count=pcall(function() return self.renderer:count() end)
+      local presentation=render_info()
       local healthy=not self.startup_error and not self.storage_error and not self.renderer_dirty
       return {ok=healthy,operation=operation,exit_code=self.startup_code or
         (self.storage_error and 4 or (self.renderer_dirty and 5 or 0)),
         startup_error=self.startup_error, storage_error=self.storage_error, revision=self.state.revision,
         stored=false, renderer={kind=self.renderer.kind or 'debug',applied_revision=self.applied_revision,
           count=count_ok and count or 0,last_error=self.last_render_error,status=render_info().status,
-          presented=false}}
+          presented=presentation.presented,displayed_count=presentation.displayed_count}}
     end
     if self.startup_error then return error_response(operation,self.startup_code,self.startup_error) end
     local now=clock()
@@ -166,10 +181,11 @@ function M.new(deps)
       response.exit_code=rendered and 0 or 5
       if not rendered then response.ok=false; response.error={message=self.last_render_error} end
     end
-    response.stored=stored; response.render=render_info()
+    response.stored=stored; response.render=render_info(response.id or (response.record and response.record.id))
     return response
   end
   function self:handle_json(raw)
+    if self.stopped then return contract.encode(error_response(nil,4,'Service is stopped')) end
     if self.busy then return contract.encode(error_response(nil,4,'Service is busy')) end
     self.busy=true
     local handled,response=pcall(handle,raw)
@@ -179,7 +195,15 @@ function M.new(deps)
     if encoded then return result end
     return '{"ok":false,"exit_code":4,"stored":false,"error":{"message":"Response encoding failed"}}'
   end
-  function self:stop() if self.timer then self.timer:stop(); self.timer=nil end end
+  function self:stop()
+    if self.stopped then return end
+    self.stopped=true
+    if self.timer then self.timer:stop(); self.timer=nil end
+    if self.renderer.stop then
+      local ok=pcall(function() self.renderer:stop() end)
+      if not ok then self.renderer_dirty=true; self.last_render_error='Renderer cleanup failed' end
+    end
+  end
   return self
 end
 
@@ -261,7 +285,12 @@ function M.host_dependencies(root)
   local store=require('nudge.store').new({root=root or (assert(os.getenv('HOME'))..'/.nudge'),
     fs=fs,encode=contract.encode,decode=contract.decode,validate=core.validate,
     token=hs.host.uuid,uid=uid})
-  return {store=store,renderer=require('nudge.renderers.debug').new(),
+  local renderer=require('nudge.renderers.toast').new{
+    backend=require('nudge.renderers.canvas').new(hs,require('lib.theme')),
+    clock=function() return hs.timer.absoluteTime()/1000000000 end,
+    wall=function() return math.floor(hs.timer.secondsSinceEpoch()*1000) end,
+    after=function(seconds,callback) return hs.timer.doAfter(seconds,callback) end}
+  return {store=store,renderer=renderer,
     clock=function() return math.floor(hs.timer.secondsSinceEpoch()*1000) end,
     id=hs.host.uuid,timer=function(seconds,callback) return hs.timer.doEvery(seconds,callback) end}
 end

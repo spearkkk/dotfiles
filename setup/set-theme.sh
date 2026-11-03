@@ -347,6 +347,9 @@ M.colors = {
   accent = { hex = "#$base0C", alpha = 1 },
   warn = { hex = "#$base0A", alpha = 1 },
   error = { hex = "#$base08", alpha = 1 },
+  success = { hex = "#$base0B", alpha = 1 },
+  info = { hex = "#$base0D", alpha = 1 },
+  strong = { hex = "#$base06", alpha = 1 },
 }
 
 M.aerospace_alt_tab = {

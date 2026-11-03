@@ -109,7 +109,7 @@ make -C setup/launchagents status
 fish setup/check.fish
 ```
 
-## tmux attention status
+## tmux activity status
 
 The tmux window list shows unread attention from background panes:
 
@@ -121,7 +121,28 @@ The tmux window list shows unread attention from background panes:
 Set a different general-command threshold in fish before starting commands:
 
 ```fish
-set -gx TMUX_ATTENTION_MIN_SECONDS 30
+set -gx TMUX_ACTIVITY_MIN_SECONDS 30
+```
+
+Background pane transitions also send Nudge toasts:
+
+- Entering `waiting`: **warning**, “입력이나 승인이 필요해요”.
+- Entering `completed`: **info**, “작업이 끝났어요” (not a success assertion).
+- Focused panes, unchanged states, and bulk reconciliation/reload do not notify.
+
+`tmux-notify-pane-activity` runs asynchronously after the activity controller
+unlocks, and rechecks focus/state before sending. Each transition is attempted
+once; superseded jobs are dropped. Toasts use `source=tmux`, the session name,
+and numeric window/pane location—not command text, pane output, cwd, or titles.
+Avoid secrets in session names. Cards disappear after 3 seconds; these events
+have a 60-second internal TTL, with no replay, click action, or focus change.
+
+Nudge/Hammerspoon failures do not affect tmux markers. There is no automatic
+launch, retry, or persistent queue. Check a pane's most recent delivery error
+(cleared on its next delivery attempt):
+
+```fish
+tmux show-options -pqv -t %1 @activity_nudge_error
 ```
 
 Codex markers depend on its current braille-spinner titles and the

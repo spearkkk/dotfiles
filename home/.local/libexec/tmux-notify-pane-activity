@@ -1,0 +1,63 @@
+#!/bin/sh
+# One transient event, not a queue. Never hold the tmux controller lock over IPC.
+pane=${1:-}
+state=${2:-}
+token=${3:-}
+[ "$#" -eq 3 ] || exit 64
+case $pane in %*) number=${pane#%} ;; *) exit 64 ;; esac
+case $number in ''|*[!0-9]*) exit 64 ;; esac
+case $state in waiting) severity=warning; title='입력이나 승인이 필요해요' ;;
+  completed) severity=info; title='작업이 끝났어요' ;; *) exit 64 ;; esac
+case $token in ''|*[!a-fA-F0-9-]*) exit 64 ;; esac
+[ "${#token}" -eq 36 ] || exit 64
+lock_name=tmux-pane-activity-lock
+lock_held=0
+release_lock() {
+  [ "$lock_held" -eq 1 ] || return 0
+  tmux wait-for -U "$lock_name" >/dev/null 2>&1 || :
+  lock_held=0
+}
+trap release_lock 0
+trap 'exit 0' 1 2 15
+
+tmux wait-for -L "$lock_name" >/dev/null 2>&1 || exit 0
+lock_held=1
+current=$(tmux show-options -pqv -t "$pane" @activity 2>/dev/null) || exit 0
+pending=$(tmux show-options -pqv -t "$pane" @activity_nudge_token 2>/dev/null) || exit 0
+[ "$current" = "$state" ] && [ "$pending" = "$token" ] || exit 0
+clients=$(tmux list-clients -F '#{client_flags}|#{pane_id}' 2>/dev/null) || exit 0
+while IFS='|' read -r flags client_pane; do
+  case ",$flags," in *,focused,*) [ "$client_pane" != "$pane" ] || exit 0 ;; esac
+done <<CLIENTS
+$clients
+CLIENTS
+# Read only navigational metadata, never commands, cwd, pane output or titles.
+session=$(tmux display-message -p -t "$pane" '#{session_name}' 2>/dev/null) || exit 0
+location=$(tmux display-message -p -t "$pane" '#{window_index}:#{pane_index}' 2>/dev/null) || exit 0
+case $location in *[!0-9:]*|''|:*|*:) exit 0 ;; esac
+window=${location%%:*}
+pane_index=${location#*:}
+case $pane_index in *:*) exit 0 ;; esac
+[ "$pane_index" != "$location" ] || exit 0
+# Claim once, including failed or timed-out delivery. No automatic retry.
+tmux set-option -p -t "$pane" @activity_nudge_token "claimed:$token" >/dev/null 2>&1 || exit 0
+tmux set-option -pu -t "$pane" @activity_nudge_error >/dev/null 2>&1 || :
+release_lock
+
+code=127
+if [ -x "$HOME/.local/bin/nudge" ]; then
+  "$HOME/.local/bin/nudge" send --source tmux --event "$state" \
+    --key "activity:$token" --severity "$severity" --title "$title" \
+    --subtitle "$session" --body "윈도우 $window · 패인 $pane_index ($pane)" \
+    --ttl-seconds 60 >/dev/null 2>&1
+  code=$?
+fi
+# A newer transition must not inherit an older worker's delivery error.
+[ "$code" -ne 0 ] || exit 0
+tmux wait-for -L "$lock_name" >/dev/null 2>&1 || exit 0
+lock_held=1
+pending=$(tmux show-options -pqv -t "$pane" @activity_nudge_token 2>/dev/null) || exit 0
+if [ "$pending" = "claimed:$token" ]; then
+  tmux set-option -p -t "$pane" @activity_nudge_error "delivery failed (exit $code)" >/dev/null 2>&1 || :
+fi
+exit 0

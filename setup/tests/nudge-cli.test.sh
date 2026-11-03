@@ -3,7 +3,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd -P)
 cli="$root/home/.local/bin/nudge"
-ipc="$root/home/.local/libexec/nudge-ipc.lua"
+ipc="$root/home/.local/libexec/nudge-dispatch-request.lua"
 jq_bin=$(command -v jq)
 lua_bin=${LUA_BIN:-$(command -v lua)}
 case "$lua_bin" in
@@ -249,7 +249,7 @@ pass 'missing dependencies return structured failures; help is standalone'
 # Exercise both stow's file symlink and folded-directory layouts, including spaces.
 mkdir -p "$tmp/stow home/.local/bin" "$tmp/stow home/.local/libexec"
 ln -s "$cli" "$tmp/stow home/.local/bin/nudge"
-ln -s "$ipc" "$tmp/stow home/.local/libexec/nudge-ipc.lua"
+ln -s "$ipc" "$tmp/stow home/.local/libexec/nudge-dispatch-request.lua"
 saved_cli=$cli
 cli="$tmp/stow home/.local/bin/nudge"; run 0 doctor
 mkdir -p "$tmp/folded/.local"

@@ -4,7 +4,7 @@ set -u
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 config="$repo_root/home/.tmux.conf"
-toggle="$repo_root/home/.local/libexec/tmux-pane-focus-toggle"
+toggle="$repo_root/home/.local/libexec/tmux-toggle-pane-focus"
 failures=0
 
 fail() {
@@ -17,15 +17,15 @@ assert_line() {
   grep -Fqx "$expected" "$config" || fail "missing config line: $expected"
 }
 
-assert_line "set-hook -g after-select-pane[10] 'run-shell -b \"~/.local/libexec/tmux-pane-attention acknowledge-visible\"'"
+assert_line "set-hook -g after-select-pane[10] 'run-shell -b \"~/.local/libexec/tmux-reconcile-pane-activity acknowledge-visible\"'"
 assert_line "set -g @pane-focus-enabled off"
 assert_line "set -g @pane-focus-size '70'"
 assert_line "set -g @pane-focus-direction '+'"
 assert_line "set -g @plugin 'graemedavidson/tmux-pane-focus#v0.5.0-alpha'"
 assert_line 'set -g pane-border-format " #{?pane_active,▶,·} #{pane_index} #{=30:pane_title} "'
-assert_line "bind-key F run-shell '~/.local/libexec/tmux-pane-focus-toggle \"#{window_id}\"'"
+assert_line "bind-key F run-shell '~/.local/libexec/tmux-toggle-pane-focus \"#{window_id}\"'"
 
-if grep -Fqx "set-hook -g after-select-pane   'run-shell -b \"~/.local/libexec/tmux-pane-attention acknowledge-visible\"'" "$config"; then
+if grep -Fqx "set-hook -g after-select-pane   'run-shell -b \"~/.local/libexec/tmux-reconcile-pane-activity acknowledge-visible\"'" "$config"; then
   fail 'pane-attention still owns the unindexed after-select-pane hook'
 fi
 

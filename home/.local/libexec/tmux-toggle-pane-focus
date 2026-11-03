@@ -2,7 +2,7 @@
 
 set -u
 
-target_window=${1:?usage: tmux-pane-focus-toggle target-window}
+target_window=${1:?usage: tmux-toggle-pane-focus target-window}
 enabled=$(tmux show-options -wqv -t "$target_window" @pane-focus-enabled)
 if [[ -z "$enabled" ]]; then
   enabled=$(tmux show-options -gqv @pane-focus-enabled)

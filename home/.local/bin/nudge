@@ -171,7 +171,7 @@ while :; do
   case "$target" in /*) script=$target ;; *) script="$directory/$target" ;; esac
 done
 local_root=$(CDPATH= cd -P -- "$directory/.." && pwd -P) || fail 4 'Cannot locate the IPC entry.'
-ipc="$local_root/libexec/nudge-ipc.lua"
+ipc="$local_root/libexec/nudge-dispatch-request.lua"
 [ -r "$ipc" ] || fail 4 'The fixed IPC entry is unavailable.'
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/nudge.XXXXXXXX") || fail 4 'Cannot create private transport files.'

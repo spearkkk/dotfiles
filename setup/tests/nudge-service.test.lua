@@ -328,4 +328,72 @@ test('failed expiry retries update visibility without restoring unchanged live r
   assert(#h.disk.active==1 and h.renderer:count()==1)
 end)
 
+local function with_toast()
+  local h=harness()
+  h.ui_now=0; h.drawn={};h.allowed=true
+  local backend={available=function() return h.allowed end,current_screen=function() return 'main' end,
+    screens=function() return {main={x=0,y=0,w=1000,h=800}} end,
+    subscribe=function(cb) h.ui_change=cb end,stop=function() h.ui_stopped=true;h.drawn={} end,
+    paint=function(cards)
+      if h.ui_failure then error('private canvas contents') end
+      h.drawn=cards
+    end}
+  h.renderer=require('nudge.renderers.toast').new{backend=backend,
+    clock=function() return h.ui_now end,wall=function() return h.now end,
+    after=function(_,cb) h.ui_tick=cb;return {stop=function() end} end}
+  return h
+end
+
+test('Canvas capabilities and doctor distinguish durable count from transient display',function()
+  local h=with_toast();h.start()
+  assert(h.call('{"operation":"capabilities"}').renderer=='canvas')
+  local r=h.send();assert(r.render.presented and r.render.renderer=='canvas')
+  local d=h.call('{"operation":"doctor"}')
+  assert(d.renderer.count==1 and d.renderer.displayed_count==1 and d.renderer.presented)
+  h.ui_now=3;h.ui_tick()
+  d=h.call('{"operation":"doctor"}')
+  assert(d.renderer.count==1 and d.renderer.displayed_count==0 and not d.renderer.presented)
+  local same=h.send();assert(same.result=='suppressed' and not same.render.presented)
+end)
+
+test('Canvas restart restores durable state silently and accepts only fresh changes',function()
+  local h=with_toast();h.start();local first=h.send();h.service:stop()
+  local next=with_toast();next.disk=contract.copy(h.disk);next.start()
+  assert(#next.drawn==0 and next.renderer:count()==1)
+  local suppressed=next.send();assert(suppressed.result=='suppressed' and not suppressed.render.presented)
+  local changed=next.send('changed');assert(changed.id==first.id and changed.render.presented)
+end)
+
+test('Canvas never receives unsaved changes or dry runs',function()
+  local h=with_toast();h.start();h.fail_save=true
+  assert(h.send().exit_code==4 and #h.drawn==0)
+  h.fail_save=false
+  assert(h.call('{"operation":"send","dry_run":true,"request":{"content":{"title":"preview"}}}').ok)
+  assert(#h.drawn==0)
+end)
+
+test('dirty recovery delivers the new transaction event after restoring',function()
+  local h=with_toast();h.start();h.ui_failure=true
+  local first=h.send();assert(first.exit_code==5 and first.stored)
+  h.ui_failure=false
+  local second=h.call('{"operation":"send","request":{"source":"test","key":"other","content":{"title":"new"}}}')
+  assert(second.ok and second.render.presented and #h.drawn==2)
+end)
+
+test('async Canvas failure is observed and retried by service timer',function()
+  local h=with_toast();h.start();h.send();h.ui_now=3;h.ui_failure=true;h.ui_tick()
+  local d=h.call('{"operation":"doctor"}')
+  assert(d.exit_code==5 and d.renderer.last_error and not d.renderer.presented)
+  assert(not contract.encode(d):find('private canvas contents',1,true))
+  h.ui_failure=false;h.tick()
+  d=h.call('{"operation":"doctor"}')
+  assert(d.ok and d.renderer.displayed_count==0 and d.renderer.count==1)
+end)
+
+test('service stop releases renderer and refuses further requests',function()
+  local h=with_toast();h.start();h.send();h.service:stop()
+  assert(h.stopped and h.ui_stopped and #h.drawn==0)
+  assert(h.send().exit_code==4)
+end)
+
 print('PASS: nudge-service ('..tests..' tests)')

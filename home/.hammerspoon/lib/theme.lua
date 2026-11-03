@@ -13,6 +13,9 @@ M.colors = {
   accent = { hex = "#50C4C0", alpha = 1 },
   warn = { hex = "#C8AE6A", alpha = 1 },
   error = { hex = "#C47A72", alpha = 1 },
+  success = { hex = "#68BE92", alpha = 1 },
+  info = { hex = "#7896CC", alpha = 1 },
+  strong = { hex = "#D6E2E8", alpha = 1 },
 }
 
 M.aerospace_alt_tab = {

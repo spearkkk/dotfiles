@@ -221,15 +221,25 @@ if not bash "$repo_root/setup/tests/ssh-config.test.sh"
     mark_fail "SSH config test failed"
 end
 
-log_step "tmux pane attention"
-if not bash "$repo_root/setup/tests/tmux-pane-attention.test.sh"
-    mark_fail "tmux pane attention test failed"
+log_step "tmux pane activity"
+if not bash "$repo_root/setup/tests/tmux-reconcile-pane-activity.test.sh"
+    mark_fail "tmux pane activity test failed"
+end
+
+log_step "tmux Nudge integration"
+if not test -x "$repo_root/home/.local/libexec/tmux-notify-pane-activity"
+    mark_fail "tmux Nudge helper is not executable"
+else if not bash "$repo_root/setup/tests/tmux-nudge.test.sh"
+    mark_fail "tmux Nudge integration test failed"
+end
+if not bash "$repo_root/setup/tests/tmux-nudge-integration.test.sh"
+    mark_fail "tmux Nudge isolated-server test failed"
 end
 
 log_step "tmux pane context"
-if not test -x "$repo_root/home/.local/libexec/tmux-pane-context"
+if not test -x "$repo_root/home/.local/libexec/tmux-manage-pane-context"
     mark_fail "tmux pane context helper is not executable"
-else if not bash "$repo_root/setup/tests/tmux-pane-context.test.sh"
+else if not bash "$repo_root/setup/tests/tmux-manage-pane-context.test.sh"
     mark_fail "tmux pane context test failed"
 end
 

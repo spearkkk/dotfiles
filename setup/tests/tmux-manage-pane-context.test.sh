@@ -3,10 +3,10 @@
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-helper="$repo_root/home/.local/libexec/tmux-pane-context"
+helper="$repo_root/home/.local/libexec/tmux-manage-pane-context"
 real_tmux=$(command -v tmux)
 real_lockf=$(command -v lockf)
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-pane-context.XXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-manage-pane-context.XXXXXX")
 export TMPDIR="$tmpdir"
 socket="pane-context-$$"
 
@@ -261,6 +261,6 @@ lockf -s -t 0 "$lock_file" true || {
   exit 1
 }
 
-grep -q 'tmux-pane-context' "$repo_root/setup/check.fish"
+grep -q 'tmux-manage-pane-context' "$repo_root/setup/check.fish"
 
-echo 'PASS: tmux-pane-context'
+echo 'PASS: tmux-manage-pane-context'
