@@ -1,0 +1,36 @@
+#!/bin/bash
+# One-shot fetch: stdout is weather_code<TAB>temperature_c<TAB>is_day.
+# Failures emit diagnostics only on stderr; UI policy belongs to weather.lua.
+set -euo pipefail
+export LC_ALL=C
+
+fail() {
+  printf 'sketchybar-fetch-weather: %s\n' "$1" >&2
+  exit 1
+}
+
+location=$(curl -fsS ipinfo.io/loc) || fail 'location request failed'
+coordinate_pattern='^[[:space:]]*(-?[0-9]+\.?[0-9]*)[[:space:]]*,[[:space:]]*(-?[0-9]+\.?[0-9]*)[[:space:]]*$'
+[[ $location =~ $coordinate_pattern ]] || fail 'invalid location response'
+latitude=${BASH_REMATCH[1]}
+longitude=${BASH_REMATCH[2]}
+
+response=$(curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,is_day") \
+  || fail 'weather request failed'
+
+data=$(printf '%s' "$response" | jq -ers '
+  if length == 1 then .[0].current else error("expected one weather response") end
+  | if type == "object"
+      and (.weather_code | type == "number")
+      and (.weather_code | isfinite)
+      and .weather_code >= 0
+      and (.weather_code | floor == .)
+      and (.temperature_2m | type == "number")
+      and (.temperature_2m | isfinite)
+      and (.is_day == 0 or .is_day == 1)
+    then [.weather_code, .temperature_2m, .is_day] | @tsv
+    else error("invalid weather fields")
+    end
+') || fail 'invalid weather response'
+
+printf '%s\n' "$data"

@@ -99,34 +99,30 @@ local weather_temp = Sbar.add("item", "weather_temp", {
   },
 })
 
+local function fetch_weather()
+  local helper = os.getenv("HOME") .. "/.local/libexec/sketchybar-fetch-weather"
+  local raw = utils.capture(utils.shell_quote(helper))
+  local code, temperature, daytime = raw:match("^(%d+)\t([^\t]+)\t([01])$")
+  local temp = tonumber(temperature)
+  if not code or not temp or not math.tointeger(math.floor(temp + 0.5)) then
+    return nil
+  end
+
+  return { code = tonumber(code), temperature = temp, is_day = daytime == "1" }
+end
+
 local function weather_status()
-  local loc = utils.capture("curl -fsS ipinfo.io/loc 2>/dev/null")
-  local latitude, longitude = loc:match("^%s*(-?%d+%.?%d*)%s*,%s*(-?%d+%.?%d*)%s*$")
-  if not latitude or not longitude then
+  local data = fetch_weather()
+  if not data then
     return nil
   end
 
-  local query = string.format(
-    "curl -fsS 'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&current=temperature_2m,weather_code,is_day' | jq -r '.current.weather_code, .current.temperature_2m, .current.is_day' 2>/dev/null",
-    latitude,
-    longitude
-  )
-  local raw = utils.capture(query)
-  local code, temp_str, is_day = raw:match("([^\n]*)\n([^\n]*)\n([^\n]*)")
-  if not code or not temp_str or not is_day then
-    return nil
-  end
-
-  local temp = tonumber(temp_str)
-  if not temp then
-    return nil
-  end
-
-  local icons = (is_day == "1") and day_icons or night_icons
-  local icon = icons[weather_icon_key(tonumber(code))] or day_icons.cloudy
+  local temp = data.temperature
+  local icons = data.is_day and day_icons or night_icons
+  local icon = icons[weather_icon_key(data.code)] or day_icons.cloudy
 
   local icon_color
-  if is_day == "1" then
+  if data.is_day then
     if temp >= 28 then
       icon_color = colors.base08
     else

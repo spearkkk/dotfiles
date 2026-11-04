@@ -269,6 +269,11 @@ if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-profile.te
     mark_fail "Sketchybar profile loader test failed"
 end
 
+log_step "Sketchybar weather"
+if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-weather.test.sh"
+    mark_fail "Sketchybar weather tests failed"
+end
+
 log_step "cw multi-context"
 if not bash "$repo_root/setup/tests/cw-multi-context.test.sh"
     mark_fail "cw multi-context test failed"

@@ -130,6 +130,16 @@ make -C setup/launchagents status
 fish setup/check.fish
 ```
 
+## SketchyBar weather
+
+`~/.local/libexec/sketchybar-fetch-weather` performs a one-shot location and
+weather lookup using Bash, curl, and jq. It emits weather code, Celsius
+temperature, and day/night flag as one tab-separated line; failures produce
+no stdout and exit nonzero with diagnostics on stderr. `weather.lua` invokes
+the helper by its HOME-based absolute path and owns icons, colors, rounding,
+refresh events, and the `--°` fallback. Fetching remains synchronous, without
+new caching, retries, or timeouts.
+
 ## cw pane contexts
 
 `cw` uses the contexts defined by your profile. Without placement options it
