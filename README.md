@@ -57,8 +57,12 @@ fish setup/bootstrap.fish --profile work
 - `setup/launchagents/`: LaunchAgent load/status/teardown helpers.
 - `share/`: resources, source assets, exports, and documentation that are not installed directly.
 
-Executable helpers used internally by a profile belong under that profile's
-`home/.local/libexec/`; user-facing commands belong under `home/.local/bin/`.
+User-facing commands belong under `home/.local/bin/`. Internal executable
+entry points belong under `home/.local/libexec/` and use `scope-action-target`
+names. Profile-owned helpers follow the same rule inside that profile's `home/`.
+Loaded shell functions and application modules remain in their native paths.
+The tmux status renderer and SketchyBar calendar/media daemons are internal
+entry points; their callers use explicit `~/.local/libexec/` paths, not PATH lookup.
 
 `openit <artifact>` opens AI-generated output for review. Text artifacts open
 in Neovim (in a new window when called from tmux), while HTML, PDF, images, and
@@ -95,6 +99,23 @@ like `~/.config/fish/conf.d`.
 stow --no-folding --dir=home --target=$HOME .
 stow --no-folding --dir=profiles/personal/home --target=$HOME .
 stow --no-folding --dir=profiles/work/home --target=$HOME .
+```
+
+## Rolling out helper renames
+
+Install only from the active dotfiles repository, never a temporary worktree.
+Before integrating the rename, stop the existing SketchyBar calendar and media
+LaunchAgents with `launchctl bootout` and confirm they have exited. Do not use
+`teardown`: it also disables the agents.
+
+After integration, restow the base from the active repository, reinstall/restart
+the LaunchAgents, then reload tmux. The plists are copied at install time, so
+Stow alone does not update them:
+
+```fish
+stow --restow --no-folding --dir=home --target=$HOME .
+make -C setup/launchagents bootstrap
+tmux source-file ~/.tmux.conf
 ```
 
 ## Targeted reruns

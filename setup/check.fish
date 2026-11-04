@@ -216,6 +216,11 @@ check_files sh bash -n \
     "$repo_root/home" \
     "$repo_root/profiles"
 
+log_step "Internal executable layout"
+if not bash "$repo_root/setup/tests/libexec-layout.test.sh"
+    mark_fail "Internal executable layout checks failed."
+end
+
 log_step "SSH config"
 if not bash "$repo_root/setup/tests/ssh-config.test.sh"
     mark_fail "SSH config test failed"

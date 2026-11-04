@@ -6,7 +6,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 controller="$repo_root/home/.local/libexec/tmux-reconcile-pane-activity"
 fish_config="$repo_root/home/.config/fish/conf.d/0200-tmux-pane-activity.fish"
 tmux_config="$repo_root/home/.tmux.conf"
-renderer="$repo_root/home/.tmux/scripts/status-box.sh"
+renderer="$repo_root/home/.local/libexec/tmux-render-status-box"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/tmux-pane-activity.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -182,7 +182,12 @@ if grep -Eq '@activity=(idle|working|completed|waiting)' "$tmux_config"; then
   echo 'FAIL: activity values should be pane options, not global tmux config' >&2
   exit 1
 fi
-[[ $(grep -o 'status-box\.sh' "$tmux_config" | wc -l | tr -d ' ') == 1 ]]
+[[ $(grep -o 'tmux-render-status-box' "$tmux_config" | wc -l | tr -d ' ') == 1 ]]
+
+[[ -x "$renderer" ]]
+[[ ! -e "$repo_root/home/.tmux/scripts/status-box.sh" ]]
+[[ ! -L "$repo_root/home/.tmux/scripts/status-box.sh" ]]
+/bin/sh -n "$renderer"
 
 renderer_output=$("$renderer" '#112233' '#AABBCC' '#445566' 'xcontext○')
 case $renderer_output in *' context○ '*) ;; *) exit 1 ;; esac

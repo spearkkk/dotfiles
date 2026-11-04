@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cw_file="$repo_root/home/.config/fish/functions/cw.fish"
-renderer="$repo_root/home/.tmux/scripts/status-box.sh"
+renderer="$repo_root/home/.local/libexec/tmux-render-status-box"
 tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/cw-pane-context.XXXXXX")
 trap 'rm -rf "$tmpdir"' EXIT
 
