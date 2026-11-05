@@ -24,8 +24,8 @@ local function expires_at(now, ttl)
   if ttl>math.floor((MAX_SAFE_INTEGER-now)/1000) then reject("expiration timestamp out of range") end
   return now+ttl*1000
 end
-local request_fields = {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true}
-local record_fields = {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true,
+local request_fields = {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true,sound=true}
+local record_fields = {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true,sound=true,
   id=true,created_at=true,updated_at=true,expires_at=true}
 local function request_from(record)
   local result=contract.object{}

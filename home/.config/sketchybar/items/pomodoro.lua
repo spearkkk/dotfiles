@@ -86,15 +86,26 @@ local function popup_label(remaining)
   return string.format("%s %s", prefix, format_time(remaining))
 end
 
-local function notify(title, subtitle, message, sound)
+local function notify(title, subtitle, message, sound, event)
   local cmd = table.concat({
-    "osascript",
-    "-e", utils.shell_quote("display notification " .. string.format("%q", message)
-      .. " with title " .. string.format("%q", title)
-      .. " subtitle " .. string.format("%q", subtitle)
-      .. " sound name " .. string.format("%q", sound)),
+    utils.shell_quote((os.getenv("HOME") or "") .. "/.local/bin/nudge"), "send",
+    "--source", "pomodoro", "--event", utils.shell_quote(event),
+    "--preset", "timer-ended", "--ttl-seconds", "60",
+    "--title", utils.shell_quote(title), "--subtitle", utils.shell_quote(subtitle),
+    "--body", utils.shell_quote(message), "--sound", utils.shell_quote(sound),
   }, " ")
-  os.execute(cmd .. " >/dev/null 2>&1 &")
+  -- SketchyBar parses JSON stdout for us. Never wait for delivery or retry an
+  -- uncertain outcome: timer transitions must not depend on Hammerspoon/IPC.
+  local scheduled = pcall(Sbar.exec, cmd .. " 2>/dev/null", function(result, exit_code)
+    if exit_code ~= 0 then
+      utils.log("pomodoro: nudge delivery failed (exit " .. tostring(exit_code) .. ")")
+    elseif type(result) ~= "table" or result.ok ~= true then
+      utils.log("pomodoro: nudge returned an invalid or unsuccessful response")
+    elseif type(result.sound) == "table" and result.sound.status == "failed" then
+      utils.log("pomodoro: nudge sound playback failed")
+    end
+  end)
+  if not scheduled then utils.log("pomodoro: could not schedule nudge delivery") end
 end
 
 local function apply_mode_ui()
@@ -229,7 +240,8 @@ local function complete_work()
     "Pomodoro",
     tomatoes_done .. " tomato" .. ((tomatoes_done == 1) and "" or "es") .. " done",
     (long_break and "Long" or "Short") .. " break: " .. break_mins .. " min",
-    sound
+    sound,
+    "work-completed"
   )
   start_mode("break", next_break_kind)
 end
@@ -244,7 +256,8 @@ local function complete_break()
     "Pomodoro",
     "Break done",
     "Work time: " .. work_mins .. " min",
-    settings.pomodoro_sound_break_done
+    settings.pomodoro_sound_break_done,
+    "break-completed"
   )
   start_mode("work")
 end

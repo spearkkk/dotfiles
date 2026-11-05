@@ -285,16 +285,37 @@ local function policy(value, allow_preset)
     if key == "preset" then text(v, true) else safe_integer(v) end
   end
 end
+local function nonblank(value)
+  text(value)
+  local stripped = value:gsub("%s", "")
+  -- Unicode White_Space in addition to the ASCII whitespace accepted by Lua.
+  for _, cp in ipairs({0x85,0xa0,0x1680,0x2000,0x2001,0x2002,0x2003,0x2004,0x2005,
+    0x2006,0x2007,0x2008,0x2009,0x200a,0x2028,0x2029,0x202f,0x205f,0x3000}) do
+    stripped = stripped:gsub(utf8_scalar(cp), "")
+  end
+  if stripped == "" then invalid() end
+end
+
+local function sound(value)
+  if value == false then return end
+  fields(value, {name=true,file=true})
+  if (value.name == nil) == (value.file == nil) then invalid() end
+  local item = value.name or value.file
+  nonblank(item)
+  if item:find('\0',1,true) then invalid() end
+  if value.file and value.file:sub(1,1) ~= '/' then invalid() end
+end
 local function fragment(value)
-  fields(value, {severity=true,content=true,policy=true})
+  fields(value, {severity=true,content=true,policy=true,sound=true})
   if value.severity ~= nil then severity(value.severity) end
   if value.content ~= nil then content(value.content) end
   if value.policy ~= nil then policy(value.policy, false) end
+  if value.sound ~= nil then sound(value.sound) end
 end
 local function merge(base, overlay)
   local result = M.copy(base)
   for key, value in pairs(overlay) do
-    if kind(value) == "object" and kind(result[key]) == "object" then result[key] = merge(result[key], value)
+    if key ~= "sound" and kind(value) == "object" and kind(result[key]) == "object" then result[key] = merge(result[key], value)
     else result[key] = M.copy(value) end
   end
   return result
@@ -321,25 +342,15 @@ function M.config(input)
   return result
 end
 
-local function nonblank(value)
-  text(value)
-  local stripped = value:gsub("%s", "")
-  -- Unicode White_Space in addition to the ASCII whitespace accepted by Lua.
-  for _, cp in ipairs({0x85,0xa0,0x1680,0x2000,0x2001,0x2002,0x2003,0x2004,0x2005,
-    0x2006,0x2007,0x2008,0x2009,0x200a,0x2028,0x2029,0x202f,0x205f,0x3000}) do
-    stripped = stripped:gsub(utf8_scalar(cp), "")
-  end
-  if stripped == "" then invalid() end
-end
-
 -- Shared with snapshot validation: resolved values have no wire-size limit and
 -- must remain valid after a named preset is changed or removed from config.
 function M.validate_normalized(value)
-  fields(value, {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true})
+  fields(value, {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true,sound=true})
   if value.version ~= 1 then invalid() end
   text(value.source, true); text(value.event, true)
   if value.key ~= nil then text(value.key, true) end
   severity(value.severity)
+  if value.sound ~= nil then sound(value.sound) end
   content(value.content); nonblank(value.content.title)
   policy(value.policy, true)
   safe_integer(value.policy.ttl_seconds); safe_integer(value.policy.dedupe_seconds)
@@ -352,13 +363,14 @@ end
 
 function M.send(input, config)
   input_value(input)
-  fields(input, {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true})
+  fields(input, {version=true,source=true,event=true,key=true,severity=true,content=true,context=true,policy=true,sound=true})
   version(input.version)
   for _, key in ipairs({"source", "event", "key"}) do if input[key] ~= nil then text(input[key], true) end end
   if input.severity ~= nil then severity(input.severity) end
   if input.content ~= nil then content(input.content) end
   if input.context ~= nil then object(input.context) end
   if input.policy ~= nil then policy(input.policy, true) end
+  if input.sound ~= nil then sound(input.sound) end
   config = config or M.config(nil)
   local result = M.copy(config.defaults)
   local preset = input.policy and input.policy.preset

@@ -26,6 +26,7 @@ local function harness(config)
         if h.id_error then error(h.id_error) end
         h.ids=h.ids+1; return string.format('00000000-0000-4000-8000-%012d',h.ids)
       end,
+      sound=h.sound,
       timer=function(interval, cb) assert(interval==1); h.tick=cb; return {stop=function() h.stopped=true end} end})
     return h.service
   end
@@ -209,7 +210,7 @@ local function host_filesystem(listing, listed)
       if listed==false then return 'private ACL inspection error',nil,'exit',1 end
       return listing or 'drwx------ 2 user staff 64 Nov 3 12:00 /sandbox\n',true,'exit',0
     end,
-    host={uuid=function() return 'test-token' end},timer={}}
+    host={uuid=function() return 'test-token' end},timer={},sound={}}
   local captured
   local original=package.loaded['nudge.store']
   package.loaded['nudge.store']={new=function(opts) captured=opts; return {} end}
@@ -394,6 +395,62 @@ test('service stop releases renderer and refuses further requests',function()
   local h=with_toast();h.start();h.send();h.service:stop()
   assert(h.stopped and h.ui_stopped and #h.drawn==0)
   assert(h.send().exit_code==4)
+end)
+
+local function audible()
+  local h=with_toast(); h.plays=0
+  h.sound={play=function(_,spec)
+    assert(h.disk.revision>0 and #h.drawn>0, 'sound must follow persistence and drawing')
+    h.plays=h.plays+1; h.spec=spec
+    if h.audio_failure then error('private file path') end
+    return true
+  end,status=function() return {last_error=h.async_error} end,
+  stop=function() h.audio_stopped=true end}
+  h.start()
+  function h.alert(spec,extra)
+    local request={source='test',key='job',content={title='sound'},sound=spec}
+    return h.call(contract.encode({operation='send',request=request,dry_run=extra}))
+  end
+  return h
+end
+
+test('sound follows saved displayed upserts and suppressed calls stay silent',function()
+  local h=audible(); local r=h.alert({name='Glass'})
+  assert(r.ok and r.sound.status=='started' and h.plays==1 and h.spec.name=='Glass')
+  r=h.alert({name='Glass'});assert(r.result=='suppressed' and r.sound.status=='skipped' and h.plays==1)
+  h.now=h.now+1
+  r=h.alert({file='/tmp/chime.wav'});assert(r.ok and h.plays==2 and h.spec.file=='/tmp/chime.wav')
+  assert(h.call('{"operation":"inspect","source":"test","key":"job"}').record.sound.file=='/tmp/chime.wav')
+  h.service:stop();assert(h.audio_stopped)
+end)
+test('sound is opt in and never plays for dry runs or unsaved requests',function()
+  local h=audible();assert(h.send().sound.status=='not_requested' and h.plays==0)
+  assert(h.alert(false).sound.status=='not_requested' and h.plays==0)
+  assert(h.alert({name='Glass'},true).sound.status=='skipped' and h.plays==0)
+  h.fail_save=true;assert(h.alert({name='Glass'}).exit_code==4 and h.plays==0)
+end)
+test('hidden and failed toasts consume sound without later replay',function()
+  local h=audible();h.allowed=false
+  assert(h.alert({name='Glass'}).sound.status=='skipped' and h.plays==0)
+  h.allowed=true;h.ui_change();h.tick();assert(h.plays==0)
+  h.ui_failure=true;h.now=h.now+1
+  local r=h.alert({name='Ping'});assert(r.exit_code==5 and r.sound.status=='skipped' and h.plays==0)
+  h.ui_failure=false;h.tick();assert(h.plays==0)
+  h.call('{"operation":"list"}');h.call('{"operation":"dismiss","source":"test","key":"job"}')
+  assert(h.plays==0)
+end)
+test('audio failure is a sanitized warning independent of renderer health',function()
+  local h=audible();h.audio_failure=true
+  local r=h.alert({name='Missing'});assert(r.ok and r.exit_code==0 and r.stored and r.render.presented)
+  assert(r.sound.status=='failed' and r.sound.warning and not contract.encode(r):find('private file path',1,true))
+  h.async_error='Sound playback failed'
+  local d=h.call('{"operation":"doctor"}');assert(d.ok and d.sound.last_error=='Sound playback failed')
+end)
+test('restart restores sound records without playing and advertises audio support',function()
+  local h=audible();h.alert({name='Glass'});h.service:stop()
+  local n=audible();n.service:stop();n.disk=contract.copy(h.disk);n.start()
+  assert(n.plays==0 and n.alert({name='Glass'}).result=='suppressed' and n.plays==0)
+  assert(n.call('{"operation":"capabilities"}').sound.file==true)
 end)
 
 print('PASS: nudge-service ('..tests..' tests)')

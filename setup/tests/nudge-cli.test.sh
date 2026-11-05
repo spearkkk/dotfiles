@@ -112,6 +112,22 @@ run 0 send --version 1 --source cli --event finished --key key --severity succes
 envelope '. == {operation:"send",dry_run:true,request:{source:"cli",event:"finished",key:"key",severity:"success",content:{title:"Finished",subtitle:"Sub",body:"Body"},policy:{preset:"task-completed"}},raw_fields:{version:"1",context:"{\"empty\":{},\"array\":[],\"null\":null}","policy.ttl_seconds":"0","policy.dedupe_seconds":"0"}}'
 pass 'all send flags preserve nesting, JSON types, and explicit zero'
 
+run 0 send --title Sound --sound Glass
+envelope '.request.sound == {name:"Glass"}'
+run 0 send --title Sound --sound-file '/tmp/chime with spaces.wav'
+envelope '.request.sound == {file:"/tmp/chime with spaces.wav"}'
+run 0 send --title Sound --silent
+envelope '.request.sound == false'
+reject send --sound Glass --sound-file /tmp/a.wav
+reject send --silent --sound Glass
+reject send --sound-file /tmp/a.wav --silent
+reject send --silent --silent
+reject send --sound Glass --sound Ping
+reject send --sound
+reject send --sound-file
+reject send --json - --silent
+pass 'sound flags preserve types and are mutually exclusive'
+
 payload='"; os.execute("touch SHOULD_NOT_EXIST"); -- $(touch SHOULD_NOT_EXIST) `touch SHOULD_NOT_EXIST`'
 payload="$payload"$'\nUnicode: 한글 \\ end'
 (cd "$tmp"; run 0 send --title "$payload" --body "$payload" --source "$payload" --context-json '{"lua":"]; os.execute(\"bad\"); --"}')

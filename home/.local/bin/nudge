@@ -17,6 +17,11 @@ Send fields:
   --key TEXT             --severity TEXT       --title TEXT
   --subtitle TEXT        --body TEXT           --context-json JSON
   --preset TEXT          --ttl-seconds NUMBER  --dedupe-seconds NUMBER
+  --sound NAME | --sound-file ABSOLUTE_PATH | --silent
+
+Sound is opt-in and plays only for a newly displayed toast. Sound failures are
+warnings, not notification failures. Use --silent to override preset/config audio.
+Paths are literal absolute local paths; shell/tilde expansion is not performed.
 
 --json reads one request object, exclusively of send fields. --dry-run is
 compatible with either input form. Defaults and validation live in the service.
@@ -59,6 +64,7 @@ has_json=false
 has_id=false
 has_source=false
 has_key=false
+has_sound=false
 while [ "$#" -gt 0 ]; do
   option=$1
   shift
@@ -66,6 +72,16 @@ while [ "$#" -gt 0 ]; do
   kind=text
   case "$option" in
     -h|--help) usage; exit 0 ;;
+    --sound|--sound-file|--silent)
+      [ "$operation" = send ] || fail 2 'Flag not supported for this operation.'
+      ! "$has_sound" || fail 2 'Sound options are mutually exclusive.'
+      has_sound=true
+      case "$option" in
+        --sound) field=request.sound.name ;;
+        --sound-file) field=request.sound.file ;;
+        --silent) field=request.sound; kind=boolean; value=false ;;
+      esac
+      ;;
     --dry-run)
       [ "$operation" = send ] || fail 2 'Flag not supported for this operation.'
       field=dry_run; kind=boolean; value=true
@@ -135,7 +151,7 @@ while [ "$#" -gt 0 ]; do
       raw_field=${field#request.}
       filter="$filter | .raw_fields[\"$raw_field\"] = $expression"
       ;;
-    boolean) filter="$filter | .$field = true" ;;
+    boolean) filter="$filter | .$field = $value" ;;
     *) filter="$filter | .$field = $expression" ;;
   esac
   index=$((index + 1))

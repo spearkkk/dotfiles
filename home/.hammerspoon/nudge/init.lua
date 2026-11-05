@@ -55,6 +55,27 @@ function M.new(deps)
     end
     return ok
   end
+  local function sound_info()
+    if not deps.sound then return {available=false} end
+    local ok,status=pcall(function() return deps.sound:status() end)
+    return {available=true,last_error=(not ok or (status and status.last_error))
+      and 'Sound playback failed' or nil}
+  end
+  local function play_sound(request, events, saved, rendered, response)
+    local spec=request.request.sound
+    if spec == nil or spec == false then return {status='not_requested'} end
+    if request.dry_run or not saved or not rendered then return {status='skipped'} end
+    local fresh=false
+    for _,event in ipairs(events or {}) do
+      if event.kind=='upsert' and event.record.id==response.id then fresh=true end
+    end
+    if not fresh or not render_info(response.id).presented then return {status='skipped'} end
+    local ok,started=pcall(function() return deps.sound and deps.sound:play(spec) end)
+    if not ok or not started then
+      return {status='failed',warning='Sound playback failed'}
+    end
+    return {status='started'}
+  end
   local function commit(next_state, events, now)
     if next_state.revision==self.state.revision then
       return true, false, render({},false,now)
@@ -141,7 +162,7 @@ function M.new(deps)
       return {ok=true,operation=operation,exit_code=0,version=1,renderer=self.renderer.kind or 'debug',
         presented=false, max_request_bytes=65536,max_active=1000,max_snapshot_bytes=8388608,
         operations=contract.array{'send','list','inspect','dismiss','doctor','capabilities'},
-        defaults={ttl_seconds=86400,dedupe_seconds=10},stored=false}
+        defaults={ttl_seconds=86400,dedupe_seconds=10},sound={name=true,file=true,silent=true},stored=false}
     end
     if operation=='doctor' then
       if not self.startup_error then expire(clock()) end
@@ -150,7 +171,7 @@ function M.new(deps)
       local healthy=not self.startup_error and not self.storage_error and not self.renderer_dirty
       return {ok=healthy,operation=operation,exit_code=self.startup_code or
         (self.storage_error and 4 or (self.renderer_dirty and 5 or 0)),
-        startup_error=self.startup_error, storage_error=self.storage_error, revision=self.state.revision,
+        sound=sound_info(), startup_error=self.startup_error, storage_error=self.storage_error, revision=self.state.revision,
         stored=false, renderer={kind=self.renderer.kind or 'debug',applied_revision=self.applied_revision,
           count=count_ok and count or 0,last_error=self.last_render_error,status=render_info().status,
           presented=presentation.presented,displayed_count=presentation.displayed_count}}
@@ -164,6 +185,7 @@ function M.new(deps)
         code==2 and 'State transition rejected' or 'State transition failed'))
     end
     if request.dry_run then
+      if operation=='send' then response.sound=play_sound(request,events,false,false,response) end
       response.exit_code=0; response.stored=false; response.render={status='skipped',renderer=self.renderer.kind,presented=false}
       return response
     end
@@ -181,6 +203,7 @@ function M.new(deps)
       response.exit_code=rendered and 0 or 5
       if not rendered then response.ok=false; response.error={message=self.last_render_error} end
     end
+    if operation=='send' then response.sound=play_sound(request,events,saved,rendered,response) end
     response.stored=stored; response.render=render_info(response.id or (response.record and response.record.id))
     return response
   end
@@ -198,6 +221,7 @@ function M.new(deps)
   function self:stop()
     if self.stopped then return end
     self.stopped=true
+    if deps.sound then pcall(function() deps.sound:stop() end) end
     if self.timer then self.timer:stop(); self.timer=nil end
     if self.renderer.stop then
       local ok=pcall(function() self.renderer:stop() end)
@@ -290,7 +314,7 @@ function M.host_dependencies(root)
     clock=function() return hs.timer.absoluteTime()/1000000000 end,
     wall=function() return math.floor(hs.timer.secondsSinceEpoch()*1000) end,
     after=function(seconds,callback) return hs.timer.doAfter(seconds,callback) end}
-  return {store=store,renderer=renderer,
+  return {store=store,renderer=renderer,sound=require('nudge.sound').new(require('nudge.sound').host_backend(hs,assert(os.getenv('HOME')))),
     clock=function() return math.floor(hs.timer.secondsSinceEpoch()*1000) end,
     id=hs.host.uuid,timer=function(seconds,callback) return hs.timer.doEvery(seconds,callback) end}
 end
