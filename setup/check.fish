@@ -2,6 +2,8 @@
 
 set script_dir (cd (dirname (status --current-filename)); and pwd)
 set repo_root (dirname "$script_dir")
+# Lua unit tests load modules relative to the repository, not the caller's cwd.
+cd "$repo_root"; or exit 1
 set theme_colors "$repo_root/home/.config/fish/conf.d/0010-theme-colors.fish"
 set logger "$repo_root/home/.config/fish/conf.d/0011-logger.fish"
 
@@ -24,7 +26,7 @@ end
 function usage
     echo "Usage: fish setup/check.fish"
     echo
-    echo "Runs layout, template, syntax, stow, plist, and high-signal secret checks."
+    echo "Runs regression tests (including Nudge), layout, syntax, stow, plist, and secret checks."
 end
 
 for arg in $argv
@@ -188,6 +190,7 @@ require_command ssh
 require_command stow
 require_command jq
 require_command lockf
+require_command mise
 if test (uname) = Darwin
     require_command plutil
 end
@@ -272,6 +275,19 @@ end
 log_step "Sketchybar weather"
 if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-weather.test.sh"
     mark_fail "Sketchybar weather tests failed"
+end
+
+log_step "Nudge unit and storage tests"
+for test_file in "$repo_root"/setup/tests/nudge-*.test.lua
+    log_info (basename "$test_file")
+    if not "$lua_bin" "$test_file"
+        mark_fail "Nudge test failed: "(basename "$test_file")
+    end
+end
+
+log_step "Nudge CLI (mocked Hammerspoon IPC)"
+if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/nudge-cli.test.sh"
+    mark_fail "Nudge CLI test failed"
 end
 
 log_step "cw multi-context"

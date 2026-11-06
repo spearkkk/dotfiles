@@ -163,6 +163,18 @@ make -C setup/launchagents status
 fish setup/check.fish
 ```
 
+### Validation
+
+The macOS checker requires the tools in `setup/Brewfile` and Lua 5.4 installed
+through mise (`mise install lua@5.4`). It can be invoked from any directory and
+does not require the ignored work profile; available local overlays are checked
+when present. SSH tests use temporary fixtures and `ssh -G`, without connecting
+to hosts or reading the user's SSH configuration.
+
+`setup/check.fish` includes all `setup/tests/nudge-*.test.lua` suites and the
+Nudge CLI tests. The storage suite uses temporary macOS files; rendering and IPC
+are mocked, so no running Hammerspoon instance or desktop permissions are needed.
+
 ## SketchyBar weather
 
 `~/.local/libexec/sketchybar-fetch-weather` performs a one-shot location and
