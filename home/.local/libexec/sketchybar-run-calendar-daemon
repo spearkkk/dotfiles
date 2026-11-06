@@ -18,7 +18,9 @@ cleanup() {
   fi
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [ -f "$PID_FILE" ]; then
   old_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
@@ -149,7 +151,8 @@ while true; do
   rm -f "$REQUEST_FILE"
 
   raw="$(collect_today_events)"
-  events="$(normalize_events "$raw" | awk 'NF' | sort -t "$TAB" -k1,1 -k3,3 | awk -F "$TAB" '!seen[$3]++')"
+  # Deduplicate the full normalized row: start, end, title and calendar.
+  events="$(normalize_events "$raw" | awk 'NF' | sort -t "$TAB" -k1,1 -k3,3 | awk '!seen[$0]++')"
   now_min=$((10#$(date +%H) * 60 + 10#$(date +%M)))
   updated_at="$(date +%s)"
   event_count="$(printf '%s\n' "$events" | awk 'NF{c++} END{print c+0}')"

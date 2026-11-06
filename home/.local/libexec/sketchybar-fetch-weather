@@ -9,13 +9,15 @@ fail() {
   exit 1
 }
 
-location=$(curl -fsS ipinfo.io/loc) || fail 'location request failed'
+# Ignore user curlrc (which may add retries); bound each of the two requests.
+curl_options=(-q -fsS --connect-timeout 3 --max-time 8)
+location=$(curl "${curl_options[@]}" ipinfo.io/loc) || fail 'location request failed'
 coordinate_pattern='^[[:space:]]*(-?[0-9]+\.?[0-9]*)[[:space:]]*,[[:space:]]*(-?[0-9]+\.?[0-9]*)[[:space:]]*$'
 [[ $location =~ $coordinate_pattern ]] || fail 'invalid location response'
 latitude=${BASH_REMATCH[1]}
 longitude=${BASH_REMATCH[2]}
 
-response=$(curl -fsS "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,is_day") \
+response=$(curl "${curl_options[@]}" "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,is_day") \
   || fail 'weather request failed'
 
 data=$(printf '%s' "$response" | jq -ers '

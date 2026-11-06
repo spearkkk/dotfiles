@@ -224,6 +224,16 @@ if not bash "$repo_root/setup/tests/libexec-layout.test.sh"
     mark_fail "Internal executable layout checks failed."
 end
 
+log_step "LaunchAgent lifecycle (isolated fixtures)"
+if not bash "$repo_root/setup/tests/launchagents.test.sh"
+    mark_fail "LaunchAgent lifecycle tests failed."
+end
+
+log_step "SketchyBar calendar cache (isolated fixtures)"
+if not bash "$repo_root/setup/tests/sketchybar-calendar.test.sh"
+    mark_fail "SketchyBar calendar cache tests failed."
+end
+
 log_step "SSH config"
 if not bash "$repo_root/setup/tests/ssh-config.test.sh"
     mark_fail "SSH config test failed"
@@ -323,6 +333,11 @@ end
 log_step "Zsh profile migration"
 if not bash "$repo_root/setup/tests/zprofile-migration.test.sh"
     mark_fail "Zsh profile migration test failed"
+end
+
+log_step "Bootstrap step selection (isolated fixtures)"
+if not bash "$repo_root/setup/tests/bootstrap-steps.test.sh"
+    mark_fail "Bootstrap step selection tests failed"
 end
 
 log_step "Personal Brewfile"

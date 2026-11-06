@@ -77,54 +77,66 @@ return {
         return executable
       end
 
-      local root_dir = vim.fs.root(0, {
-        "pom.xml",
-        "mvnw",
-        "gradlew",
-        "build.gradle",
-        "build.gradle.kts",
-        "settings.gradle",
-        "settings.gradle.kts",
-        ".git",
-      })
+      local function start_java()
+        local root_dir = vim.fs.root(0, {
+          "pom.xml",
+          "mvnw",
+          "gradlew",
+          "build.gradle",
+          "build.gradle.kts",
+          "settings.gradle",
+          "settings.gradle.kts",
+          ".git",
+        })
 
-      if root_dir == nil then
-        return
-      end
+        if root_dir == nil then
+          return
+        end
 
-      local project_name = vim.fn.fnamemodify(root_dir, ":p:h:t")
-      local root_hash = string.sub(vim.fn.sha256(root_dir), 1, 8)
-      local workspace_dir = vim.fn.stdpath("data") .. "/jdtls-workspaces/" .. project_name .. "-" .. root_hash
-      local jdtls = require("jdtls")
+        local project_name = vim.fn.fnamemodify(root_dir, ":p:h:t")
+        local root_hash = string.sub(vim.fn.sha256(root_dir), 1, 8)
+        local workspace_dir = vim.fn.stdpath("data") .. "/jdtls-workspaces/" .. project_name .. "-" .. root_hash
+        local jdtls = require("jdtls")
 
-      jdtls.start_or_attach({
-        cmd = {
-          mason_executable("jdtls"),
-          "--java-executable",
-          java_for_jdtls(),
-          "-data",
-          workspace_dir,
-        },
-        root_dir = root_dir,
-        settings = {
-          java = {
-            maven = {
-              downloadSources = true,
-            },
-            eclipse = {
-              downloadSources = true,
-            },
-            contentProvider = {
-              preferred = "fernflower",
-            },
-            configuration = {
-              updateBuildConfiguration = "interactive",
+        jdtls.start_or_attach({
+          cmd = {
+            mason_executable("jdtls"),
+            "--java-executable",
+            java_for_jdtls(),
+            "-data",
+            workspace_dir,
+          },
+          root_dir = root_dir,
+          settings = {
+            java = {
+              maven = {
+                downloadSources = true,
+              },
+              eclipse = {
+                downloadSources = true,
+              },
+              contentProvider = {
+                preferred = "fernflower",
+              },
+              configuration = {
+                updateBuildConfiguration = "interactive",
+              },
             },
           },
-        },
-        init_options = {
-          extendedClientCapabilities = jdtls.extendedClientCapabilities,
-        },
+          init_options = {
+            extendedClientCapabilities = jdtls.extendedClientCapabilities,
+          },
+        })
+      end
+
+      -- lazy.nvim replays the first FileType after loading this ft plugin.
+      -- Keep the callback for subsequent buffers, including other projects.
+      vim.api.nvim_create_autocmd("FileType", {
+        group = vim.api.nvim_create_augroup("DotfilesJava", { clear = true }),
+        pattern = "java",
+        callback = function(event)
+          vim.api.nvim_buf_call(event.buf, start_java)
+        end,
       })
     end,
   },

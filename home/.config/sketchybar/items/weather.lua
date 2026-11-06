@@ -99,9 +99,9 @@ local weather_temp = Sbar.add("item", "weather_temp", {
   },
 })
 
-local function fetch_weather()
-  local helper = os.getenv("HOME") .. "/.local/libexec/sketchybar-fetch-weather"
-  local raw = utils.capture(utils.shell_quote(helper))
+local function parse_weather(raw)
+  if type(raw) ~= "string" then return nil end
+  raw = raw:gsub("%s+$", "")
   local code, temperature, daytime = raw:match("^(%d+)\t([^\t]+)\t([01])$")
   local temp = tonumber(temperature)
   if not code or not temp or not math.tointeger(math.floor(temp + 0.5)) then
@@ -111,8 +111,7 @@ local function fetch_weather()
   return { code = tonumber(code), temperature = temp, is_day = daytime == "1" }
 end
 
-local function weather_status()
-  local data = fetch_weather()
+local function weather_status(data)
   if not data then
     return nil
   end
@@ -145,8 +144,8 @@ local function weather_status()
   }
 end
 
-local function update_weather()
-  local st = weather_status()
+local function render_weather(data)
+  local st = weather_status(data)
   if not st then
     weather_icon:set({
       icon = "􀇃",
@@ -170,6 +169,22 @@ local function update_weather()
   })
 end
 
-update_weather()
+local in_flight = false
+local helper = os.getenv("HOME") .. "/.local/libexec/sketchybar-fetch-weather"
+local function update_weather()
+  if in_flight then return end
+  in_flight = true
+  local scheduled = pcall(Sbar.exec, utils.shell_quote(helper) .. " 2>/dev/null", function(raw, exit_code)
+    in_flight = false
+    -- Do not render partial stdout from a failed or timed-out helper.
+    render_weather(exit_code == 0 and parse_weather(raw) or nil)
+  end)
+  if not scheduled then
+    in_flight = false
+    render_weather(nil)
+  end
+end
 
 weather_icon:subscribe({ "routine", "forced", "system_woke", "wifi_change" }, update_weather)
+render_weather(nil)
+update_weather()

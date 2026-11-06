@@ -139,8 +139,8 @@ restore the printed backup. Preserve/review `.zprofile.local` separately.
 
 Install only from the active dotfiles repository, never a temporary worktree.
 Before integrating the rename, stop the existing SketchyBar calendar and media
-LaunchAgents with `launchctl bootout` and confirm they have exited. Do not use
-`teardown`: it also disables the agents.
+LaunchAgents with `launchctl bootout` and confirm they have exited. This stops
+them without changing their enabled state; `teardown` also disables the agents.
 
 After integration, restow the base from the active repository, reinstall/restart
 the LaunchAgents, then reload tmux. The plists are copied at install time, so
@@ -154,7 +154,44 @@ tmux source-file ~/.tmux.conf
 
 ## Targeted reruns
 
-Bootstrap runs these for you, but each part can be rerun directly:
+Bootstrap can rerun only selected steps without reinstalling all packages or
+reapplying macOS settings:
+
+```fish
+fish setup/bootstrap.fish --list-steps
+fish setup/bootstrap.fish --only theme --only stow
+fish setup/bootstrap.fish --only sketchybar-lua
+fish setup/bootstrap.fish --only launchagents
+fish setup/bootstrap.fish --only profiles --profile personal
+```
+
+`--only` is repeatable (`--only=stow` also works). Steps execute once each in
+the following fixed order, regardless of argument order:
+
+| Step | Action |
+| --- | --- |
+| `brew` | Install the common Brewfile; requires Homebrew and App Store sign-in for MAS apps |
+| `sketchybar-lua` | Install/validate the pinned Lua bridge; may install mise Lua 5.4 |
+| `theme` | Generate theme files in this repository |
+| `stow` | Prepare `.zprofile`, restow base dotfiles, and remove the temporary Homebrew fish config when safe |
+| `macos` | Apply macOS defaults |
+| `launchagents` | Install plists and restart/re-enable the managed agents |
+| `profiles` | Apply the requested profile overlays and their own setup steps |
+
+Dependencies are **not** selected automatically. Required tools must already be
+available on PATH, and LaunchAgents need the base helpers linked beforehand.
+Include prerequisite steps explicitly when needed, such as `--only brew --only
+stow`. Unselected steps are neither executed nor required: `--only stow` does
+not install packages, build the bridge, regenerate themes, change macOS defaults,
+or restart services. A selected profile may still install its own packages.
+
+Without `--only`, the full bootstrap is unchanged; `--profile personal` still
+applies that profile after all base steps. With `--only`, profile application
+must be explicit: combine `--only profiles` with `--profile <name>`. Invalid
+step/profile selections fail before changes; a runtime failure stops later
+steps but does not roll back earlier completed steps.
+
+Each underlying script can also be rerun directly:
 
 ```fish
 bash setup/set-theme.sh
@@ -163,6 +200,40 @@ make -C setup/launchagents bootstrap
 make -C setup/launchagents status
 fish setup/check.fish
 ```
+
+LaunchAgent `bootstrap` (also used by `restart`) unloads existing jobs, explicitly
+enables both agents, then loads and starts them. It can therefore restart agents
+disabled by `make -C setup/launchagents teardown`. Enabling either agent must
+succeed before any job is loaded. The media and calendar daemons exit on
+SIGINT/SIGTERM and remove only their own PID files on exit. Bash may defer signal
+handling until an active foreground command returns.
+
+The calendar daemon deduplicates only rows with the same normalized start time,
+end time, title, and calendar name. Same-title events at different times or in
+different calendars remain separate. This is a display-row comparison, not an
+event-ID comparison: distinct events with all four fields identical still merge.
+
+Weather refreshes use asynchronous `Sbar.exec`, with only one fetch in flight.
+The current display remains visible while fetching; startup and failed requests
+show `--°`. Each of the two sequential HTTP requests has a 3-second connection
+timeout and an 8-second total timeout (up to 16 seconds of network waiting).
+The helper ignores user curlrc settings to prevent extra retries. The 30-minute
+refresh interval and wake/Wi-Fi/manual refresh events are unchanged; events
+during an active fetch are ignored, and later events can retry after failure.
+
+### Neovim initialization
+
+Java attaches JDTLS on each Java `FileType` event, resolving the project root
+and workspace per buffer. Same-project buffers reuse the workspace; distinct
+project roots keep separate workspaces. Rootless Java files remain unattached
+without preventing later project files from attaching. Existing mise/JDK
+selection is unchanged.
+
+Treesitter resolves filetypes to parser names (including `sh`, React, and help
+buffers). Folding and indentation are enabled only after the parser starts.
+Parser installation remains asynchronous; completion retries loaded buffers,
+and entering a buffer window reapplies its window-local folding settings.
+Installation task errors are reported without disabling available parsers.
 
 ### Validation
 

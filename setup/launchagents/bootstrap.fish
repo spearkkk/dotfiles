@@ -52,6 +52,14 @@ if set -q XDG_CACHE_HOME; and test -n "$XDG_CACHE_HOME"
 end
 rm -f "$cache_dir/media.pid" "$cache_dir/calendar.pid"
 
+# teardown persists disabled state in launchd; bootstrap must undo it explicitly.
+for label in $media_label $calendar_label
+    if not launchctl enable "gui/$uid/$label"
+        echo "[ERROR] Failed to enable $label" >&2
+        exit 1
+    end
+end
+
 for plist in "$media_plist" "$calendar_plist"
     if not launchctl bootstrap "gui/$uid" "$plist"
         echo "[ERROR] Failed to bootstrap $plist" >&2
