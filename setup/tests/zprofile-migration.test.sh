@@ -31,7 +31,7 @@ class ZprofileMigration(unittest.TestCase):
         shutil.copy(ROOT / 'home/.zprofile', self.repo / 'home/.zprofile')
         (self.repo / 'setup/Brewfile').touch()
         (self.repo / 'setup/launchagents/Makefile').touch()
-        for name in ('set-theme.sh', 'set-macos.sh'):
+        for name in ('set-theme.sh', 'set-macos.sh', 'install-sketchybar-lua.sh'):
             path = self.repo / 'setup' / name
             path.write_text('#!/bin/sh\nexit 0\n')
             path.chmod(0o700)
@@ -70,6 +70,16 @@ class ZprofileMigration(unittest.TestCase):
         self.bootstrap()
         self.assertFalse((self.home / '.zprofile.local').exists())
         self.assertEqual(self.backups(), [])
+
+    def test_bridge_install_failure_stops_before_stow_or_profile_migration(self):
+        (self.repo / 'setup/install-sketchybar-lua.sh').write_text(
+            '#!/bin/sh\nexit 1\n')
+        profile = self.home / '.zprofile'
+        profile.write_text('export ORIGINAL=yes\n')
+        self.bootstrap(success=False)
+        self.assertFalse(profile.is_symlink())
+        self.assertEqual(profile.read_text(), 'export ORIGINAL=yes\n')
+        self.assertFalse((self.home / '.zprofile.local').exists())
 
     def test_existing_settings_are_backed_up_and_loaded_from_local(self):
         original = 'export DOTFILES_MIGRATION_TEST="kept value"\n'

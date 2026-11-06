@@ -25,8 +25,9 @@ bash setup/install.sh
 
 After this, Homebrew, fish, and Ghostty are installed, and the login shell is
 changed to fish. Open Ghostty and continue from fish. Bootstrap installs the
-Brewfile, generates theme colors, stows base dotfiles, applies macOS defaults,
-and installs/restarts LaunchAgents:
+Brewfile, prepares mise Lua 5.4 and its pinned SketchyBar bridge, generates theme
+colors, stows base dotfiles, applies macOS defaults, and installs/restarts
+LaunchAgents:
 
 ```fish
 cd ~/.dotfiles
@@ -166,7 +167,8 @@ fish setup/check.fish
 ### Validation
 
 The macOS checker requires the tools in `setup/Brewfile` and Lua 5.4 installed
-through mise (`mise install lua@5.4`). It can be invoked from any directory and
+through mise (`mise install lua@5.4`), plus Xcode Command Line Tools for the
+offline installer build fixtures. It can be invoked from any directory and
 does not require the ignored work profile; available local overlays are checked
 when present. SSH tests use temporary fixtures and `ssh -G`, without connecting
 to hosts or reading the user's SSH configuration.
@@ -174,6 +176,47 @@ to hosts or reading the user's SSH configuration.
 `setup/check.fish` includes all `setup/tests/nudge-*.test.lua` suites and the
 Nudge CLI tests. The storage suite uses temporary macOS files; rendering and IPC
 are mocked, so no running Hammerspoon instance or desktop permissions are needed.
+
+## SketchyBar Lua bridge
+
+The Lua configuration loads `~/.local/share/sketchybar_lua/sketchybar.so`.
+This is an installed native module, not the repository's `share/` directory.
+Bootstrap now prepares it automatically; no binary is checked into Git.
+
+```sh
+bash setup/install-sketchybar-lua.sh          # install or reuse a verified build
+bash setup/install-sketchybar-lua.sh --check # read-only installed-build validation
+```
+
+`setup/sketchybar-lua.lock.json` pins the upstream
+[FelixKratz/SbarLua](https://github.com/FelixKratz/SbarLua) source commit and archive
+SHA-256. Commit `437bd2031da38ccda75827cb7548e7baa4aa9978` is the last Lua 5.4-based
+revision before upstream switched to Lua 5.5. Its unmodified build bundles Lua
+5.4.7; the installer validates the result with mise's Lua 5.4 interpreter.
+The previously installed local binary had no source receipt, so this pin does
+not claim to identify that binary's exact origin.
+
+The installer prepares Lua through mise if missing, verifies the source checksum,
+and builds for the current `arm64` or `x86_64` environment. A temporary candidate
+must pass architecture, exact-file loading, and required API checks before it
+replaces `sketchybar.so`. Download, build, or validation failure leaves the old
+binary intact. `install.json` records the pin, architecture, and binary checksum;
+matching, loadable builds are reused without another download or build.
+An old unmanaged binary without that receipt is rebuilt, not silently adopted.
+
+Updating requires deliberately reviewing and changing the lock file, running the
+installer tests, and rerunning the installer. Do not point it at upstream `main`
+or change the Lua ABI without updating the configuration and tests together.
+
+Default checks use offline build fixtures and never require an installed bridge.
+The installer's load probe does not issue bar commands or enter the event loop.
+The separate `setup/tests/sketchybar-bridge-smoke.sh` remains explicit opt-in: its
+live event loop updates existing widgets, so it is not part of bootstrap or the
+default checker. The installer itself never launches or reloads SketchyBar.
+
+On a new Mac, approve required macOS permissions manually (for example,
+Accessibility for AeroSpace/Hammerspoon and calendar access for calendar widgets).
+Installing the bridge does not grant these permissions or verify live widgets.
 
 ## SketchyBar weather
 

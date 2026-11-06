@@ -106,6 +106,12 @@ end
 
 log_success "Brewfile installation complete."
 
+log_step "Install pinned SketchyBar Lua bridge"
+if not bash "$script_dir/install-sketchybar-lua.sh"
+    log_error "SketchyBar Lua setup failed."
+    exit 1
+end
+
 log_step "Generate theme files"
 if test -x "$script_dir/set-theme.sh"
     if not bash "$script_dir/set-theme.sh"
