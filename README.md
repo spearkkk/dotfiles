@@ -92,6 +92,9 @@ templates there unless explicitly reviewed and approved for tracking.
 
 ## Manual Stow equivalent
 
+For an existing `~/.zprofile`, first follow the migration rules below or run
+`bash setup/prepare-zprofile.sh` before Stow. Bootstrap does this automatically.
+
 Use `--no-folding` so base dotfiles and profile overlays can share directories
 like `~/.config/fish/conf.d`.
 
@@ -100,6 +103,36 @@ stow --no-folding --dir=home --target=$HOME .
 stow --no-folding --dir=profiles/personal/home --target=$HOME .
 stow --no-folding --dir=profiles/work/home --target=$HOME .
 ```
+
+## Zsh login profile and local settings
+
+Stow owns `~/.zprofile`; it sets the shared Homebrew/PATH environment and sources
+`~/.zprofile.local` for user- or machine-specific settings. Keep local settings
+outside the repository; `.zprofile.local` is also ignored by Git. The installer
+does not create or modify `.zprofile`: it initializes Homebrew in its own process
+and creates a temporary fish configuration for the next shell.
+
+Before linking, bootstrap prepares an existing `.zprofile`:
+
+- Missing file or a symlink to this repository: no migration needed.
+- Regular file: preserve the original under
+  `~/.local/state/dotfiles/backups/zprofile.XXXXXX/.zprofile`, and copy its contents
+  unchanged into `.zprofile.local` before Stow links the common profile.
+- Empty files, exact copies of the common profile, and files containing only the
+  old installer's standard Homebrew initialization line are backed up without
+  copying redundant settings into `.zprofile.local`.
+- If migration would overwrite an existing `.zprofile.local`, or the old profile
+  already references that file, stop without changing either file. Back up both,
+  manually merge the desired local settings (excluding duplicate Homebrew setup
+  and the local-file loader), move the old `.zprofile` aside, then rerun bootstrap.
+- Foreign/broken symlinks and non-regular files require manual review.
+
+Arbitrary shell code is not automatically filtered; review migrated settings for
+duplicate Homebrew initialization and assumptions about the original file path.
+The backup path is printed during migration. If a later Stow operation fails,
+the backup and local settings remain available; resolve the reported conflict and
+rerun bootstrap. To undo migration, move the managed `.zprofile` link aside and
+restore the printed backup. Preserve/review `.zprofile.local` separately.
 
 ## Rolling out helper renames
 

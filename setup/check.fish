@@ -299,6 +299,11 @@ if not sh "$repo_root/setup/tests/runtime-environment.test.sh"
     mark_fail "Runtime shell environment test failed"
 end
 
+log_step "Zsh profile migration"
+if not bash "$repo_root/setup/tests/zprofile-migration.test.sh"
+    mark_fail "Zsh profile migration test failed"
+end
+
 log_step "Personal Brewfile"
 if not bash "$repo_root/setup/tests/personal-brewfile.test.sh"
     mark_fail "personal Brewfile test failed"

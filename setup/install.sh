@@ -39,12 +39,8 @@ eval "$("$BREW_BIN" shellenv)"
 # Keep repeat runs fast and deterministic. Run `brew update` manually when needed.
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-BREW_SHELLENV_LINE="eval \"\$($BREW_BIN shellenv)\""
-ZPROFILE="$HOME/.zprofile"
-if ! grep -Fqx "$BREW_SHELLENV_LINE" "$ZPROFILE" 2>/dev/null; then
-  printf '%s\n' "$BREW_SHELLENV_LINE" >> "$ZPROFILE"
-  echo "[INFO] Added Homebrew shell environment to $ZPROFILE"
-fi
+# Stow owns ~/.zprofile. The current process already has Homebrew's
+# environment; the temporary fish config below handles the next shell.
 
 echo "[INFO] Installing fish shell..."
 brew install fish

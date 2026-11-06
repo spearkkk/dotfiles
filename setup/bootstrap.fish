@@ -137,6 +137,11 @@ end
 log_info "Source: $common_home"
 log_info "Target: $HOME"
 
+if not bash "$script_dir/prepare-zprofile.sh"
+    log_error "Could not prepare .zprofile for Stow."
+    exit 1
+end
+
 if not stow --verbose --restow --no-folding --target="$HOME" --dir="$common_home" .
     log_error "Failed to stow common dotfiles."
     exit 1
