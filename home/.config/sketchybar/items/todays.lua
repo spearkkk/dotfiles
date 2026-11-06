@@ -3,12 +3,10 @@ local settings = require("lib.settings")
 local utils = require("lib.utils")
 local paths = require("lib.paths")
 local display = require("lib.display")
-local blocklist = require("lib.blocklist")
 
 local ITEM = "todays"
 local CACHE_FILE = paths.calendar_cache
 local REQUEST_FILE = paths.calendar_refresh_request
-local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/display_blocklist"
 local LABEL_MAX_CHARS = 20
 local POPUP_SLOTS = 16
 local ITEM_WIDTH = 210
@@ -19,7 +17,7 @@ local BLINK_BORDER_ALPHA_BRIGHT = 100
 
 local row_items = {}
 local popup_open = false
-local hide_for_blocked_display = false
+local display_state = { status = "error", reason = "query_failed", allowed_ids = {}, generation = 0 }
 local last_label = ""
 local next_event = nil
 local events = {}
@@ -128,24 +126,10 @@ local function split_trailing_paren_suffix(s)
   return base, suffix
 end
 
-local monitor_blocklist = blocklist.read(BLOCKLIST_PATH)
-
-local function refresh_display_gate()
-  local target_id = display.resolve_target_id()
-
-  if target_id ~= "" then
-    todays:set({ display = target_id })
-  else
-    todays:set({ display = "all" })
-  end
-
-  local target_name = display.monitor_name_by_id(target_id)
-  hide_for_blocked_display = (target_name ~= "" and monitor_blocklist[target_name] == true)
-end
-
 Sbar.add("event", "calendar_change")
 
-todays = Sbar.add("item", ITEM, {
+local todays = Sbar.add("item", ITEM, {
+  drawing = false,
   position = "q",
   width = ITEM_WIDTH,
   icon = {
@@ -277,8 +261,11 @@ local function rebuild_popup()
 end
 
 local function apply_style()
-  if hide_for_blocked_display or not next_event then
-    todays:set({ drawing = false, ["popup.drawing"] = false })
+  local attrs = display.attributes(display_state, next_event ~= nil)
+  display.log_visibility(ITEM, display_state, next_event and "ready" or "no_upcoming_event", attrs.drawing)
+  if not attrs.drawing then
+    attrs["popup.drawing"] = false
+    todays:set(attrs)
     popup_open = false
     return
   end
@@ -333,15 +320,13 @@ local function apply_style()
     icon_color = colors.base0a
   end
 
-  todays:set({
-    drawing = true,
-    icon = "􀖇",
-    ["icon.color"] = icon_color,
-    ["label.color"] = label_color,
-    ["background.border_width"] = border_width,
-    ["background.border_color"] = border_color,
-    ["background.color"] = bg_color,
-  })
+  attrs.icon = "􀖇"
+  attrs["icon.color"] = icon_color
+  attrs["label.color"] = label_color
+  attrs["background.border_width"] = border_width
+  attrs["background.border_color"] = border_color
+  attrs["background.color"] = bg_color
+  todays:set(attrs)
 end
 
 local function open_calendar_today()
@@ -358,15 +343,10 @@ local function refresh()
   apply_style()
 end
 
-todays:subscribe({ "routine", "calendar_change", "forced", "display_change", "system_woke" }, function(env)
-  local sender = (env and env.SENDER) or ""
-  if sender == "display_change" or sender == "forced" or sender == "system_woke" then
-    refresh_display_gate()
-  end
-  refresh()
-end)
+todays:subscribe({ "routine", "calendar_change", "forced", "system_woke" }, refresh)
 
 todays:subscribe("mouse.clicked", function(env)
+  if not display.attributes(display_state, next_event ~= nil).drawing then return end
   local button = tostring((env and env.BUTTON) or "")
   if button == "right" or button == "2" then
     open_calendar_today()
@@ -381,5 +361,8 @@ todays:subscribe("mouse.clicked", function(env)
 end)
 
 os.execute("mkdir -p " .. utils.shell_quote(paths.cache_dir) .. "; touch " .. utils.shell_quote(REQUEST_FILE) .. " >/dev/null 2>&1")
-refresh_display_gate()
+display.subscribe(ITEM, function(state)
+  display_state = state
+  apply_style()
+end)
 refresh()

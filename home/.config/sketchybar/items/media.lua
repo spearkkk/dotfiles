@@ -3,14 +3,12 @@ local settings = require("lib.settings")
 local utils    = require("lib.utils")
 local paths    = require("lib.paths")
 local display  = require("lib.display")
-local blocklist = require("lib.blocklist")
 
 local ITEM_LABEL = "media_label"
 local ITEM_ICON = "media_icon"
 local ITEM_GROUP = "media_group"
 local CACHE_TSV = paths.media_tsv
 local REQUEST_FILE = paths.media_refresh_request
-local BLOCKLIST_PATH = (os.getenv("HOME") or "") .. "/.config/sketchybar/display_blocklist"
 local LABEL_WIDTH = 200
 local SCROLL_WINDOW = 24
 local SCROLL_SPACER = "    "
@@ -48,27 +46,32 @@ end
 local function read_cache()
   local f = io.open(CACHE_TSV, "r")
   if not f then
-    return nil
+    return nil, "cache_missing"
   end
 
   local line = f:read("*l") or ""
   f:close()
 
   local updated_at, ok, playing, title, artist = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
-  updated_at = tonumber(updated_at) or 0
-  if updated_at == 0 or (os.time() - updated_at) > STALE_SECONDS then
-    return nil
+  updated_at = tonumber(updated_at)
+  if not updated_at or updated_at <= 0 or updated_at == math.huge
+    or (ok ~= "true" and ok ~= "false")
+    or (playing ~= "true" and playing ~= "false")
+    or not utf8.len(title) or not utf8.len(artist) then
+    return nil, "cache_invalid"
   end
-
-  if ok ~= "true" or title == "" then
-    return nil
+  if (os.time() - updated_at) > STALE_SECONDS then
+    return nil, "cache_stale"
+  end
+  if ok == "false" or title == "" then
+    return nil, "no_media"
   end
 
   return {
     title = title or "",
     artist = artist or "",
     playing = playing == "true",
-  }
+  }, "ready"
 end
 
 local function normalized_label(info)
@@ -81,6 +84,7 @@ local function normalized_label(info)
 end
 
 local media_label = Sbar.add("item", ITEM_LABEL, {
+  drawing = false,
   position = "right",
   width = LABEL_WIDTH,
   ["icon.drawing"] = false,
@@ -129,14 +133,16 @@ local scroll_source = ""
 local scroll_chars = {}
 local scroll_width = 1
 local last_label = ""
+local last_rendered_key = nil
 local last_color = ""
-local last_visible = false
+local last_visible = nil
+local last_display = nil
+local last_generation = nil
 local is_playing = false
 local paused_since = 0
 local routine_counter = 0
-local hide_for_blocked_display = false
-
-local monitor_blocklist = blocklist.read(BLOCKLIST_PATH)
+local display_state = { status = "error", reason = "query_failed", allowed_ids = {}, generation = 0 }
+local content_reason = "cache_missing"
 
 local function rebuild_scroll_source()
   scroll_source = full_label .. SCROLL_SPACER
@@ -154,34 +160,23 @@ local function rebuild_scroll_source()
   end
 end
 
-local function set_visible(visible)
-  if last_visible == visible then
+local function apply_visibility(attrs)
+  if last_visible == attrs.drawing and last_display == attrs.display
+    and last_generation == display_state.generation then
     return
   end
-  media_label:set({ drawing = visible })
-  media_icon:set({ drawing = visible })
-  media_group:set({ drawing = visible })
-  last_visible = visible
-end
-
-local function refresh_display_gate()
-  local target_id = display.resolve_target_id()
-
-  if target_id ~= "" then
-    media_label:set({ display = target_id })
-    media_icon:set({ display = target_id })
-  else
-    media_label:set({ display = "all" })
-    media_icon:set({ display = "all" })
-  end
-
-  local target_name = display.monitor_name_by_id(target_id)
-
-  hide_for_blocked_display = (target_name ~= "" and monitor_blocklist[target_name] == true)
+  if not attrs.drawing then attrs["popup.drawing"] = false end
+  media_label:set(attrs)
+  media_icon:set(attrs)
+  media_group:set(attrs)
+  last_visible = attrs.drawing
+  last_display = attrs.display
+  last_generation = display_state.generation
 end
 
 local function refresh_meta()
-  local info = read_cache()
+  local info, reason = read_cache()
+  content_reason = reason
   if not info then
     current_color = colors.base04
     full_label = ""
@@ -242,18 +237,23 @@ local function marquee_cached(start_idx, width)
   return joined(out)
 end
 
-local function render_tick(force)
-  local hidden = hide_for_blocked_display
-    or (full_label == "")
-    or ((not is_playing) and paused_since > 0 and ((os.time() - paused_since) >= 60))
-
-  if hidden then
-    set_visible(false)
+local function render_tick(force, advance_scroll)
+  local reason = content_reason
+  if full_label ~= "" and not is_playing and paused_since > 0 and os.time() - paused_since >= 60 then
+    reason = "paused_timeout"
+  end
+  local attrs = display.attributes(display_state, reason == "ready")
+  display.log_visibility("media", display_state, reason, attrs.drawing)
+  if not attrs.drawing then
+    apply_visibility(attrs)
     return
   end
 
   local shown
-  if not is_playing then
+  if advance_scroll == false then
+    -- A display notification must neither consume a tick nor jump to the next frame.
+    shown = last_rendered_key == current_key and last_label or marquee_cached(scroll_index, SCROLL_WINDOW)
+  elseif not is_playing then
     shown = marquee_cached(1, SCROLL_WINDOW)
   else
     if scroll_pause_ticks > 0 then
@@ -278,18 +278,15 @@ local function render_tick(force)
     last_color = current_color
   end
 
+  last_rendered_key = current_key
   media_icon:set({ ["icon.color"] = is_playing and colors.base0b or current_color })
 
   -- Make sure the first visible frame already uses the scroll-window-clamped label.
-  set_visible(true)
+  apply_visibility(attrs)
 end
 
 local function on_media_tick(env)
   local sender = (env and env.SENDER) or ""
-  if sender == "display_change" or sender == "forced" or sender == "system_woke" then
-    refresh_display_gate()
-  end
-
   if sender == "media_change" or sender == "forced" or sender == "system_woke" then
     refresh_meta()
     render_tick(true)
@@ -320,10 +317,13 @@ local function toggle_play_pause()
     .. ") &")
 end
 
-media_label:subscribe({ "routine", "forced", "system_woke", "display_change", "media_change" }, on_media_tick)
+media_label:subscribe({ "routine", "forced", "system_woke", "media_change" }, on_media_tick)
 media_label:subscribe("mouse.clicked", toggle_play_pause)
 media_icon:subscribe("mouse.clicked", toggle_play_pause)
 
-refresh_display_gate()
+display.subscribe("media", function(state)
+  display_state = state
+  render_tick(false, false)
+end)
 refresh_meta()
 render_tick(true)

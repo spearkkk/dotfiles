@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+package DisplaySnapshot;
+use strict;
+use warnings;
+use JSON::PP;
+use POSIX qw(isfinite);
+
+my $json = JSON::PP->new->canonical->allow_nonref;
+
+sub _string {
+    my ($value) = @_;
+    return defined($value) && !ref($value)
+        && $json->encode($value) =~ /\A"/ && length($value) > 0;
+}
+
+sub _number {
+    my ($value) = @_;
+    return defined($value) && !ref($value)
+        && $json->encode($value) =~ /\A-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\z/
+        && isfinite($value);
+}
+
+sub _id {
+    my ($value) = @_;
+    return _number($value) && $value > 0 && int($value) == $value;
+}
+
+sub _mapping {
+    my ($native, $bar) = @_;
+    return unless ref($native) eq 'ARRAY' && ref($bar) eq 'ARRAY';
+    my (%names, %direct_ids, %arrangements, %identities);
+    for my $screen (@$native) {
+        return unless ref($screen) eq 'HASH'
+            && _id($screen->{direct_display_id}) && _string($screen->{name});
+        my $id = 0 + $screen->{direct_display_id};
+        return if exists $names{$id};
+        $names{$id} = $screen->{name};
+    }
+    my @mapping;
+    for my $screen (@$bar) {
+        return unless ref($screen) eq 'HASH'
+            && _id($screen->{DirectDisplayID}) && _id($screen->{'arrangement-id'})
+            && _string($screen->{UUID}) && ref($screen->{frame}) eq 'HASH';
+        my $id = 0 + $screen->{DirectDisplayID};
+        my $arrangement = 0 + $screen->{'arrangement-id'};
+        return unless exists $names{$id};
+        return if $direct_ids{$id}++ || $arrangements{$arrangement}++
+            || $identities{$screen->{UUID}}++;
+        my %frame;
+        for my $field (qw(x y w h)) {
+            my $value = $screen->{frame}{$field};
+            return unless _number($value);
+            return if ($field eq 'w' || $field eq 'h') && $value <= 0;
+            $frame{$field} = 0 + $value;
+        }
+        push @mapping, {
+            direct_display_id => $id,
+            identity => $screen->{UUID},
+            name => $names{$id},
+            sketchybar_id => $arrangement,
+            frame => \%frame,
+        };
+    }
+    return unless keys(%names) == keys(%direct_ids);
+    return [sort { $a->{sketchybar_id} <=> $b->{sketchybar_id} } @mapping];
+}
+
+# Four decoded reads; never infer identity from ordering or focus, or retain a
+# partial mapping when either source changes during collection.
+sub normalize {
+    my ($native_a, $bar_a, $native_b, $bar_b) = @_;
+    my $before = _mapping($native_a, $bar_a);
+    my $after = _mapping($native_b, $bar_b);
+    my $error = {status => 'error', reason => 'identity_unresolved'};
+    return $error unless defined($before) && defined($after);
+    my $key = $json->encode($before);
+    return $error unless $key eq $json->encode($after);
+    return {
+        status => 'ready', topology_key => $key,
+        displays => [map { {
+            identity => $_->{identity}, name => $_->{name},
+            sketchybar_id => $_->{sketchybar_id},
+        } } @$before],
+    };
+}
+
+sub _sketchybar_path {
+    for my $path ('/opt/homebrew/bin/sketchybar', '/usr/local/bin/sketchybar') {
+        return $path if -f $path && -x $path;
+    }
+    return;
+}
+
+# Inherit the bounded supervisor's process group. It owns the total deadline
+# and termination of this helper and every query child; do not detach here.
+sub _query_json {
+    my @argv = @_;
+    my $pid = open(my $pipe, '-|');
+    return unless defined $pid;
+    if ($pid == 0) {
+        open STDERR, '>', '/dev/null' or POSIX::_exit(127);
+        {
+            no warnings 'exec';
+            exec { $argv[0] } @argv;
+        }
+        POSIX::_exit(127);
+    }
+    my $output = do { local $/; <$pipe> };
+    my $success = close $pipe;
+    return unless $success && defined $output;
+    my $value = eval { JSON::PP::decode_json($output) };
+    return if $@ || ref($value) ne 'ARRAY';
+    return $value;
+}
+
+sub main {
+    my $bar = _sketchybar_path();
+    my $result = {status => 'error', reason => 'query_failed'};
+    if (defined $bar) {
+        # NSScreenNumber is the native DirectDisplayID, not arrangement-id.
+        # No focus, mouse, workspace, or UI automation query belongs here.
+        my $script = <<'JXA';
+ObjC.import("AppKit");
+JSON.stringify(ObjC.unwrap($.NSScreen.screens).map(function(s) {
+  return {
+    direct_display_id: Number(ObjC.unwrap(s.deviceDescription.objectForKey("NSScreenNumber"))),
+    name: ObjC.unwrap(s.localizedName)
+  };
+}))
+JXA
+        my @native = ('/usr/bin/osascript', '-l', 'JavaScript', '-e', $script);
+        my @sketchybar = ($bar, '--query', 'displays');
+        my @reads;
+        for my $argv (\@native, \@sketchybar, \@native, \@sketchybar) {
+            my $value = _query_json(@$argv);
+            last unless defined $value;
+            push @reads, $value;
+        }
+        $result = normalize(@reads) if @reads == 4;
+    }
+    print JSON::PP::encode_json($result), "\n";
+    return 0;
+}
+
+main() unless caller;
+1;

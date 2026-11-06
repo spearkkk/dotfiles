@@ -6,19 +6,22 @@ end
 
 function M.read(path)
   local out = {}
-  local f = io.open(path, "r")
+  local f, _, errno = io.open(path, "r")
   if not f then
-    return out
+    if errno == 2 then return out end
+    return nil, "policy_unreadable"
   end
 
-  for line in f:lines() do
+  local contents = f:read("*a")
+  f:close()
+  if not contents then return nil, "policy_unreadable" end
+  for line in (contents .. "\n"):gmatch("([^\n]*)\n") do
     local name = trim(line)
     if name ~= "" and name:sub(1, 1) ~= "#" then
       out[name] = true
     end
   end
 
-  f:close()
   return out
 end
 

@@ -1,0 +1,188 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use JSON::PP;
+use POSIX qw(setsid WNOHANG _exit);
+use IO::Select;
+use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC sleep);
+use Fcntl qw(F_SETFD FD_CLOEXEC O_WRONLY O_CREAT O_EXCL);
+
+my ($permit, $claimed);
+
+# No command text, stderr, or failed output crosses the envelope boundary.
+sub finish {
+    my ($reason, $exit_code, $payload) = @_;
+    if ($claimed) {
+        # Only the claimant publishes terminal state. Except cleanup_failed,
+        # every reason here means no child was spawned or cleanup completed.
+        # A fixed reason (never payload/PID/command text) is enough to decide
+        # whether a lost bridge callback can safely release ownership.
+        my $temporary = "$permit.done.tmp";
+        if (sysopen(my $proof, $temporary, O_WRONLY | O_CREAT | O_EXCL, 0600)) {
+            my $text = "$reason\n";
+            my $written = syswrite($proof, $text);
+            my $closed = close $proof;
+            if (defined($written) && $written == length($text) && $closed) {
+                rename($temporary, "$permit.done") or unlink $temporary;
+            } else {
+                unlink $temporary;
+            }
+        }
+        # Proof I/O failure must never invent cleanup evidence. A delivered
+        # envelope remains usable; without it Lua conservatively fails closed.
+    }
+    print JSON::PP->new->utf8->allow_nonref->encode({
+        ok => $reason eq 'ok' ? JSON::PP::true : JSON::PP::false,
+        reason => $reason, exit_code => $exit_code,
+        payload => $reason eq 'ok' ? $payload : undef,
+    }), "\n";
+    exit 0;
+}
+
+finish('spawn_failed', undef) unless @ARGV >= 4
+    && $ARGV[0] eq '--timeout-ms' && $ARGV[1] =~ /\A[0-9]+\z/
+    && $ARGV[1] >= 1000 && $ARGV[1] <= 5000;
+my $budget = $ARGV[1] / 1000;
+splice @ARGV, 0, 2;
+if ($ARGV[0] eq '--permit') {
+    shift @ARGV;
+    $permit = shift @ARGV;
+    finish('spawn_failed', undef) unless defined($permit) && $permit =~ m{\A/};
+}
+finish('spawn_failed', undef) unless @ARGV >= 2 && $ARGV[0] eq '--' && $ARGV[1] =~ m{\A/};
+shift @ARGV;
+my @command = @ARGV;
+if (defined $permit) {
+    # Atomic claim vs. Lua's revoke: exactly one rename can consume the
+    # original permission file. A delayed bridge invocation cannot resurrect it.
+    finish('spawn_failed', undef) unless -f $permit && !-l $permit
+        && rename($permit, "$permit.claimed");
+    $claimed = 1;
+}
+my $start = clock_gettime(CLOCK_MONOTONIC);
+my $run_deadline = $start + 0.8 * $budget;
+my $deadline = $start + $budget;
+my $interrupted = 0;
+$SIG{TERM} = sub { $interrupted = 1 };
+$SIG{INT} = sub { $interrupted = 1 };
+$SIG{PIPE} = 'IGNORE';
+
+pipe(my $output, my $child_output) or finish('spawn_failed', undef);
+pipe(my $control, my $child_control) or finish('spawn_failed', undef);
+pipe(my $child_ack, my $ack) or finish('spawn_failed', undef);
+fcntl($child_control, F_SETFD, FD_CLOEXEC) or finish('spawn_failed', undef);
+my $pid = fork();
+finish('spawn_failed', undef) unless defined $pid;
+if ($pid == 0) {
+    close $output;
+    close $control;
+    close $ack;
+    $SIG{TERM} = 'DEFAULT';
+    $SIG{INT} = 'DEFAULT';
+    $SIG{PIPE} = 'DEFAULT';
+    my $failed = sub { syswrite($child_control, 'E'); _exit(127) };
+    open STDERR, '>', '/dev/null' or $failed->();
+    open STDIN, '<', '/dev/null' or $failed->();
+    open STDOUT, '>&', $child_output or $failed->();
+    close $child_output;
+    my $session = setsid();
+    defined($session) && $session == $$ && getpgrp(0) == $$ or $failed->();
+    # The child cannot exec/fork descendants until the parent acknowledges
+    # readiness. Before R, signaling this direct PID is always sufficient.
+    syswrite($child_control, 'R') == 1 or $failed->();
+    my $permission = '';
+    (sysread($child_ack, $permission, 1) || 0) == 1 && $permission eq 'A'
+        or $failed->();
+    close $child_ack;
+    { no warnings 'exec'; exec { $command[0] } @command; }
+    $failed->();
+}
+close $child_output;
+close $child_control;
+close $child_ack;
+
+my $selector = IO::Select->new($output, $control);
+my $output_fd = fileno($output);
+my ($ready, $status, $reason, $term_at, $kill_at, $killed);
+my $bytes = '';
+my $limit = 256 * 1024;
+
+sub reap {
+    return if defined $status;
+    my $result = waitpid($pid, WNOHANG);
+    $status = $? if $result == $pid;
+}
+sub group_exists { return $ready && kill(0, -$pid) }
+sub signal_owned {
+    my ($signal) = @_;
+    if ($ready) {
+        kill($signal, -$pid);
+    } elsif (!defined $status) {
+        kill($signal, $pid);
+    }
+}
+
+while (1) {
+    # IO::Select returns immediately for an empty set. A process can close
+    # stdout long before it exits; keep polling bounded without burning CPU.
+    sleep(0.005) unless $selector->count;
+    for my $handle ($selector->can_read(0.005)) {
+        my $chunk = '';
+        my $size = sysread($handle, $chunk, 16384);
+        if (!defined $size) {
+            next if $!{EINTR};
+            $reason //= 'child_failed';
+            $selector->remove($handle);
+            close $handle;
+        } elsif ($size == 0) {
+            $selector->remove($handle);
+            close $handle;
+        } elsif (fileno($handle) == $output_fd) {
+            if (length($bytes) + $size > $limit) {
+                $reason //= 'output_limit';
+            } elsif (!defined $reason) {
+                $bytes .= $chunk;
+            }
+        } else {
+            if (index($chunk, 'R') >= 0) {
+                $ready = 1;
+                syswrite($ack, 'A') unless $interrupted || defined $reason;
+                close $ack;
+            }
+            $reason //= 'spawn_failed' if index($chunk, 'E') >= 0;
+        }
+    }
+    reap();
+    my $now = clock_gettime(CLOCK_MONOTONIC);
+    $reason //= 'child_failed' if $interrupted;
+    $reason //= 'timeout' if !defined($status) && $now >= $run_deadline;
+
+    # Leader exit is not group completion: descendants may hold the pipe, or
+    # may close it and continue running. Both must be terminated before reply.
+    if (!defined($term_at) && (defined($reason) || defined($status))) {
+        $term_at = $now;
+        $kill_at = $now + 0.1 * $budget;
+        $kill_at = $start + 0.9 * $budget if $kill_at > $start + 0.9 * $budget;
+        my $early_deadline = $kill_at + 0.1 * $budget;
+        $deadline = $early_deadline if $early_deadline < $deadline;
+        signal_owned('TERM');
+    }
+    last if defined($status) && !group_exists() && $selector->count == 0;
+    if (defined($term_at) && !$killed && $now >= $kill_at) {
+        signal_owned('KILL');
+        $killed = 1;
+    }
+    if ($now >= $deadline) {
+        reap();
+        $reason = 'cleanup_failed' if !defined($status) || group_exists() || $selector->count;
+        last;
+    }
+}
+
+my $exit_code = defined($status)
+    ? (($status & 127) ? 128 + ($status & 127) : $status >> 8) : undef;
+$reason //= 'child_failed' if !defined($exit_code) || $exit_code != 0;
+finish($reason, $exit_code) if defined $reason;
+my $payload = eval { JSON::PP->new->utf8->allow_nonref->decode($bytes) };
+finish('invalid_json', $exit_code) if $@;
+finish('ok', 0, $payload);
