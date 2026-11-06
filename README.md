@@ -140,31 +140,6 @@ the helper by its HOME-based absolute path and owns icons, colors, rounding,
 refresh events, and the `--°` fallback. Fetching remains synchronous, without
 new caching, retries, or timeouts.
 
-## Nudge and Pomodoro
-
-SketchyBar's Pomodoro sends completion toasts and optional sounds through Nudge
-instead of macOS Notification Center. Install the CLI and Hammerspoon modules
-together, then reload Hammerspoon and SketchyBar. See
-[Nudge notifications and sound](share/nudge/README.md) for sound options,
-delivery behavior, and verification commands.
-
-## Homebrew kubectl with Rancher Desktop
-
-On Apple Silicon Macs, the base package includes a dedicated PATH directory
-containing only a `kubectl` launcher for `/opt/homebrew/bin/kubectl`. To opt in,
-add this call at the end of your local `~/.config/fish/config.fish`, after
-Rancher Desktop's managed block and any other PATH setup:
-
-```fish
-__prefer_homebrew_kubectl
-```
-
-Open a new Fish shell, or run the function in the existing shell. This prefers
-Homebrew kubectl without changing Rancher's `docker`/`rdctl`, mise runtime
-priorities, Docker contexts, or the Rancher VM. If the Homebrew binary is absent,
-PATH is unchanged. Authentication and client/server version compatibility still
-need to be handled separately.
-
 ## cw pane contexts
 
 `cw` uses the contexts defined by your profile. Without placement options it

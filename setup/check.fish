@@ -294,6 +294,11 @@ if not sh "$repo_root/setup/tests/codext.test.sh"
     mark_fail "Codex temporary workspace test failed"
 end
 
+log_step "Runtime shell environment"
+if not sh "$repo_root/setup/tests/runtime-environment.test.sh"
+    mark_fail "Runtime shell environment test failed"
+end
+
 log_step "Personal Brewfile"
 if not bash "$repo_root/setup/tests/personal-brewfile.test.sh"
     mark_fail "personal Brewfile test failed"

@@ -1,3 +1,0 @@
-#!/bin/sh
-# Only this command overrides Rancher/mise; leave all other PATH entries alone.
-exec /opt/homebrew/bin/kubectl "$@"

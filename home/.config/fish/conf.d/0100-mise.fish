@@ -13,3 +13,7 @@ if status is-interactive
         echo "[WARN] mise not installed. Skipping activation."
     end
 end
+
+if not status is-interactive; and type -q mise
+    mise env --shell fish | source
+end
