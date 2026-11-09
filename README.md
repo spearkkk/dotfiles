@@ -201,9 +201,10 @@ make -C setup/launchagents status
 fish setup/check.fish
 ```
 
-LaunchAgent `bootstrap` (also used by `restart`) unloads existing jobs, explicitly
-enables both agents, then loads and starts them. It can therefore restart agents
-disabled by `make -C setup/launchagents teardown`. Enabling either agent must
+LaunchAgent `bootstrap` (also used by `restart`) unloads existing jobs and confirms
+both previous processes have exited before explicitly enabling, loading, and
+starting either agent. It can therefore restart agents disabled by
+`make -C setup/launchagents teardown`. Enabling either agent must
 succeed before any job is loaded. The media and calendar daemons exit on
 SIGINT/SIGTERM and remove only their own PID files on exit. Bash may defer signal
 handling until an active foreground command returns.
@@ -213,14 +214,16 @@ but not running), `stopped` (not registered), and `unknown` (lookup failed).
 Only both agents running yields exit status 0. `bootstrap` polls for readiness
 instead of treating a transient startup state as failure.
 
-`teardown` disables each agent, unloads it, and waits for both deregistration and
-the recorded processes to exit before removing an unchanged PID file. It never
-signals a PID from a file, which could belong to an unrelated process. Both
-startup and shutdown waits use 100 polls at 0.2-second intervals (plus command
+`bootstrap`/`restart` and `teardown` share the same stop/cleanup helper: wait for
+both deregistration and the recorded processes to exit before removing an
+unchanged PID file. Only `teardown` disables agents during this stop phase.
+Neither command signals a PID from a file, which could belong to an unrelated
+process. Both startup and shutdown waits use 100 polls at 0.2-second intervals (plus command
 overhead). Control/query errors, invalid or changed PID files, and stop timeouts
 return nonzero and preserve that agent's PID file if still present. Already
-stopped agents are safe to tear down again; the other agent is still processed
-if one fails.
+stopped agents are safe to process again. On a stop failure, `bootstrap` aborts
+before enabling or loading either agent; `teardown` still processes the other
+agent before returning failure.
 
 The calendar daemon deduplicates only rows with the same normalized start time,
 end time, title, and calendar name. Same-title events at different times or in

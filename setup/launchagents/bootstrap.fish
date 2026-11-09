@@ -2,6 +2,7 @@
 
 set script_dir (cd (dirname (status -f)); and pwd)
 set uid (id -u)
+source "$script_dir/helpers.fish"
 
 set media_label dev.spearkkk.sketchybar.media-daemon
 set calendar_label dev.spearkkk.sketchybar.calendar-daemon
@@ -9,23 +10,6 @@ set calendar_label dev.spearkkk.sketchybar.calendar-daemon
 set launchagent_dir "$HOME/Library/LaunchAgents"
 set media_plist "$launchagent_dir/$media_label.plist"
 set calendar_plist "$launchagent_dir/$calendar_label.plist"
-
-function unload_label
-    set label "$argv[1]"
-
-    launchctl bootout "gui/$uid/$label" >/dev/null 2>&1; or true
-
-    for attempt in (seq 1 100)
-        if not launchctl print "gui/$uid/$label" >/dev/null 2>&1
-            return 0
-        end
-
-        sleep 0.2
-    end
-
-    echo "[ERROR] Timed out while unloading $label" >&2
-    return 1
-end
 
 if test (uname) != Darwin
     echo "[ERROR] LaunchAgents are supported on macOS only." >&2
@@ -40,17 +24,13 @@ for plist in "$media_plist" "$calendar_plist"
     end
 end
 
-for label in $media_label $calendar_label
-    if not unload_label "$label"
-        exit 1
-    end
-end
-
 set cache_dir "$HOME/.cache/sketchybar"
 if set -q XDG_CACHE_HOME; and test -n "$XDG_CACHE_HOME"
     set cache_dir "$XDG_CACHE_HOME/sketchybar"
 end
-rm -f "$cache_dir/media.pid" "$cache_dir/calendar.pid"
+# Do not enable or load either agent until both previous processes have exited.
+launchagent_stop "gui/$uid/$media_label" "$cache_dir/media.pid"; or exit 1
+launchagent_stop "gui/$uid/$calendar_label" "$cache_dir/calendar.pid"; or exit 1
 
 # teardown persists disabled state in launchd; bootstrap must undo it explicitly.
 for label in $media_label $calendar_label

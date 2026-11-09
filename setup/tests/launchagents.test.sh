@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -83,6 +84,12 @@ elif action == 'disable':
     elif label not in state['disabled']:
         state['disabled'].append(label)
 elif action == 'enable':
+    if os.environ.get('OLD_PID'):
+        try:
+            os.kill(int(os.environ['OLD_PID']), 0)
+            state['enabled_before_exit'] = True
+        except ProcessLookupError:
+            pass
     if os.environ.get('FAIL_ENABLE') == label:
         code = 1
     elif label in state['disabled']:
@@ -207,7 +214,6 @@ sys.exit(code)
         pid = self.cache / 'media.pid'
         pid.write_text(f'{process.pid}\n')
         # Reap independently so ps cannot see a zombie after sleep exits.
-        import threading
         reaper = threading.Thread(target=process.wait)
         reaper.start()
         self.addCleanup(reaper.join)
@@ -241,6 +247,84 @@ sys.exit(code)
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(pid.exists())
         self.assertIn('Operation not permitted', result.stderr)
+
+    def assert_no_startup(self):
+        calls = json.loads(self.state.read_text())['calls']
+        self.assertFalse(any(call[0] in ('enable', 'bootstrap', 'kickstart') for call in calls))
+        # Unlike teardown, a failed restart must not persist disabled state.
+        self.assertFalse(any(call[0] == 'disable' for call in calls))
+
+    def test_bootstrap_preserves_pid_on_query_and_stop_errors(self):
+        for failure in ('FAIL_PRINT', 'FAIL_BOOTOUT'):
+            with self.subTest(failure=failure):
+                self.loaded_jobs()
+                self.env[failure] = LABELS[0]
+                pid = self.cache / 'media.pid'
+                pid.write_text(self.dead_pid + '\n')
+                result = self.run_lifecycle('bootstrap')
+                self.env.pop(failure)
+                self.assertTrue(pid.exists(), 'failed restart discarded PID file')
+                self.assertNotEqual(result.returncode, 0)
+                self.assert_no_startup()
+
+    def test_bootstrap_preserves_live_pid_even_when_job_absent(self):
+        pid = self.cache / 'media.pid'
+        pid.write_text(f'{os.getpid()}\n')
+        result = self.run_lifecycle('bootstrap')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(pid.read_text().strip(), str(os.getpid()))
+        self.assert_no_startup()
+
+    def test_bootstrap_checks_launchd_pid_even_without_pid_file(self):
+        self.loaded_jobs({LABELS[0]: {'pid': os.getpid()}})
+        result = self.run_lifecycle('bootstrap')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Timed out', result.stderr)
+        self.assert_no_startup()
+
+    def test_bootstrap_preserves_malformed_or_replaced_pid(self):
+        for replacement in (False, True):
+            with self.subTest(replacement=replacement):
+                self.loaded_jobs()
+                pid = self.cache / 'media.pid'
+                pid.write_text(self.dead_pid + '\n' if replacement else 'not-a-pid\n')
+                if replacement:
+                    self.env['REPLACE_PID'] = str(pid)
+                result = self.run_lifecycle('bootstrap')
+                self.env.pop('REPLACE_PID', None)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(pid.exists())
+                self.assert_no_startup()
+
+    def test_bootstrap_fails_closed_on_process_probe_error(self):
+        self.script('ps', 'echo "Operation not permitted" >&2; exit 1')
+        pid = self.cache / 'media.pid'
+        pid.write_text(self.dead_pid + '\n')
+        result = self.run_lifecycle('bootstrap')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(pid.exists())
+        self.assert_no_startup()
+
+    def test_bootstrap_waits_for_both_processes_before_enabling(self):
+        # Calendar is the second agent: media's successful stop must not allow
+        # either agent to restart while the old calendar process still lives.
+        process = subprocess.Popen(['/bin/sleep', '3'], start_new_session=True)
+        self.addCleanup(self.stop_fixture, process)
+        reaper = threading.Thread(target=process.wait)
+        reaper.start()
+        self.addCleanup(reaper.join)
+        self.loaded_jobs({LABELS[1]: {'pid': process.pid}})
+        pid = self.cache / 'calendar.pid'
+        pid.write_text(f'{process.pid}\n')
+        self.env['OLD_PID'] = str(process.pid)
+        result = self.run_lifecycle('bootstrap')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNotNone(process.poll(), 'restart finished before old process exit')
+        self.assertFalse(pid.exists())
+        state = json.loads(self.state.read_text())
+        self.assertFalse(state.get('enabled_before_exit'), 'enabled agents before both processes exited')
+        self.assertFalse(any(call[0] == 'disable' for call in state['calls']))
+        self.assertCountEqual(state['loaded'], LABELS)
 
     def test_bootstrap_waits_for_running_state(self):
         self.env['STARTUP_DELAY'] = '2'
@@ -283,11 +367,11 @@ sys.exit(code)
         self.state.write_text(json.dumps({'loaded': LABELS, 'disabled': [], 'calls': []}))
         self.env['STUCK'] = '1'
         pid = self.cache / 'media.pid'
-        pid.write_text('fixture-owner\n')
+        pid.write_text(self.dead_pid + '\n')
         result = self.run_lifecycle('bootstrap')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Timed out while unloading', result.stderr)
-        self.assertEqual(pid.read_text(), 'fixture-owner\n')
+        self.assertIn('Timed out', result.stderr)
+        self.assertEqual(pid.read_text(), self.dead_pid + '\n')
         calls = json.loads(self.state.read_text())['calls']
         self.assertFalse(any(call[0] in ('enable', 'bootstrap', 'kickstart') for call in calls))
 
