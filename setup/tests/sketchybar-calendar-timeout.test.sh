@@ -30,6 +30,7 @@ class CalendarTimeoutTests(unittest.TestCase):
         self.pid = self.root / 'query.pid'
         self.ready = self.root / 'ready'
         self.output = self.cache / 'calendar.tsv'
+        (self.root / 'clock').write_text('1700000000\n')
         self.env = {
             'HOME': str(self.home), 'XDG_CACHE_HOME': str(self.cache.parent),
             'PATH': f'{self.bin}:/usr/bin:/bin', 'LC_ALL': 'C',
@@ -41,7 +42,7 @@ class CalendarTimeoutTests(unittest.TestCase):
         self.script('date', '''case "$1" in
   +%H) echo 10 ;;
   +%M) echo 00 ;;
-  +%s) echo 1700000000 ;;
+  +%s) cat "$FIXTURE_ROOT/clock" ;;
   *) exit 99 ;;
 esac''')
         self.log = (self.root / 'daemon.log').open('w+')
@@ -98,6 +99,77 @@ exec /bin/sleep 30
     def assert_query_stopped(self):
         with self.assertRaises(ProcessLookupError, msg='timed-out query was left running'):
             os.kill(int(self.pid.read_text()), 0)
+
+    def scripted_query(self, mode='good'):
+        # Advance time only at the query boundary, never halfway through the
+        # previous cache publication. No real calendar or 180-second wait.
+        (self.root / 'query').write_text(f'1700000000 {mode}\n')
+        self.script('icalBuddy', '''
+read -r now mode < "$FIXTURE_ROOT/query"
+printf '%s\\n' "$now" > "$FIXTURE_ROOT/clock"
+case "$mode" in
+  good) printf '10:00 - 12:00\\tLast good (Test)\\n' ;;
+  recovered) printf '14:00 - 15:00\\tRecovered (Test)\\n' ;;
+  failed)
+    printf '10:00 - 12:00\\tPartial (Test)\\n'
+    exit 1 ;;
+  *) exit 99 ;;
+esac
+''')
+
+    def assert_cache(self, timestamp, rows):
+        self.wait_for(
+            lambda: self.output.exists() and self.output.read_text().startswith(f'{timestamp}\t'),
+            'daemon did not publish the requested clock tick', timeout=5,
+        )
+        active = 'true' if rows else 'false'
+        self.assertEqual(self.output.read_text(), f'{timestamp}\t{active}\n{rows}\n')
+
+    def refresh_at(self, timestamp, mode, rows):
+        # Atomic replacement prevents the collector from seeing a partial plan.
+        plan = self.root / 'query.next'
+        plan.write_text(f'{timestamp} {mode}\n')
+        plan.replace(self.root / 'query')
+        (self.cache / 'calendar.refresh').touch()
+        self.assert_cache(timestamp, rows)
+
+    def test_repeated_failures_do_not_extend_last_good_cache_grace(self):
+        self.scripted_query()
+        self.start()
+        row = '10:00\t12:00\tLast good\tTest'
+        self.assert_cache(1700000000, row)
+        for timestamp, expected in (
+            (1700000179, row),
+            (1700000180, row),  # Inclusive grace boundary.
+            (1700000181, ''),
+            (1700000240, ''),  # Further failures must not resurrect stale rows.
+        ):
+            with self.subTest(timestamp=timestamp):
+                self.refresh_at(timestamp, 'failed', expected)
+
+    def test_success_after_expiry_starts_a_new_cache_grace(self):
+        self.scripted_query()
+        self.start()
+        self.assert_cache(1700000000, '10:00\t12:00\tLast good\tTest')
+        self.refresh_at(1700000181, 'failed', '')
+        recovered = '14:00\t15:00\tRecovered\tTest'
+        self.refresh_at(1700000200, 'recovered', recovered)
+        self.refresh_at(1700000379, 'failed', recovered)
+        self.refresh_at(1700000380, 'failed', recovered)
+        self.refresh_at(1700000381, 'failed', '')
+
+    def test_seeded_cache_expires_during_continuous_failures(self):
+        row = '10:00\t12:00\tLast good\tTest'
+        self.output.write_text(f'1700000000\ttrue\n{row}\n')
+        self.scripted_query(mode='failed')
+        self.start()
+        # The initial file is already present: wait for the first polling sleep
+        # before advancing the clock so startup has actually read the seed.
+        self.wait_for(self.ready.exists, 'daemon did not publish seeded cache', timeout=5)
+        self.assert_cache(1700000000, row)
+        self.refresh_at(1700000179, 'failed', row)
+        self.refresh_at(1700000180, 'failed', row)
+        self.refresh_at(1700000181, 'failed', '')
 
     def test_timeout_discards_partial_output_and_recovers_on_refresh(self):
         self.output.write_text('1700000000\ttrue\n10:00\t11:00\tLast good\tTest\n')
