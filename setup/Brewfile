@@ -42,6 +42,9 @@ brew "k9s"
 brew "uv"
 brew "go"
 brew "tmux"
+brew "bottom"
+brew "dust"
+brew "gping"
 
 mas "UpNote", id: 1398373917
 mas "Things", id: 904280696
