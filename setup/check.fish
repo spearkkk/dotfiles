@@ -189,6 +189,7 @@ require_command python3
 require_command ssh
 require_command stow
 require_command jq
+require_command uu-timeout
 require_command lockf
 require_command mise
 if test (uname) = Darwin
@@ -232,6 +233,11 @@ end
 log_step "SketchyBar calendar cache (isolated fixtures)"
 if not bash "$repo_root/setup/tests/sketchybar-calendar.test.sh"
     mark_fail "SketchyBar calendar cache tests failed."
+end
+
+log_step "SketchyBar calendar query timeout (isolated fixtures)"
+if not bash "$repo_root/setup/tests/sketchybar-calendar-timeout.test.sh"
+    mark_fail "SketchyBar calendar query timeout tests failed."
 end
 
 log_step "SSH config"

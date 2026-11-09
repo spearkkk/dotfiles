@@ -208,10 +208,33 @@ succeed before any job is loaded. The media and calendar daemons exit on
 SIGINT/SIGTERM and remove only their own PID files on exit. Bash may defer signal
 handling until an active foreground command returns.
 
+`status` distinguishes `running` (launchd state plus PID), `loaded` (registered
+but not running), `stopped` (not registered), and `unknown` (lookup failed).
+Only both agents running yields exit status 0. `bootstrap` polls for readiness
+instead of treating a transient startup state as failure.
+
+`teardown` disables each agent, unloads it, and waits for both deregistration and
+the recorded processes to exit before removing an unchanged PID file. It never
+signals a PID from a file, which could belong to an unrelated process. Both
+startup and shutdown waits use 100 polls at 0.2-second intervals (plus command
+overhead). Control/query errors, invalid or changed PID files, and stop timeouts
+return nonzero and preserve that agent's PID file if still present. Already
+stopped agents are safe to tear down again; the other agent is still processed
+if one fails.
+
 The calendar daemon deduplicates only rows with the same normalized start time,
 end time, title, and calendar name. Same-title events at different times or in
 different calendars remain separate. This is a display-row comparison, not an
 event-ID comparison: distinct events with all four fields identical still merge.
+
+Calendar queries use `uu-timeout` from the existing `uutils-coreutils` Brewfile
+dependency: send TERM after 5 seconds, then KILL after one additional second if
+needed. Failed or timed-out queries discard partial stdout and use the existing
+180-second last-good cache grace period; subsequent polls/refreshes retry normally.
+Without `uu-timeout`, the collector fails closed rather than running unbounded.
+Diagnostics contain the exit status, not event contents. Bash can defer a daemon
+shutdown signal until this bounded query finishes (roughly 6 seconds worst case
+for a stalled collector).
 
 Weather refreshes use asynchronous `Sbar.exec`, with only one fetch in flight.
 The current display remains visible while fetching; startup and failed requests

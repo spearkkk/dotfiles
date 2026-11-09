@@ -11,6 +11,7 @@ REQUEST_FILE="$CACHE_DIR/calendar.refresh"
 NORMAL_INTERVAL=60
 NEAR_INTERVAL=20
 EMPTY_GRACE_SECONDS=180
+QUERY_TIMEOUT_SECONDS=5
 
 cleanup() {
   if [ -f "$PID_FILE" ] && [ "$(cat "$PID_FILE" 2>/dev/null)" = "$$" ]; then
@@ -33,7 +34,7 @@ fi
 printf '%s\n' "$$" > "$PID_FILE"
 
 collect_today_events() {
-  icalBuddy \
+  uu-timeout --kill-after=1s "${QUERY_TIMEOUT_SECONDS}s" icalBuddy \
     -nrd \
     -npn \
     -ea \
@@ -41,7 +42,7 @@ collect_today_events() {
     -iep 'datetime,title' \
     -po 'datetime,title' \
     -ps '|	|	|\n|' \
-    eventsToday 2>/dev/null || true
+    eventsToday 2>/dev/null
 }
 
 to_minutes() {
@@ -150,7 +151,13 @@ fi
 while true; do
   rm -f "$REQUEST_FILE"
 
-  raw="$(collect_today_events)"
+  raw="$(collect_today_events 2>/dev/null)" || {
+    query_status=$?
+    # Failed/timed-out collectors can leave valid-looking but incomplete rows.
+    # Treat them as empty so the existing bounded last-good cache policy applies.
+    raw=""
+    printf 'sketchybar calendar query failed (exit %s); using cache fallback\n' "$query_status" >&2
+  }
   # Deduplicate the full normalized row: start, end, title and calendar.
   events="$(normalize_events "$raw" | awk 'NF' | sort -t "$TAB" -k1,1 -k3,3 | awk '!seen[$0]++')"
   now_min=$((10#$(date +%H) * 60 + 10#$(date +%M)))

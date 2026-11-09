@@ -6,6 +6,7 @@ if test (uname) != Darwin
 end
 
 set uid (id -u)
+source (dirname (status -f))/helpers.fish
 set labels \
     dev.spearkkk.sketchybar.media-daemon \
     dev.spearkkk.sketchybar.calendar-daemon
@@ -19,11 +20,21 @@ set stopped 0
 
 for index in (seq (count $labels))
     set label $labels[$index]
-    if launchctl print "gui/$uid/$label" >/dev/null 2>&1
-        echo "running: $label"
-    else
-        echo "stopped: $label"
-        set stopped 1
+    launchagent_query "gui/$uid/$label"
+    switch $status
+        case 0
+            if test "$launchagent_state" = running; and test -n "$launchagent_pid"
+                echo "running: $label (pid=$launchagent_pid)"
+            else
+                echo "loaded: $label (state=$launchagent_state, pid=$launchagent_pid, last_exit=$launchagent_last_exit)"
+                set stopped 1
+            end
+        case 113
+            echo "stopped: $label"
+            set stopped 1
+        case '*'
+            echo "unknown: $label"
+            set stopped 1
     end
 
     echo "  stdout: $log_files[$index]"

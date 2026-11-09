@@ -5,6 +5,7 @@ python3 - "$repo_root" <<'PY'
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,8 @@ import unittest
 
 ROOT = Path(sys.argv.pop(1))
 DAEMON = ROOT / 'home/.local/libexec/sketchybar-run-calendar-daemon'
+TIMEOUT = shutil.which('uu-timeout')
+assert TIMEOUT, 'uu-timeout is required (brew install uutils-coreutils)'
 
 
 class CalendarTests(unittest.TestCase):
@@ -24,6 +27,7 @@ class CalendarTests(unittest.TestCase):
             home, bin_dir, cache = root / 'home', root / 'bin', root / 'cache'
             home.mkdir()
             bin_dir.mkdir()
+            (bin_dir / 'uu-timeout').symlink_to(TIMEOUT)
             fixture, ready = root / 'events.tsv', root / 'ready'
             fixture.write_text('\n'.join(rows) + '\n')
             scripts = {

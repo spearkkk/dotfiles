@@ -74,4 +74,14 @@ for label in $media_label $calendar_label
     end
 end
 
+# kickstart may return before launchd publishes the running state/PID.
+for attempt in (seq 1 100)
+    if command fish "$script_dir/status.fish" >/dev/null 2>&1
+        command fish "$script_dir/status.fish"
+        exit $status
+    end
+    sleep 0.2
+end
+echo "[ERROR] Timed out while waiting for LaunchAgents to start" >&2
 command fish "$script_dir/status.fish"
+exit 1
