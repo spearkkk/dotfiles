@@ -5,23 +5,13 @@ local utils    = require("lib.utils")
 local ITEM = "front_app"
 local MAX_CHARS = 28
 
-local function current_front_app(env)
-  local info = (env and env.INFO) or ""
-  info = info:gsub("^%s+", ""):gsub("%s+$", "")
-  if info ~= "" and not info:match("^bundleID=") then
-    return info
-  end
-
-  local front_info = utils.capture([[lsappinfo info -only name "$(lsappinfo front)" 2>/dev/null]])
-  return front_info:match('^%s*"([^"]+)"') or ""
-end
-
 local front_app = Sbar.add("item", ITEM, {
   position = "left",
   icon = {
     drawing = false,
   },
   label = {
+    string = "",
     drawing = true,
     color = colors.foreground,
     align = "left",
@@ -48,34 +38,7 @@ local front_app = Sbar.add("item", ITEM, {
   click_script = "open -a 'Mission Control'",
 })
 
-local function refresh(env)
-  local app = current_front_app(env)
-  if app == "" then
-    front_app:set({ label = "" })
-    return
-  end
-  front_app:set({ label = app })
-end
-
-local function on_event(env)
-  local sender = (env and env.SENDER) or ""
-  if sender == "front_app_switched" then
-    refresh(env)
-    return
-  end
-
-  if sender == "aerospace_workspace_change" or sender == "display_change" then
-    refresh(nil)
-    return
-  end
-
-  refresh(env)
-end
-
--- Keep the same event set as the original front_app.sh item.
-front_app:subscribe({ "front_app_switched", "display_change", "aerospace_workspace_change", "system_woke" }, on_event)
-front_app:subscribe("forced", function(_)
-  refresh(nil)
+-- Sbar.event_loop() requests the initial app event, including after a reload.
+front_app:subscribe("front_app_switched", function(env)
+  front_app:set({ label = env.INFO or "" })
 end)
-
-refresh(nil)
