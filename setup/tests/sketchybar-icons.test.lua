@@ -101,10 +101,43 @@ assert(items['aerospace.ws.5'].values['icon.font.size'] == 24 and items['aerospa
 capture = ''
 dofile(root .. 'items/cafe.lua')
 local cafe = items.cafe
+local cafe_popup = items.cafe_remaining
+assert(cafe.options.update_freq == 60, 'caffeine status updates every 60 seconds')
+assert(cafe_popup.options.position == 'popup.cafe', 'remaining time is in the caffeine popup')
+assert(cafe.options['popup.background.border_color'] == colors.border, 'caffeine popup uses theme border')
+assert(cafe.options['popup.background.border_width'] == 2, 'caffeine popup uses common border width')
+assert(cafe.callbacks['mouse.entered'] and cafe.callbacks['mouse.exited'], 'caffeine popup opens on hover')
 assert(cafe.values.icon == utf8.char(0xf63e) and cafe.values['icon.color'] == colors.base04, 'inactive wake prevention uses rounded minus')
 capture = '123'
 cafe.callbacks.routine()
 assert(cafe.values.icon == utf8.char(0xf59a) and cafe.values['icon.color'] == colors.base0a, 'active wake prevention uses rounded square')
+local hover_jobs = {}
+Sbar.exec = function(command, callback) hover_jobs[#hover_jobs + 1] = {command=command, callback=callback} end
+utils.shell_quote = function(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
+cafe.callbacks['mouse.entered']()
+assert(cafe.values['popup.drawing'] == true and #hover_jobs == 1, 'one query when hover begins')
+assert(hover_jobs[1].command:find('uu%-timeout') and hover_jobs[1].command:find('pmset %-g assertions'), 'query uses bounded pmset')
+cafe.callbacks['mouse.entered']()
+assert(#hover_jobs == 1, 'duplicate hover must not overlap a running query')
+hover_jobs[1].callback('PID=123\n   pid 999(caffeinate): x\n\tTimeout will fire in 30 secs\n   pid 123(caffeinate): x\n\tTimeout will fire in 86169 secs Action=TimeoutActionRelease\n', 0)
+assert(cafe_popup.values.label == '23h 56m', 'show matching process remaining time')
+cafe.callbacks['mouse.exited']()
+assert(cafe.values['popup.drawing'] == false, 'leaving closes the caffeine popup')
+cafe.callbacks['mouse.entered']()
+hover_jobs[2].callback('PID=123\n   pid 123(caffeinate): x\n\tno timeout\n', 0)
+assert(cafe_popup.values.label == '--', 'do not invent a timeout when none is reported')
+cafe.callbacks['mouse.exited']()
+cafe.callbacks['mouse.entered']()
+hover_jobs[3].callback('PID=none\n', 0)
+assert(cafe_popup.values.label == 'Off', 'show when no eligible caffeinate is running')
+cafe.callbacks['mouse.exited']()
+cafe.callbacks['mouse.entered']()
+cafe.callbacks['mouse.exited']()
+hover_jobs[4].callback('PID=123\n   pid 123(caffeinate): x\n\tTimeout will fire in 99 secs\n', 0)
+assert(cafe_popup.values.label == '--', 'ignore a query completed after hover ended')
+cafe.callbacks['mouse.entered']()
+hover_jobs[5].callback('PID=123\n   pid 123(caffeinate): x\n\tTimeout will fire in 99 secs\n', 124)
+assert(cafe_popup.values.label == '--', 'discard timed-out partial output')
 print('PASS: workspace focus and caffeine state')
 
 local output_device, mute = 'MacBook Pro Speakers', false
