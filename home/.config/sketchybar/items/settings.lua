@@ -1,9 +1,14 @@
+local icons = require("lib.icons")
 local colors = require("lib.colors")
 local settings = require("lib.settings")
 
 Sbar.add("item", "settings", {
   position = "right",
-  icon = "􀍟",
+  width = settings.icon_cell_width,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
+  icon = icons.settings,
+  ["icon.align"] = "center",
   ["icon.drawing"] = true,
   ["icon.color"] = colors.foreground,
   ["icon.font.size"] = settings.icon_size,

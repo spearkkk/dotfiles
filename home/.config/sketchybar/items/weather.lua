@@ -1,40 +1,35 @@
+local icons = require("lib.icons")
 local colors = require("lib.colors")
 local settings = require("lib.settings")
 local utils = require("lib.utils")
 
-local TOP_Y = settings.double_line_bottom_y
-local BOTTOM_Y = settings.double_line_top_y
-local ICON_SIZE = settings.text_size_small - 1
-local TEMP_SIZE = settings.text_size_large 
+local ICON_SIZE = settings.icon_size
 local UPDATE_FREQ = 1800
 
-local STACK_WIDTH = 16
-local STACK_RIGHT_GAP = 0
-
 local day_icons = {
-  clear = "􀆮",
-  partly_cloudy = "􀇕",
-  cloudy = "􀇃",
-  fog = "􀇋",
-  drizzle = "􀇅",
-  rain = "􀇇",
-  heavy_rain = "􀇉",
-  snow = "􀇏",
-  thunder = "􀇓",
-  hail = "􀇑",
+  clear = icons.sun,
+  partly_cloudy = icons.cloud,
+  cloudy = icons.cloud,
+  fog = icons.cloud_fog,
+  drizzle = icons.cloud_rain,
+  rain = icons.cloud_rain,
+  heavy_rain = icons.cloud_rain,
+  snow = icons.cloud_snow,
+  thunder = icons.cloud_storm,
+  hail = icons.cloud_exclamation,
 }
 
 local night_icons = {
-  clear = "􀇁",
-  partly_cloudy = "􀇛",
-  cloudy = "􀇃",
-  fog = "􀇋",
-  drizzle = "􀇝",
-  rain = "􀇝",
-  heavy_rain = "􀇝",
-  snow = "􀇏",
-  thunder = "􀇓",
-  hail = "􀇑",
+  clear = icons.moon_stars,
+  partly_cloudy = icons.cloud,
+  cloudy = icons.cloud,
+  fog = icons.cloud_fog,
+  drizzle = icons.cloud_rain,
+  rain = icons.cloud_rain,
+  heavy_rain = icons.cloud_rain,
+  snow = icons.cloud_snow,
+  thunder = icons.cloud_storm,
+  hail = icons.cloud_exclamation,
 }
 
 local function weather_icon_key(code)
@@ -54,15 +49,18 @@ end
 
 local weather_icon = Sbar.add("item", "weather_icon", {
   position = "right",
-  width = STACK_WIDTH,
-  padding_left = 0,
-  padding_right = STACK_RIGHT_GAP,
-  y_offset = TOP_Y,
+  width = settings.icon_cell_width,
+  -- Bracket uses the first member's padding for its left edge; keep the
+  -- fixed-width icon cell in place while insetting the underline by 12px.
+  padding_left = settings.defaults.padding_left - 12,
+  padding_right = settings.defaults.padding_right,
+  y_offset = 0,
   update_freq = UPDATE_FREQ,
   icon = {
     drawing = true,
-    align = "right",
-    padding_right = 6,
+    align = "center",
+    padding_left = settings.inner_padding,
+    padding_right = settings.inner_padding,
     color = colors.foreground,
     font = {
       size = ICON_SIZE,
@@ -74,29 +72,28 @@ local weather_icon = Sbar.add("item", "weather_icon", {
   background = {
     drawing = false,
   },
+  ["popup.height"] = 22,
+  ["popup.align"] = "center",
+  ["popup.y_offset"] = -4,
+  ["popup.background.height"] = 20,
+  ["popup.background.color"] = utils.set_alpha(colors.background_alt, 80),
+  ["popup.background.border_color"] = colors.border,
+  ["popup.background.border_width"] = 2,
+  ["popup.background.corner_radius"] = 4,
+  ["popup.background.drawing"] = true,
 })
 
 local weather_temp = Sbar.add("item", "weather_temp", {
-  position = "right",
-  width = STACK_WIDTH,
-  padding_left = 0,
-  padding_right = -STACK_WIDTH + STACK_RIGHT_GAP,
-  y_offset = BOTTOM_Y,
-  update_freq = 0,
-  icon = {
-    drawing = false,
-  },
+  position = "popup.weather_icon",
+  icon = { drawing = false },
   label = {
     drawing = true,
-    align = "right",
     color = colors.foreground,
-    font = {
-      size = TEMP_SIZE,
-    },
+    font = { size = 12 },
+    padding_left = settings.inner_padding,
+    padding_right = settings.inner_padding,
   },
-  background = {
-    drawing = false,
-  },
+  background = { drawing = false },
 })
 
 local function parse_weather(raw)
@@ -148,7 +145,7 @@ local function render_weather(data)
   local st = weather_status(data)
   if not st then
     weather_icon:set({
-      icon = "􀇃",
+      icon = icons.cloud,
       ["icon.color"] = colors.base04,
     })
     weather_temp:set({
@@ -184,6 +181,13 @@ local function update_weather()
     render_weather(nil)
   end
 end
+
+weather_icon:subscribe("mouse.entered", function()
+  weather_icon:set({ ["popup.drawing"] = true })
+end)
+weather_icon:subscribe("mouse.exited", function()
+  weather_icon:set({ ["popup.drawing"] = false })
+end)
 
 weather_icon:subscribe({ "routine", "forced", "system_woke", "wifi_change" }, update_weather)
 render_weather(nil)

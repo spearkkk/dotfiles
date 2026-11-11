@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors = require("lib.colors")
 local settings = require("lib.settings")
 
@@ -8,8 +9,12 @@ local state = true
 
 local item = Sbar.add("item", "dim_toggle", {
   position = "right",
+  width = settings.icon_cell_width,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
   icon = {
-    string = "􀤳",
+    string = icons.opacity,
+    align = "center",
     color = ON_COLOR,
     font = { size = settings.icon_size },
     padding_left = settings.inner_padding,

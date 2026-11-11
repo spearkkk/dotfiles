@@ -1,15 +1,10 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
 
-local TOP_Y = settings.double_line_bottom_y
-local BOTTOM_Y = settings.double_line_top_y
-local ICON_SIZE = settings.text_size_small - 1
-local PERCENT_SIZE = settings.text_size_large - 2
+local ICON_SIZE = 22
 local UPDATE_FREQ = settings.update_freq_slow
-
-local STACK_WIDTH = 16
-local STACK_RIGHT_GAP = 0
 
 local function battery_status()
   local batt = utils.capture("pmset -g batt")
@@ -21,12 +16,12 @@ local function battery_status()
   local charging = batt:find("AC Power", 1, true) ~= nil
 
   local icon
-  if charging then                 icon = "􀢋 "
-  elseif pct >= 90 then            icon = "􀛨 "
-  elseif pct >= 60 then            icon = "􀺸 "
-  elseif pct >= 30 then            icon = "􀺶 "
-  elseif pct >= 10 then            icon = "􀛩 "
-  else                             icon = "􀛪 "
+  if charging then                 icon = icons.battery_vertical_charging
+  elseif pct >= 90 then            icon = icons.battery_vertical_4
+  elseif pct >= 60 then            icon = icons.battery_vertical_3
+  elseif pct >= 30 then            icon = icons.battery_vertical_2
+  elseif pct >= 5 then             icon = icons.battery_vertical_1
+  else                             icon = icons.battery_vertical_exclamation
   end
 
   local color
@@ -42,18 +37,22 @@ local function battery_status()
   }, charging
 end
 
--- Top line: icon
+-- Centered icon
 local battery_icon = Sbar.add("item", "battery_icon", {
   position = "right",
-  width = STACK_WIDTH,
-  padding_left = 0,
-  padding_right = STACK_RIGHT_GAP,
-  y_offset = TOP_Y,
+  -- Right-side items flow right-to-left: reduce the reserved width without
+  -- moving the 22pt glyph, pulling preceding items four points closer.
+  width = settings.icon_cell_width - 4,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
+  y_offset = 0,
   update_freq = UPDATE_FREQ,
   icon = {
     drawing = true,
-    align = "right",
-    padding_right = 6,
+    align = "center",
+    y_offset = 0,
+    padding_left = settings.inner_padding,
+    padding_right = settings.inner_padding,
     color = colors.foreground,
     font = {
       size = ICON_SIZE,
@@ -65,30 +64,29 @@ local battery_icon = Sbar.add("item", "battery_icon", {
   background = {
     drawing = false,
   },
+  ["popup.height"] = 22,
+  ["popup.align"] = "center",
+  ["popup.y_offset"] = -4,
+  ["popup.background.height"] = 20,
+  ["popup.background.color"] = utils.set_alpha(colors.background_alt, 80),
+  ["popup.background.border_color"] = colors.border,
+  ["popup.background.border_width"] = 2,
+  ["popup.background.corner_radius"] = 4,
+  ["popup.background.drawing"] = true,
 })
 
--- Bottom line: xx%
+-- Percentage in the hover popup
 local battery_percent = Sbar.add("item", "battery_percent", {
-  position = "right",
-  width = STACK_WIDTH,
-  padding_left = 0,
-  padding_right = -STACK_WIDTH + STACK_RIGHT_GAP,
-  y_offset = BOTTOM_Y,
-  update_freq = 0,
-  icon = {
-    drawing = false,
-  },
+  position = "popup.battery_icon",
+  icon = { drawing = false },
   label = {
     drawing = true,
-    align = "right",
     color = colors.foreground,
-    font = {
-      size = PERCENT_SIZE,
-    },
+    font = { size = 12 },
+    padding_left = settings.inner_padding,
+    padding_right = settings.inner_padding,
   },
-  background = {
-    drawing = false,
-  },
+  background = { drawing = false },
 })
 
 
@@ -110,5 +108,12 @@ local function update_battery()
 end
 
 update_battery()
+
+battery_icon:subscribe("mouse.entered", function()
+  battery_icon:set({ ["popup.drawing"] = true })
+end)
+battery_icon:subscribe("mouse.exited", function()
+  battery_icon:set({ ["popup.drawing"] = false })
+end)
 
 battery_icon:subscribe({ "routine", "forced", "system_woke", "power_source_change" }, update_battery)

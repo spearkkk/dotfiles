@@ -9,6 +9,7 @@ local function harness(seed)
   local utils=assert(loadfile(root..'lib/utils.lua'))()
   utils.log=function(message) h.logs[#h.logs+1]=message end
   local libs={['lib.settings']=settings,['lib.utils']=utils,
+    ['lib.icons']=assert(loadfile(root..'lib/icons.lua'))(),
     ['lib.colors']={foreground='0xffffffff',base04='0xff444444',base0d='0xff00ffff',
       base0e='0xffff00ff',background_alt='0xff000000',base0a='0xffffff00'}}
   local env=setmetatable({require=function(name) return assert(libs[name],name) end},{__index=_G})

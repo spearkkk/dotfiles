@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
@@ -83,6 +84,19 @@ local function normalized_label(info)
   return title
 end
 
+-- Right-side items are inserted right-to-left; only reserve the gap while
+-- the media widget is visible on the same displays.
+local media_spacer = Sbar.add("item", "media_spacer", {
+  position = "right",
+  drawing = false,
+  width = 8,
+  padding_left = 0,
+  padding_right = 0,
+  ["icon.drawing"] = false,
+  ["label.drawing"] = false,
+  ["background.drawing"] = false,
+})
+
 local media_label = Sbar.add("item", ITEM_LABEL, {
   drawing = false,
   position = "right",
@@ -100,7 +114,11 @@ local media_label = Sbar.add("item", ITEM_LABEL, {
 
 local media_icon = Sbar.add("item", ITEM_ICON, {
   position = "right",
-  icon = "􀱝",
+  width = settings.icon_cell_width,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
+  icon = icons.brand_spotify,
+  ["icon.align"] = "center",
   ["icon.font.size"] = settings.icon_size,
   ["icon.color"] = colors.base0b,
   ["icon.padding_left"] = 2,
@@ -166,6 +184,7 @@ local function apply_visibility(attrs)
     return
   end
   if not attrs.drawing then attrs["popup.drawing"] = false end
+  media_spacer:set(attrs)
   media_label:set(attrs)
   media_icon:set(attrs)
   media_group:set(attrs)

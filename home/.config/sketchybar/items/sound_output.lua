@@ -1,18 +1,16 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
 
 local ITEM = "sound_output"
 local POPUP_SLOTS = 12
-local POPUP_TIMEOUT_SECONDS = 5
 local UPDATE_FREQ = 10
 local SA_BIN = utils.capture("command -v SwitchAudioSource 2>/dev/null")
 if SA_BIN == "" then
   SA_BIN = "/opt/homebrew/bin/SwitchAudioSource"
 end
 
-local popup_open = false
-local popup_deadline = 0
 local row_devices = {}
 local row_items = {}
 
@@ -20,25 +18,25 @@ local DEVICE_PRESETS = {
   {
     key = "sony_xm5",
     match = { "wh-1000xm5", "xm5", "sony" },
-    icon = "􀑈",
+    icon = icons.headphones,
     popup = true,
   },
   {
     key = "airpods",
     match = { "airpods" },
-    icon = "􁄡",
+    icon = icons.device_airpods,
     popup = true,
   },
   {
     key = "lg_hdr_4k",
     match = { "lg hdr 4k", "lg hdr", "lg" },
-    icon = "􀫑",
+    icon = icons.device_desktop,
     popup = true,
   },
   {
     key = "macbook_pro",
     match = { "macbook pro", "macbook", "built-in", "internal" },
-    icon = "􀊦",
+    icon = icons.device_laptop,
     popup = false,
   },
 }
@@ -99,25 +97,16 @@ local function device_icon(name)
   if preset then
     return preset.icon
   end
-  return "􀊩"
-end
-
-local function volume_icon(vol, muted)
-  if muted then
-    return "􀊢"
-  end
-  local v = tonumber(vol) or 0
-  if v <= 33 then
-    return "􀊤"
-  elseif v <= 66 then
-    return "􀊦"
-  end
-  return "􀊨"
+  return icons.volume
 end
 
 local sound_output = Sbar.add("item", ITEM, {
   position                = "right",
-  icon                    = "􀊩",
+  width                   = settings.icon_cell_width,
+  padding_left            = settings.defaults.padding_left,
+  padding_right           = settings.defaults.padding_right,
+  icon                    = icons.volume,
+  ["icon.align"]         = "center",
   ["icon.font.size"]     = settings.icon_size,
   ["icon.padding_left"]  = settings.inner_padding,
   ["icon.padding_right"] = settings.inner_padding,
@@ -127,7 +116,8 @@ local sound_output = Sbar.add("item", ITEM, {
   ["popup.height"]       = 22,
   ["popup.background.drawing"] = true,
   ["popup.background.color"] = utils.set_alpha(colors.background_alt, 80),
-  ["popup.background.border_width"] = 0,
+  ["popup.background.border_color"] = colors.border,
+  ["popup.background.border_width"] = 2,
   ["popup.background.corner_radius"] = 4,
   ["popup.background.alpha"] = "0xCC",
   update_freq             = UPDATE_FREQ,
@@ -204,12 +194,8 @@ end
 
 local function refresh_main()
   local dev = current_output_device()
-  local vol, muted = output_state()
-
-  local preset = preset_for_device(dev)
-  local is_internal = preset and preset.key == "macbook_pro"
-
-  local icon = is_internal and volume_icon(vol, muted) or device_icon(dev)
+  local _, muted = output_state()
+  local icon = muted and icons.volume_off or device_icon(dev)
   local color = muted and colors.base04 or colors.foreground
 
   sound_output:set({
@@ -218,40 +204,23 @@ local function refresh_main()
   })
 end
 
-local function fade_in_popup()
-  os.execute(string.format("sketchybar --animate sin 18 --set %q popup.drawing=on popup.background.alpha=0", ITEM))
-  os.execute(string.format("sketchybar --animate sin 18 --set %q popup.background.alpha=0xCC", ITEM))
-end
-
 local function open_popup()
-  popup_open = true
-  popup_deadline = os.time() + POPUP_TIMEOUT_SECONDS
   rebuild_popup()
-  fade_in_popup()
+  sound_output:set({ ["popup.drawing"] = true })
 end
 
 local function close_popup()
-  popup_open = false
   sound_output:set({ ["popup.drawing"] = false })
   hide_rows()
 end
 
-sound_output:subscribe("mouse.clicked", function(_)
-  if popup_open then
-    close_popup()
-  else
-    open_popup()
-  end
-end)
+sound_output:subscribe("mouse.entered", open_popup)
+-- The global subscription also lets SketchyBar suppress item exit while the
+-- pointer moves from this item into its popup.
+sound_output:subscribe({ "mouse.exited", "mouse.exited.global" }, close_popup)
 
 sound_output:subscribe({ "volume_change", "routine", "forced", "system_woke" }, function(_)
   refresh_main()
-
-  if popup_open then
-    if os.time() >= popup_deadline then
-      close_popup()
-    end
-  end
 end)
 
 refresh_main()

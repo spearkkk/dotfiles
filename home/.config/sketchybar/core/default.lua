@@ -12,7 +12,7 @@ Sbar.default({
   ["label.color"]              = colors.foreground,
   ["icon.color"]               = colors.foreground,
   ["label.font"]               = settings.font,
-  ["icon.font"]                = settings.font,
+  ["icon.font"]                = settings.icon_font,
   ["label.font.size"]          = settings.label_size,
   ["icon.font.size"]           = settings.icon_size,
 })

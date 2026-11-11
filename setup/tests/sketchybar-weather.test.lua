@@ -1,14 +1,18 @@
+local icons = dofile(assert(arg[1]) .. "/home/.config/sketchybar/lib/icons.lua")
 local root = assert(arg[1])
 package.path = root .. "/home/.config/sketchybar/?.lua;" .. package.path
 
 local colors = {
-  foreground = "foreground", base04 = "muted", base08 = "hot-day",
+  background = "background", background_alt = "0xff142c3e", border = "border", foreground = "foreground", base04 = "muted", base08 = "hot-day",
   base0a = "day", base0e = "hot-night", base0c = "cold-night", base0d = "night",
 }
 package.loaded["lib.colors"] = colors
 package.loaded["lib.settings"] = {
   double_line_bottom_y = 0, double_line_top_y = 0,
-  text_size_small = 12, text_size_large = 16,
+  text_size_small = 12, text_size_large = 16, icon_size = 20,
+  icon_cell_width = 26,
+  badge_width = 40, badge_size = 10, badge_y_offset = 9,
+  defaults = { padding_left = 4, padding_right = 4 }, inner_padding = 2,
 }
 -- Real lib.utils, real shell execution and the real Bash helper are exercised.
 -- Only the SketchyBar UI/async boundary and external HTTP responses are replaced.
@@ -26,6 +30,7 @@ end, add = function(_, name, options)
     for key, value in pairs(values) do self.values[key] = value end
   end
   function item:subscribe(events, callback)
+    if type(events) == "string" then events = { events } end
     for _, event in ipairs(events) do self.callbacks[event] = callback end
   end
   items[name] = item
@@ -50,6 +55,16 @@ end
 
 dofile(root .. "/home/.config/sketchybar/items/weather.lua")
 local icon, temp = items.weather_icon, items.weather_temp
+assert(icon.options.width == 26 and icon.options.icon.align == 'center', 'center weather in a 26px cell')
+assert(icon.options.icon.font.size == 20 and icon.options.y_offset == 0, "weather icon uses full centered size")
+assert(icon.options.padding_left == -8 and icon.options.padding_right == 4, "inset the clock underline left edge by twelve pixels")
+assert(icon.options.icon.padding_left == 2 and icon.options.icon.padding_right == 2, "weather has normal icon spacing")
+assert(temp.options.position == "popup.weather_icon", "temperature is in popup")
+assert(temp.options.label.font.size == 12, "popup label uses pomodoro sizing")
+assert(icon.options["popup.background.border_color"] == colors.border, "weather uses the theme border")
+assert(icon.callbacks["mouse.entered"] and icon.callbacks["mouse.exited"], "weather hover handlers installed")
+icon.callbacks["mouse.entered"](); assert(icon.values["popup.drawing"] == true)
+icon.callbacks["mouse.exited"](); assert(icon.values["popup.drawing"] == false)
 assert(icon.options.update_freq == 1800, "retain the 30 minute refresh interval")
 assert(temp.values.label == "--°", "show placeholder while startup fetch is pending")
 for _, event in ipairs({ "routine", "forced", "system_woke", "wifi_change" }) do
@@ -59,14 +74,14 @@ end
 assert(#jobs == 1, "startup and simultaneous events must not overlap requests")
 complete()
 assert(temp.values.label == "18°", "render startup weather")
-assert(icon.values.icon == "􀇃" and icon.values["icon.color"] == colors.base0a)
+assert(icon.values.icon == icons.cloud and icon.values["icon.color"] == colors.base0a)
 
 local cases = {
-  { 0, 28, 1, "28°", "􀆮", colors.base08 },
-  { 61, 25, 0, "25°", "􀇝", colors.base0e },
-  { 71, -3.6, 0, "-4°", "􀇏", colors.base0c },
-  { 0, 0, 0, "0°", "􀇁", colors.base0d },
-  { 999, 18.5, 1, "19°", "􀇃", colors.base0a },
+  { 0, 28, 1, "28°", icons.sun, colors.base08 },
+  { 61, 25, 0, "25°", icons.cloud_rain, colors.base0e },
+  { 71, -3.6, 0, "-4°", icons.cloud_snow, colors.base0c },
+  { 0, 0, 0, "0°", icons.moon_stars, colors.base0d },
+  { 999, 18.5, 1, "19°", icons.cloud, colors.base0a },
 }
 for _, case in ipairs(cases) do
   write(os.getenv("WEATHER_FILE"), string.format(
@@ -96,7 +111,7 @@ end
 local function assert_fallback()
   assert(temp.values.label == "--°", "failed fetch must show --°")
   assert(temp.values["label.color"] == colors.base04)
-  assert(icon.values.icon == "􀇃" and icon.values["icon.color"] == colors.base04)
+  assert(icon.values.icon == icons.cloud and icon.values["icon.color"] == colors.base04)
 end
 write(os.getenv("WEATHER_FILE"), '{}')
 icon.callbacks.forced()

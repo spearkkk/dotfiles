@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
@@ -9,8 +10,8 @@ local CELL_GAP = 2
 
 local ACTIVE_COLOR = colors.base0a
 local INACTIVE_COLOR = colors.base04
-local ACTIVE_ICON_SIZE = settings.icon_size + 8
-local INACTIVE_ICON_SIZE = settings.icon_size
+local ACTIVE_ICON_SIZE = settings.icon_size + 4
+local INACTIVE_ICON_SIZE = settings.icon_size - 2
 
 local items = {}
 
@@ -38,19 +39,22 @@ local function add_ws_item(idx, ws_id)
   local pad = ((idx == 1) and LEFT_START or CELL_GAP) + 2
 
   local icon_map = {
-    ["Q"] = "􀂴 ",
-    ["W"] = "􀃀 ",
-    ["E"] = "􀂜 ",
-    ["R"] = "􀂶 ",
-    ["`"] = "􀓔 ",
+    ["Q"] = icons.square_rounded_letter_q,
+    ["W"] = icons.square_rounded_letter_w,
+    ["E"] = icons.square_rounded_letter_e,
+    ["R"] = icons.square_rounded_letter_r,
+    ["`"] = icons.square_rounded_minus_2,
   }
   local icon = icon_map[ws_id] or ws_id
 
   local item = Sbar.add("item", "aerospace.ws." .. idx, {
     position = "left",
+    width = settings.icon_cell_width,
     icon = icon,
     padding_left = pad,
     ["icon.drawing"] = true,
+    ["icon.width"] = settings.icon_cell_width,
+    ["icon.align"] = "center",
     ["icon.color"] = INACTIVE_COLOR,
     ["icon.padding_left"] = settings.inner_padding - 1,
     ["icon.padding_right"] = settings.inner_padding - 1,

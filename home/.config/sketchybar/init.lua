@@ -10,5 +10,9 @@ local profile_init = home .. "/.config/sketchybar/profile/init.lua"
 local profile_file = io.open(profile_init, "r")
 if profile_file then
   profile_file:close()
+  -- Profile overlays may still use SF glyphs; preserve their original default.
+  Sbar.default({ ["icon.font"] = "SF Mono" })
   require("profile")
 end
+
+require("items.right_groups")()

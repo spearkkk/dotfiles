@@ -1,11 +1,8 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
 
--- Use text icons for input source state.
-local EN_ICON = "A"
-local KO_ICON = "가"
-local FIXED_WIDTH = 24
 local UPDATE_FREQ = 1
 
 local function current_input_source()
@@ -34,7 +31,9 @@ end
 
 local input_source = Sbar.add("item", "input_source", {
   position = "right",
-  width = FIXED_WIDTH,
+  width = settings.icon_cell_width,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
   update_freq = UPDATE_FREQ,
   icon = {
     drawing = true,
@@ -43,11 +42,10 @@ local input_source = Sbar.add("item", "input_source", {
     font = {
       size = settings.icon_size,
     },
-    y_offset = -1,
-    padding_left = 0,
-    padding_right = 0,
+    y_offset = 0,
+    padding_left = settings.inner_padding,
+    padding_right = settings.inner_padding,
   },
-  ["icon.font.style"] = "Bold",
   label = {
     drawing = false,
   },
@@ -58,17 +56,11 @@ local input_source = Sbar.add("item", "input_source", {
 
 local function update_input_source()
   local src = current_input_source()
-  if src == "ko" then
-    input_source:set({
-      icon = KO_ICON,
-      ["icon.font.size"] = settings.icon_size - 2,
-    })
-  else
-    input_source:set({
-      icon = EN_ICON,
-      ["icon.font.size"] = settings.icon_size,
-    })
-  end
+  input_source:set({
+    icon = icons.abc,
+    ["icon.font.size"] = 24,
+    ["icon.color"] = src == "ko" and colors.base04 or colors.foreground,
+  })
 end
 
 local function switch_input_source()

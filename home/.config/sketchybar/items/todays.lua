@@ -16,7 +16,6 @@ local BLINK_BORDER_ALPHA_DIM = 55
 local BLINK_BORDER_ALPHA_BRIGHT = 100
 
 local row_items = {}
-local popup_open = false
 local display_state = { status = "error", reason = "query_failed", allowed_ids = {}, generation = 0 }
 local last_label = ""
 local next_event = nil
@@ -132,14 +131,7 @@ local todays = Sbar.add("item", ITEM, {
   drawing = false,
   position = "q",
   width = ITEM_WIDTH,
-  icon = {
-    drawing = true,
-    string = "􀖇",
-    color = colors.base04,
-    padding_left = 8,
-    padding_right = 4,
-    font = { style = "Regular", size = settings.icon_size },
-  },
+  icon = { drawing = false },
   label = {
     drawing = true,
     align = "left",
@@ -166,7 +158,8 @@ local todays = Sbar.add("item", ITEM, {
     background = {
       drawing = true,
       color = utils.set_alpha(colors.background_alt, 90),
-      border_width = 0,
+      border_color = colors.border,
+      border_width = 2,
       corner_radius = 4,
     },
   },
@@ -238,6 +231,26 @@ local function read_cache()
         break
       end
     end
+    -- Descend into strictly contained, unfinished events; equal intervals
+    -- retain their original order. Continue for nested events at any depth.
+    while next_event do
+      local outer_start = to_minutes(next_event.start)
+      local outer_end = to_minutes(next_event["end"])
+      local contained
+      for _, evt in ipairs(events) do
+        local startm = to_minutes(evt.start)
+        local endm = to_minutes(evt["end"])
+        if startm and endm and outer_start and outer_end
+            and endm > nowm and endm > startm
+            and startm >= outer_start and endm <= outer_end
+            and (startm > outer_start or endm < outer_end) then
+          contained = evt
+          break
+        end
+      end
+      if not contained then break end
+      next_event = contained
+    end
   end
 
   return true
@@ -266,7 +279,6 @@ local function apply_style()
   if not attrs.drawing then
     attrs["popup.drawing"] = false
     todays:set(attrs)
-    popup_open = false
     return
   end
 
@@ -311,17 +323,6 @@ local function apply_style()
     last_label = padded
   end
 
-  local cal = tostring(next_event.calendar or "")
-  local cal_lc = cal:lower()
-  local icon_color = colors.base04
-  if cal:find("정창권", 1, true) then
-    icon_color = colors.base0b
-  elseif cal_lc:find("me", 1, true) then
-    icon_color = colors.base0a
-  end
-
-  attrs.icon = "􀖇"
-  attrs["icon.color"] = icon_color
   attrs["label.color"] = label_color
   attrs["background.border_width"] = border_width
   attrs["background.border_color"] = border_color
@@ -345,18 +346,23 @@ end
 
 todays:subscribe({ "routine", "calendar_change", "forced", "system_woke" }, refresh)
 
+todays:subscribe("mouse.entered", function()
+  if not display.attributes(display_state, next_event ~= nil).drawing then return end
+  rebuild_popup()
+  todays:set({ ["popup.drawing"] = true })
+end)
+
+-- Subscribe globally as well so SketchyBar keeps the popup open when the
+-- pointer moves from the item into its popup.
+todays:subscribe({ "mouse.exited", "mouse.exited.global" }, function()
+  todays:set({ ["popup.drawing"] = false })
+end)
+
 todays:subscribe("mouse.clicked", function(env)
   if not display.attributes(display_state, next_event ~= nil).drawing then return end
   local button = tostring((env and env.BUTTON) or "")
   if button == "right" or button == "2" then
     open_calendar_today()
-    return
-  end
-
-  popup_open = not popup_open
-  todays:set({ ["popup.drawing"] = popup_open })
-  if popup_open then
-    rebuild_popup()
   end
 end)
 

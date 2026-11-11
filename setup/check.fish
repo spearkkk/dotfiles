@@ -293,6 +293,11 @@ if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-install.te
     mark_fail "Sketchybar bridge installer tests failed"
 end
 
+log_step "Sketchybar icon states"
+if not "$lua_bin" "$repo_root/setup/tests/sketchybar-icons.test.lua"
+    mark_fail "Sketchybar icon tests failed"
+end
+
 log_step "Sketchybar weather"
 if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-weather.test.sh"
     mark_fail "Sketchybar weather tests failed"

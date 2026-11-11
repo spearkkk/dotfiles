@@ -7,12 +7,12 @@ local home = "/tmp/sketchybar-widget-visibility-synthetic"
 local calendar_path = home .. "/.cache/sketchybar/calendar.tsv"
 local media_path = home .. "/.cache/sketchybar/media.tsv"
 local real_date = os.date
-local refs, requests, files, reads, logs, commands, now, minutes
+local refs, requests, files, reads, logs, commands, now, minutes, creation_order
 local temporary_serial = 0
 local function is_permit_path(path)
   return type(path)=="string" and path:match("^/tmp/sketchybar%-widget%-visibility%-permit%-%d+[%w.]*$") ~= nil
 end
-local names = {"todays", "media_label", "media_icon", "media_group"}
+local names = {"todays", "media_spacer", "media_label", "media_icon", "media_group"}
 
 local function merge(target, props, prefix)
   for key,value in pairs(props) do
@@ -60,7 +60,7 @@ local function visible(want, ids)
   end
 end
 local function media_visible(want, ids)
-  for _,name in ipairs({"media_label", "media_icon", "media_group"}) do
+  for _,name in ipairs({"media_spacer", "media_label", "media_icon", "media_group"}) do
     assert(refs[name].props.drawing==want, name .. " drawing expected " .. tostring(want))
     if ids then assert(refs[name].props.display==ids, name .. " association expected " .. ids) end
   end
@@ -79,6 +79,7 @@ local function reset(empty)
   end
   _G.__dotfiles_display_policy=nil; _G.todays=nil
   refs, requests, files, reads, logs, commands = {}, {}, {}, {}, {}, {}
+  creation_order = {}
   now, minutes = 10000, 600
   files[home.."/.config/sketchybar/display_blocklist"]="Blocked\n"
   os.getenv=function(key) if key=="HOME" then return home end end
@@ -161,6 +162,7 @@ local function reset(empty)
   Sbar={
     add=function(kind,name,props,bracket_props)
       if kind=="event" then return end
+      creation_order[#creation_order+1] = name
       props=bracket_props or props
       assert(not refs[name], "duplicate item: "..name)
       if name=="todays" or name:match("^media_") then
@@ -188,6 +190,10 @@ local function reset(empty)
   }
   if not empty then calendar(); media(true) end
   require("items.todays"); require("items.media")
+  assert(refs.media_spacer.props.width==8 and refs.media_spacer.props.position=="right", "now playing uses an 8px spacer")
+  local positions={}
+  for i,name in ipairs(creation_order) do positions[name]=i end
+  assert(positions.media_spacer < positions.media_label, "spacer appears to the right of now playing")
   -- P01: only base modules are available; no work importer or subprocess.
   for name in pairs(package.loaded) do assert(not name:match("^profile"), "base imported work profile") end
   assert(#commands==1 and commands[1]:find("calendar.refresh",1,true), "unexpected collector/work execution")
@@ -204,7 +210,7 @@ local tests = {
   end},
   {"D01-D07/W03: focus, ID swap while visible, popup close and recovery", function()
     reset(); complete(allowed); visible(true,"2,3")
-    event("todays","mouse.clicked",{BUTTON="left"})
+    event("todays","mouse.entered")
     assert(refs.todays.props["popup.drawing"]==true)
     event("media_label","routine") -- consume one content tick, independent of display notifications
     local label=refs.media_label.props.label
@@ -234,11 +240,11 @@ local tests = {
     topology(allowed); media_visible(true,"2,3")
     assert(refs.media_label.props.label=="NEW_PRIVATE_TRACK - PRIV", "recovery rendered stale track")
   end},
-  {"W03: a late click cannot reopen a hidden calendar popup", function()
+  {"W03: a late hover cannot reopen a hidden calendar popup", function()
     reset(); complete(allowed)
-    event("todays","mouse.clicked",{BUTTON="left"})
+    event("todays","mouse.entered")
     topology(excluded)
-    event("todays","mouse.clicked",{BUTTON="left"})
+    event("todays","mouse.entered")
     assert(refs.todays.props["popup.drawing"]==false, "hidden popup reopened")
   end},
   {"W02: malformed cache fields never reach the marquee decoder", function()
@@ -254,6 +260,52 @@ local tests = {
     minutes=660; event("todays","routine"); assert(not refs.todays.props.drawing)
     reason("todays","no_upcoming_event")
     topology(snapshot({4,1},{"Allowed","Blocked"})); assert(not refs.todays.props.drawing)
+  end},
+  {"calendar popup hover, border and right-click shortcut", function()
+    reset(); complete(allowed)
+    local colors = require('lib.colors')
+    assert(refs.todays.props['popup.background.border_color'] == colors.border)
+    assert(refs.todays.props['popup.background.border_width'] == 2)
+    event('todays', 'mouse.entered')
+    assert(refs.todays.props['popup.drawing'] == true)
+    assert(refs['todays.event.1'].props.label:find('PRIVATE_EVENT',1,true))
+    event('todays', 'mouse.clicked', {BUTTON='left'})
+    assert(refs.todays.props['popup.drawing'] == true, 'left click must not close popup')
+    event('todays', 'mouse.exited')
+    assert(refs.todays.props['popup.drawing'] == false)
+    event('todays', 'mouse.entered')
+    event('todays', 'mouse.exited.global')
+    assert(refs.todays.props['popup.drawing'] == false)
+    local previous = #commands
+    event('todays', 'mouse.clicked', {BUTTON='right'})
+    assert(#commands == previous+1 and commands[#commands]:find('Calendar',1,true), 'right click still opens Calendar')
+  end},
+  {"nested calendar event takes priority until it ends", function()
+    reset(); complete(allowed)
+    files[calendar_path] = '1000\ttrue\n09:00\t18:00\tOuter\tC\n14:00\t15:00\tInner\tC\n'
+    for _, now_minutes in ipairs({600, 840, 899}) do
+      minutes=now_minutes; event('todays','routine')
+      assert(refs.todays.props.label:find('Inner',1,true), 'inner event should win before and during it')
+    end
+    minutes=900; event('todays','routine')
+    assert(refs.todays.props.label:find('Outer',1,true), 'outer event returns when inner ends')
+    event('todays','mouse.entered')
+    assert(refs['todays.event.1'].props.label:find('Outer',1,true) and refs['todays.event.2'].props.label:find('Inner',1,true), 'popup keeps all events in original order')
+  end},
+  {"calendar containment handles equal boundaries, deeper nesting and partial overlaps", function()
+    reset(); complete(allowed)
+    local cases = {
+      {'09:00\t18:00\tOuter\tC\n09:00\t15:00\tInner\tC\n', 'Inner'},
+      {'09:00\t18:00\tOuter\tC\n14:00\t18:00\tInner\tC\n', 'Inner'},
+      {'09:00\t18:00\tOuter\tC\n14:00\t16:00\tMiddle\tC\n14:30\t15:00\tInner\tC\n', 'Inner'},
+      {'09:00\t15:00\tFirst\tC\n14:00\t18:00\tSecond\tC\n', 'First'},
+      {'09:00\t15:00\tFirst\tC\n09:00\t15:00\tSame\tC\n', 'First'},
+      {'09:00\t18:00\tOuter\tC\n09:30\t09:59\tPast\tC\n', 'Outer'},
+    }
+    for _,case in ipairs(cases) do
+      files[calendar_path]='1000\ttrue\n'..case[1]; minutes=600; event('todays','routine')
+      assert(refs.todays.props.label:find(case[2],1,true), 'unexpected selection for '..case[2])
+    end
   end},
   {"W02: pause timeout survives focus and topology changes", function()
     reset(); complete(allowed)

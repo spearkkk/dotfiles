@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
@@ -13,7 +14,11 @@ end
 
 local wifi = Sbar.add("item", ITEM, {
   position = "right",
-  icon = "􀙈",
+  width = settings.icon_cell_width,
+  padding_left = settings.defaults.padding_left,
+  padding_right = settings.defaults.padding_right,
+  icon = icons.wifi_off,
+  ["icon.align"] = "center",
   ["icon.font.size"] = settings.icon_size,
   ["icon.padding_left"] = settings.inner_padding,
   ["icon.padding_right"] = settings.inner_padding,

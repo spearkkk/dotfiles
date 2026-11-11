@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors = require("lib.colors")
 local settings = require("lib.settings")
 
@@ -9,8 +10,10 @@ local TIME_UPDATE_FREQ = settings.update_freq_fast
 local DATE_UPDATE_FREQ = settings.update_freq_slow
 local STACK_WIDTH = 54
 local STACK_RIGHT_GAP = 8
+local DATE_LAYOUT_WIDTH = 30
 
--- Two items stacked on the same x-position.
+-- Keep the date's shorter layout width from reserving a second full cell.
+-- Its right padding still positions the date over the time.
 local timestamp_time = Sbar.add("item", "timestamp_time", {
   position = "right",
   width = STACK_WIDTH,
@@ -37,12 +40,16 @@ local timestamp_time = Sbar.add("item", "timestamp_time", {
 
 local timestamp_date = Sbar.add("item", "timestamp_date", {
   position = "right",
-  width = STACK_WIDTH,
+  width = DATE_LAYOUT_WIDTH,
   padding_right = -STACK_WIDTH + STACK_RIGHT_GAP,
   y_offset = BOTTOM_Y,
   update_freq = DATE_UPDATE_FREQ,
   icon = {
-    drawing = false,
+    drawing = true,
+    string = icons.calendar,
+    padding_left = 0,
+    padding_right = 2,
+    font = { size = DATE_SIZE + 1 },
   },
   label = {
     drawing = true,
@@ -76,7 +83,7 @@ local function update_date_context()
   local weekday_en = os.date("%a")
   local weekday_ko = weekday_map[weekday_en] or weekday_en
   weekday_prefix = weekday_ko .. " "
-  timestamp_date:set({ label = "􀉉 " .. os.date("%Y-%m-%d") })
+  timestamp_date:set({ label = os.date("%Y-%m-%d") })
 end
 
 local function update_time()

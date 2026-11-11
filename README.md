@@ -67,6 +67,7 @@ Run from the active `~/.dotfiles` checkout, not a temporary worktree:
 fish setup/bootstrap.fish --list-steps
 fish setup/bootstrap.fish --only theme --only stow
 fish setup/bootstrap.fish --only sketchybar-lua
+bash setup/install-sketchybar-fonts.sh
 fish setup/bootstrap.fish --only profiles --profile personal
 make -C setup/launchagents restart
 make -C setup/launchagents status

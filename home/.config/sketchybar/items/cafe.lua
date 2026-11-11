@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
@@ -20,15 +21,19 @@ end
 local function update(item)
   local pid = caffeinate_pid()
   if pid == "" then
-    item:set({ icon = "􀸘", ["icon.color"] = colors.base04 })
+    item:set({ icon = icons.square_rounded_minus, ["icon.color"] = colors.base04 })
   else
-    item:set({ icon = "􀸙", ["icon.color"] = colors.base0a })
+    item:set({ icon = icons.square_rounded, ["icon.color"] = colors.base0a })
   end
 end
 
 local cafe = Sbar.add("item", "cafe", {
   position               = "right",
-  icon                   = "􀸘",
+  width                  = settings.icon_cell_width,
+  padding_left           = settings.defaults.padding_left,
+  padding_right          = settings.defaults.padding_right,
+  icon                   = icons.square_rounded_minus,
+  ["icon.align"]         = "center",
   ["icon.font.size"]     = settings.icon_size,
   ["icon.color"]         = colors.base04,
   ["icon.padding_left"]  = settings.inner_padding,

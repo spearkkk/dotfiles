@@ -1,3 +1,4 @@
+local icons = require("lib.icons")
 local colors   = require("lib.colors")
 local settings = require("lib.settings")
 local utils    = require("lib.utils")
@@ -127,7 +128,7 @@ end
 
 pomodoro_work = Sbar.add("item", "pomodoro_work", {
   position                           = "e",
-  icon                               = "􀠸",
+  icon                               = icons.vaccine,
   ["icon.font.size"]                  = settings.icon_size,
   ["icon.padding_left"]              = settings.outer_padding,
   ["icon.padding_right"]             = 0,
@@ -159,7 +160,7 @@ pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
 
 pomodoro_break = Sbar.add("item", "pomodoro_break", {
   position                           = "e",
-  icon                               = "􀼙",
+  icon                               = icons.vaccine_bottle,
   ["icon.font.size"]                 = settings.icon_size,
   ["icon.padding_left"]              = settings.outer_padding,
   ["icon.padding_right"]             = 0,
