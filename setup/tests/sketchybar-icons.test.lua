@@ -64,18 +64,18 @@ local input = items.input_source
 assert(input.options.width == 26 and input.options.icon.align == 'center', 'center input in a 26px cell')
 assert(input.options.icon.padding_left == 2 and input.options.icon.padding_right == 2, 'input uses common icon padding')
 assert(input.options.padding_left == 4 and input.options.padding_right == 4, 'input uses common item padding')
-assert(input.values.icon == icons.abc)
-assert(input.values['icon.font.size'] == 24 and input.options.icon.y_offset == 0, 'do not raise the ABC glyph above neighboring icons')
+assert(input.values.icon == utf8.char(0xeb54), 'use the world icon')
+assert(input.values['icon.font.size'] == 20 and input.options.icon.y_offset == 0, 'world uses the common icon size')
 assert(input.values['icon.color'] == colors.foreground, 'English color')
 capture = 'com.apple.inputmethod.Korean'
 input.callbacks.routine()
-assert(input.values.icon == icons.abc, 'Korean keeps the same ABC icon')
-assert(input.values['icon.font.size'] == 24, 'Korean keeps the same ABC size')
+assert(input.values.icon == utf8.char(0xeb54), 'Korean keeps the same world icon')
+assert(input.values['icon.font.size'] == 20, 'Korean keeps the same world size')
 assert(input.values['icon.color'] == colors.base04, 'Korean dim color')
 capture = 'com.apple.keylayout.ABC'
 input.callbacks.routine()
-assert(input.values['icon.font.size'] == 24, 'restore ABC size after switching languages')
-assert(input.values.icon == icons.abc and input.values['icon.color'] == colors.foreground, 'switching back restores English color')
+assert(input.values['icon.font.size'] == 20, 'restore world size after switching languages')
+assert(input.values.icon == utf8.char(0xeb54) and input.values['icon.color'] == colors.foreground, 'switching back restores English color')
 print('PASS: Tabler icons, battery thresholds and input colors')
 
 utils.shell_quote = function(s) return "'" .. s .. "'" end

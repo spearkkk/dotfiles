@@ -57,8 +57,8 @@ local input_source = Sbar.add("item", "input_source", {
 local function update_input_source()
   local src = current_input_source()
   input_source:set({
-    icon = icons.abc,
-    ["icon.font.size"] = 24,
+    icon = icons.world,
+    ["icon.font.size"] = settings.icon_size,
     ["icon.color"] = src == "ko" and colors.base04 or colors.foreground,
   })
 end

@@ -39,6 +39,7 @@ return {
   opacity = u(0x102cb),
   percentage = u(0xecf4),
   calendar = u(0xea53),
+  world = u(0xeb54),
   abc = u(0xf567),
   alphabet_korean = u(0xff2c),
 }
