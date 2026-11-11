@@ -8,7 +8,7 @@ set theme_colors "$common_home/.config/fish/conf.d/0010-theme-colors.fish"
 set logger "$common_home/.config/fish/conf.d/0011-logger.fish"
 set selected_profiles
 set requested_steps
-set all_steps brew sketchybar-lua theme stow macos launchagents profiles
+set all_steps brew sketchybar-lua sketchybar-fonts theme stow macos launchagents profiles
 
 function usage
     echo "Usage: fish setup/bootstrap.fish [--only <step>]... [--profile <name>]..."
@@ -16,7 +16,7 @@ function usage
     echo "Without --only, run all base steps and any requested profiles."
     echo "--only <step>  Run only selected steps, once each in the order below."
     echo "--list-steps   List step names without changing anything."
-    echo "Steps: brew, sketchybar-lua, theme, stow, macos, launchagents, profiles"
+    echo "Steps: brew, sketchybar-lua, sketchybar-fonts, theme, stow, macos, launchagents, profiles"
     echo "Dependencies are not run automatically; required tools must already be available."
     echo "With --only, --profile requires selecting the profiles step explicitly."
 end
@@ -79,7 +79,7 @@ end
 
 set selected_steps
 if test (count $requested_steps) -eq 0
-    set selected_steps $all_steps[1..6]
+    set selected_steps $all_steps[1..-2]
     if test (count $selected_profiles) -gt 0
         set --append selected_steps profiles
     end
@@ -179,6 +179,14 @@ if contains -- sketchybar-lua $selected_steps
     log_step "Install pinned SketchyBar Lua bridge"
     if not bash "$script_dir/install-sketchybar-lua.sh"
         log_error "SketchyBar Lua setup failed."
+        exit 1
+    end
+end
+
+if contains -- sketchybar-fonts $selected_steps
+    log_step "Install pinned SketchyBar icon font"
+    if not bash "$script_dir/install-sketchybar-fonts.sh"
+        log_error "SketchyBar font setup failed."
         exit 1
     end
 end

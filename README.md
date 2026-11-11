@@ -67,7 +67,7 @@ Run from the active `~/.dotfiles` checkout, not a temporary worktree:
 fish setup/bootstrap.fish --list-steps
 fish setup/bootstrap.fish --only theme --only stow
 fish setup/bootstrap.fish --only sketchybar-lua
-bash setup/install-sketchybar-fonts.sh
+fish setup/bootstrap.fish --only sketchybar-fonts
 fish setup/bootstrap.fish --only profiles --profile personal
 make -C setup/launchagents restart
 make -C setup/launchagents status
@@ -77,6 +77,12 @@ tmux source-file ~/.tmux.conf
 Select only the commands you need. `--only` does not install prerequisites
 automatically. Link the base helpers before starting LaunchAgents. Plists are
 copied, not symlinked; use `make restart` to reinstall them after changes.
+
+The default bootstrap installs SF Pro through the common Brewfile and the
+pinned Tabler icon font through `sketchybar-fonts`. If the matching regular
+Tabler font is present, the installer moves it to a unique backup under
+`~/Library/Application Support/SketchyBar/font-backups/` to avoid font-name
+conflicts; it refuses to overwrite an unrecognized font.
 
 To stop and disable the managed media/calendar agents:
 

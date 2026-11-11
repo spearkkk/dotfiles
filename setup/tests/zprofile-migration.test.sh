@@ -31,7 +31,7 @@ class ZprofileMigration(unittest.TestCase):
         shutil.copy(ROOT / 'home/.zprofile', self.repo / 'home/.zprofile')
         (self.repo / 'setup/Brewfile').touch()
         (self.repo / 'setup/launchagents/Makefile').touch()
-        for name in ('set-theme.sh', 'set-macos.sh', 'install-sketchybar-lua.sh'):
+        for name in ('set-theme.sh', 'set-macos.sh', 'install-sketchybar-lua.sh', 'install-sketchybar-fonts.sh'):
             path = self.repo / 'setup' / name
             path.write_text('#!/bin/sh\nexit 0\n')
             path.chmod(0o700)

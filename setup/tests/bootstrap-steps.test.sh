@@ -14,8 +14,8 @@ import unittest
 ROOT = Path(sys.argv.pop(1))
 FISH = shutil.which('fish')
 assert FISH, 'fish is required'
-STEPS = ['brew', 'sketchybar-lua', 'theme', 'stow', 'macos', 'launchagents', 'profiles']
-DEFAULT_ACTIONS = ['brew', 'sketchybar-lua', 'theme', 'prepare-zprofile', 'stow', 'macos', 'launchagents']
+STEPS = ['brew', 'sketchybar-lua', 'sketchybar-fonts', 'theme', 'stow', 'macos', 'launchagents', 'profiles']
+DEFAULT_ACTIONS = ['brew', 'sketchybar-lua', 'sketchybar-fonts', 'theme', 'prepare-zprofile', 'stow', 'macos', 'launchagents']
 
 
 class BootstrapSteps(unittest.TestCase):
@@ -47,6 +47,7 @@ class BootstrapSteps(unittest.TestCase):
 ''' + self.record('launchagents'))
         for name, action in (
             ('install-sketchybar-lua.sh', 'sketchybar-lua'),
+            ('install-sketchybar-fonts.sh', 'sketchybar-fonts'),
             ('set-theme.sh', 'theme'), ('set-macos.sh', 'macos'),
             ('prepare-zprofile.sh', 'prepare-zprofile'),
         ):
@@ -106,7 +107,7 @@ test "$FAIL_ACTION" != "profile:$argv[1]"
         self.assertEqual(actions, ['theme'])
 
     def test_missing_unselected_scripts_are_ignored(self):
-        for name in ('set-macos.sh', 'set-theme.sh', 'install-sketchybar-lua.sh'):
+        for name in ('set-macos.sh', 'set-theme.sh', 'install-sketchybar-lua.sh', 'install-sketchybar-fonts.sh'):
             (self.repo / 'setup' / name).unlink()
         (self.repo / 'setup/launchagents/Makefile').unlink()
         actions, _ = self.run_bootstrap('--only', 'stow')
@@ -150,6 +151,14 @@ test "$FAIL_ACTION" != "profile:$argv[1]"
         self.env['FAIL_ACTION'] = 'theme'
         actions, _ = self.run_bootstrap('--only', 'theme', '--only', 'stow', status=1)
         self.assertEqual(actions, ['theme'])
+
+    def test_font_install_failure_stops_before_later_steps(self):
+        self.env['FAIL_ACTION'] = 'sketchybar-fonts'
+        actions, _ = self.run_bootstrap('--only', 'sketchybar-fonts', '--only', 'theme', status=1)
+        self.assertEqual(actions, ['sketchybar-fonts'])
+
+    def test_common_brewfile_includes_sf_pro(self):
+        self.assertIn('cask "font-sf-pro"', (ROOT / 'setup/Brewfile').read_text().splitlines())
 
     def test_missing_stow_fails_without_running_other_steps(self):
         (self.bin / 'stow').unlink()
