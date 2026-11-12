@@ -1,7 +1,9 @@
 local colors = require("lib.colors")
 
 return function()
-  Sbar.add("bracket", "right_clock", { "weather_icon", "timestamp_date", "timestamp_time" }, {
+  -- The date overlaps the time and has negative right padding; using it as the
+  -- rightmost member can collapse the bracket's calculated width.
+  Sbar.add("bracket", "right_clock", { "weather_icon", "timestamp_time" }, {
     ["background.drawing"] = true,
     ["background.color"] = colors.base04,
     ["background.height"] = 2,

@@ -8,7 +8,7 @@ end }
 local add_groups = require("items.right_groups")
 local function check()
   assert(groups.right_utility == nil and groups.right_system == nil, "only weather and time have an underline")
-  assert(table.concat(groups.right_clock.members, ",") == "weather_icon,timestamp_date,timestamp_time")
+  assert(table.concat(groups.right_clock.members, ",") == "weather_icon,timestamp_time", "anchor underline to time, not the overlapping date's negative padding")
   for _, group in pairs(groups) do
     assert(group.options["background.drawing"] == true)
     assert(group.options["background.height"] == 2)
