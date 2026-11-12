@@ -107,6 +107,38 @@ bash setup/install-sketchybar-lua.sh --check
 The separate `bash setup/tests/sketchybar-bridge-smoke.sh` is an optional **live**
 check that updates existing widgets; it is not part of the default checker.
 
+## Optional second bar
+
+`sketchibar` runs an independent SketchyBar instance using
+`~/.config/sketchibar/sketchibarrc`. After applying the base Stow package:
+
+```fish
+sketchibar &                          # start; not enabled at login
+sketchibar --bar hidden=toggle        # toggle visibility without stopping it
+sketchibar --bar hidden=off           # show
+sketchibar --bar hidden=on            # hide
+sketchibar --exit                     # stop only the second bar
+```
+
+It spans each display with an 80pt backplate and puts wake-prevention time,
+battery and weather
+in the lower row, aligned right. The main bar must use `margin=0` and
+`topmost=on` to sit above it (both are configured in the main bar; see the
+[approved baseline](share/docs/sketchibar-baseline.md)).
+Battery and wake-prevention time refresh every 60 seconds and on relevant system events;
+weather refreshes every 30 minutes, on wake and on Wi-Fi changes. Weather uses
+IP-based location from ipinfo.io and Open-Meteo, with current-hour precipitation
+probability (including snow), today's low/high and wind in m/s.
+Missing weather values show `—`. Battery time is macOS's estimate;
+`↑` means time to full. The time item, including its icon and spacing, is hidden
+when fully charged, zero, unavailable or invalid. Wi-Fi details are not collected.
+There are no hover handlers or shortcuts. Reload with `sketchibar --reload`.
+The main bar's battery and wake-prevention hover popups are removed; its
+wake-prevention click toggle remains. Sound is a read-only status icon with
+no popup or output-device selection. Wake time is read from the selected
+`caffeinate` process's macOS assertion (`Off` when inactive, `--` if no timeout
+can be determined); Claude resume sessions are excluded as in the main bar.
+
 ## Maintenance choices
 
 - **SketchyBar Lua bridge:** [the lock file](setup/sketchybar-lua.lock.json) pins

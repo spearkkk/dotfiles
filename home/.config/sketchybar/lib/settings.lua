@@ -2,7 +2,8 @@ local M = {}
 
 M.bar = {
   height        = 40,
-  margin        = 4,
+  margin        = 0,
+  topmost       = "on",
   y_offset      = 4,
   corner_radius = 8,
   border_width  = 3,

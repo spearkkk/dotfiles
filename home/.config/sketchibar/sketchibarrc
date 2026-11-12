@@ -1,0 +1,67 @@
+#!/bin/bash
+# Detail collectors are independent of the main bar.
+# Main bar must remain above this backplate (topmost=on, margin=0).
+set -eu
+
+args=(
+  --bar display=all position=top height=80 margin=0 y_offset=4
+        corner_radius=8 border_width=3 blur_radius=0
+        color=0xff0a1f2e border_color=0xff0a1f2e
+        padding_left=4 padding_right=4 shadow=off sticky=on
+        topmost=window hidden=off
+  --default background.drawing=off icon.drawing=on
+            icon.font="tabler-icons:Regular:16" icon.padding_left=4 icon.padding_right=5
+            label.font="SF Pro:Regular:12" label.color=0xffc6d8e4
+            label.padding_left=0 label.padding_right=5
+            padding_left=3 padding_right=3 update_freq=0 y_offset=-20
+)
+
+item() {
+  args+=(--add item "$1" right --set "$1" "icon=$2" "label=$3" "icon.color=$4")
+}
+
+group() {
+  local name=$1
+  shift
+  args+=(--add bracket "$name" "$@" --set "$name"
+         background.drawing=on background.color=0xff142c3e
+         background.height=28 background.corner_radius=4 background.border_width=0)
+}
+
+gap() {
+  args+=(--add item "$1" right --set "$1" width=14
+         icon.drawing=off label.drawing=off background.drawing=off)
+}
+
+# Right-side items flow right-to-left. Tabler glyphs match the installed font.
+item sketchibar.weather.wind '' '—' 0xff8ba7bb
+item sketchibar.weather.precip '' '—' 0xff7896cc
+item sketchibar.weather.high '' '—' 0xffc8945a
+item sketchibar.weather.low '' '—' 0xff7896cc
+item sketchibar.weather.current '' '—' 0xffc8ae6a
+group sketchibar.weather sketchibar.weather.current sketchibar.weather.low \
+      sketchibar.weather.high sketchibar.weather.precip sketchibar.weather.wind
+
+gap sketchibar.gap.weather
+item sketchibar.battery.time '' '—' 0xff8ba7bb
+args+=(--set sketchibar.battery.time drawing=off)
+item sketchibar.battery.level '９' '—' 0xff68be92
+args+=(--set sketchibar.battery.level icon.font.size=18)
+group sketchibar.battery sketchibar.battery.level sketchibar.battery.time
+
+gap sketchibar.gap.cafe
+item sketchibar.cafe.remaining '' '--' 0xff4a6e86
+group sketchibar.cafe sketchibar.cafe.remaining
+
+# Quote the installed path for SketchyBar's shell-based script runner.
+printf -v helper '%q' "$HOME/.local/libexec/sketchibar-update"
+args+=(
+  --add item sketchibar.system left
+  --set sketchibar.system drawing=off update_freq=60 "script=$helper system"
+  --subscribe sketchibar.system power_source_change system_woke
+  --set sketchibar.weather.current update_freq=1800 "script=$helper weather"
+  --subscribe sketchibar.weather.current system_woke wifi_change
+  --update
+)
+
+"$HOME/.local/bin/sketchibar" "${args[@]}"

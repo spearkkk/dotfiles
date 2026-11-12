@@ -1,0 +1,14 @@
+#!/bin/bash
+# Give SketchyBar a distinct argv[0], isolating its IPC endpoint and process lock.
+set -eu
+
+if ! binary=$(command -v sketchybar); then
+  printf 'sketchibar: sketchybar is not available in PATH\n' >&2
+  exit 127
+fi
+
+if [ "$#" -eq 0 ]; then
+  set -- --config "$HOME/.config/sketchibar/sketchibarrc"
+fi
+
+exec -a sketchibar "$binary" "$@"

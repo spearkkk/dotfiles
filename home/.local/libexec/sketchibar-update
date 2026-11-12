@@ -1,0 +1,173 @@
+#!/usr/bin/python3
+"""Bounded one-shot collectors for the detail bar; no samples or shell evaluation."""
+import json
+import math
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+GREEN, DIM = '0xff68be92', '0xff8ba7bb'
+YELLOW, BLUE, RED = '0xffc8ae6a', '0xff7896cc', '0xffd56b6b'
+
+
+def run(*args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL,
+                                       timeout=12, env=dict(os.environ, LC_ALL='C')).strip()
+    except (subprocess.SubprocessError, OSError):
+        return ''
+
+
+def item(label='—', icon=None, color=None):
+    value = {'label': label}
+    if icon is not None:
+        value['icon'] = icon
+    if color is not None:
+        value['icon.color'] = color
+    return value
+
+
+def battery(raw):
+    match = re.search(r'(\d+)%', raw)
+    result = {'sketchibar.battery.level': item(icon=chr(0xff15), color=DIM),
+              'sketchibar.battery.time': item(icon=chr(0xea70), color=DIM)}
+    result['sketchibar.battery.time']['drawing'] = 'off'
+    if not match or not 0 <= int(match[1]) <= 100:
+        return result
+    pct = int(match[1])
+    charging = re.search(r';\s*charging\b', raw) is not None
+    full = re.search(r';\s*charged\b', raw) is not None
+    discharging = re.search(r';\s*discharging\b', raw) is not None
+    glyph = 0xff17 if charging else (0xff19 if pct >= 90 else 0xff1a if pct >= 60
+                                    else 0xff1b if pct >= 30 else 0xff1c if pct >= 5 else 0xff15)
+    color = GREEN if pct > 50 else '0xffc8945a' if pct > 20 else RED
+    result['sketchibar.battery.level'] = item(f'{pct}%', chr(glyph), color)
+    remaining = re.search(r'(\d+):(\d{2})\s+remaining', raw)
+    if (not full and remaining and (charging or discharging)
+            and int(remaining[2]) < 60
+            and int(remaining[1]) * 60 + int(remaining[2]) > 0):
+        result['sketchibar.battery.time'].update({
+            'label': ('↑ ' if charging else '') + f'{int(remaining[1])}h {remaining[2]}m',
+            'drawing': 'on',
+        })
+    return result
+
+
+def caffeine_pid():
+    for pid in run('/usr/bin/pgrep', '-x', 'caffeinate').splitlines():
+        if not pid.isdecimal():
+            continue
+        parent_pid = run('/bin/ps', '-o', 'ppid=', '-p', pid).strip()
+        parent = run('/bin/ps', '-o', 'command=', '-p', parent_pid)
+        if 'claude --resume' not in parent:
+            return pid
+    return ''
+
+
+def caffeine(pid, assertions):
+    if not pid:
+        return {'sketchibar.cafe.remaining': item('Off', chr(0xf63e), '0xff4a6e86')}
+    label, matching = '--', False
+    for line in assertions.splitlines():
+        owner = re.match(r'\s*pid\s+(\d+)\(', line)
+        if owner:
+            matching = owner[1] == pid
+        timeout = re.search(r'Timeout will fire in (\d+) secs', line) if matching else None
+        if timeout:
+            seconds = int(timeout[1])
+            minutes = seconds // 60
+            hours = minutes // 60
+            label = '<1m' if 0 < seconds < 60 else (f'{hours}h {minutes % 60}m' if hours else f'{minutes}m')
+            break
+    return {'sketchibar.cafe.remaining': item(label, chr(0xf59a), YELLOW)}
+
+
+def number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def degrees(value):
+    return f'{math.floor(value + 0.5)}°' if number(value) else '—'
+
+
+def weather(payload):
+    result = {f'sketchibar.weather.{name}': item(icon=chr(glyph), color=color)
+              for name, glyph, color in [('current', 0xea76, YELLOW), ('low', 0xebed, BLUE),
+                                         ('high', 0xebee, '0xffc8945a'), ('precip', 0xea72, BLUE),
+                                         ('wind', 0xec34, DIM)]}
+    current = payload.get('current') or {}
+    daily, hourly = payload.get('daily') or {}, payload.get('hourly') or {}
+    temp, apparent = current.get('temperature_2m'), current.get('apparent_temperature')
+    code = current.get('weather_code')
+    snow = code in (71, 73, 75, 77, 85, 86)
+    glyph = (0xeb30 if current.get('is_day') == 1 else 0xece7) if code == 0 else (
+        0xea73 if snow else 0xecd9 if code in (45, 48) else
+        0xea74 if code in (95, 96, 99) else
+        0xea72 if number(code) and 51 <= code <= 82 else 0xea76)
+    result['sketchibar.weather.current']['icon'] = chr(glyph)
+    if number(temp):
+        result['sketchibar.weather.current']['label'] = degrees(temp) + f' ({degrees(apparent)})'
+    stamp = str(current.get('time', ''))
+    if stamp[:10] in daily.get('time', []):
+        index = daily['time'].index(stamp[:10])
+        for name, key in [('low', 'temperature_2m_min'), ('high', 'temperature_2m_max')]:
+            values = daily.get(key) or []
+            result[f'sketchibar.weather.{name}']['label'] = degrees(values[index] if index < len(values) else None)
+    hour = stamp[:13] + ':00' if len(stamp) >= 13 else ''
+    if hour in hourly.get('time', []):
+        index = hourly['time'].index(hour)
+        values = hourly.get('precipitation_probability') or []
+        probability = values[index] if index < len(values) else None
+        if number(probability) and 0 <= probability <= 100:
+            result['sketchibar.weather.precip']['label'] = f'{probability:.0f}%'
+    result['sketchibar.weather.precip']['icon'] = chr(0xea73 if snow else 0xea72)
+    wind = current.get('wind_speed_10m')
+    if number(wind) and wind >= 0:
+        result['sketchibar.weather.wind']['label'] = f'{wind:.1f}m/s'
+    return result
+
+
+def fetch_weather():
+    location = run('/usr/bin/curl', '-q', '-fsS', '--connect-timeout', '3', '--max-time', '8',
+                   'https://ipinfo.io/loc')
+    match = re.fullmatch(r'(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)', location)
+    if not match or not (-90 <= float(match[1]) <= 90 and -180 <= float(match[2]) <= 180):
+        raise ValueError('location lookup failed')
+    url = ('https://api.open-meteo.com/v1/forecast?latitude=' + match[1] + '&longitude=' + match[2]
+           + '&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m'
+           + '&daily=temperature_2m_min,temperature_2m_max&hourly=precipitation_probability'
+           + '&wind_speed_unit=ms&timezone=auto&forecast_days=1')
+    payload = json.loads(run('/usr/bin/curl', '-q', '-fsS', '--connect-timeout', '3', '--max-time', '8', url))
+    if not isinstance(payload, dict) or not isinstance(payload.get('current'), dict):
+        raise ValueError('invalid weather response')
+    return payload
+
+
+def render(values, binary):
+    args = [binary]
+    for name, props in values.items():
+        args += ['--set', name] + [f'{key}={value}' for key, value in props.items()]
+    subprocess.run(args, check=True, timeout=10)
+
+
+def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else 'system'
+    if mode == 'weather':
+        try:
+            values = weather(fetch_weather())
+        except (ValueError, TypeError, KeyError) as exc:
+            print(f'sketchibar-update: weather unavailable ({type(exc).__name__})', file=sys.stderr)
+            values = weather({})
+    elif mode == 'system':
+        values = battery(run('/usr/bin/pmset', '-g', 'batt'))
+        pid = caffeine_pid()
+        values.update(caffeine(pid, run('/usr/bin/pmset', '-g', 'assertions') if pid else ''))
+    else:
+        raise SystemExit('usage: sketchibar-update [system|weather]')
+    render(values, str(Path.home() / '.local/bin/sketchibar'))
+
+
+if __name__ == '__main__':
+    main()

@@ -293,6 +293,14 @@ if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-install.te
     mark_fail "Sketchybar bridge installer tests failed"
 end
 
+log_step "Sketchibar independent bar (offline fixtures)"
+if not python3 "$repo_root/setup/tests/sketchibar.test.py"
+    mark_fail "Sketchibar launcher and configuration tests failed"
+end
+if not python3 "$repo_root/setup/tests/sketchibar-data.test.py"
+    mark_fail "Sketchibar live data tests failed"
+end
+
 log_step "Sketchybar icon states"
 if not "$lua_bin" "$repo_root/setup/tests/sketchybar-icons.test.lua"
     mark_fail "Sketchybar icon tests failed"

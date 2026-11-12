@@ -64,31 +64,7 @@ local battery_icon = Sbar.add("item", "battery_icon", {
   background = {
     drawing = false,
   },
-  ["popup.height"] = 22,
-  ["popup.align"] = "center",
-  ["popup.y_offset"] = -4,
-  ["popup.background.height"] = 20,
-  ["popup.background.color"] = utils.set_alpha(colors.background_alt, 80),
-  ["popup.background.border_color"] = colors.border,
-  ["popup.background.border_width"] = 2,
-  ["popup.background.corner_radius"] = 4,
-  ["popup.background.drawing"] = true,
 })
-
--- Percentage in the hover popup
-local battery_percent = Sbar.add("item", "battery_percent", {
-  position = "popup.battery_icon",
-  icon = { drawing = false },
-  label = {
-    drawing = true,
-    color = colors.foreground,
-    font = { size = 12 },
-    padding_left = settings.inner_padding,
-    padding_right = settings.inner_padding,
-  },
-  background = { drawing = false },
-})
-
 
 local function update_battery()
   local st = battery_status()
@@ -100,20 +76,8 @@ local function update_battery()
     icon = st.icon,
     ["icon.color"] = st.color,
   })
-
-  battery_percent:set({
-    label = string.format("%d%%", st.pct),
-    ["label.color"] = colors.foreground,
-  })
 end
 
 update_battery()
-
-battery_icon:subscribe("mouse.entered", function()
-  battery_icon:set({ ["popup.drawing"] = true })
-end)
-battery_icon:subscribe("mouse.exited", function()
-  battery_icon:set({ ["popup.drawing"] = false })
-end)
 
 battery_icon:subscribe({ "routine", "forced", "system_woke", "power_source_change" }, update_battery)

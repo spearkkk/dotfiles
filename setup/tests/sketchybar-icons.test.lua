@@ -42,12 +42,9 @@ assert(batt.options.icon.font.size == 22 and batt.options.y_offset == 0, 'vertic
 assert(batt.options.icon.y_offset == 0, 'do not raise the battery glyph above neighboring icons')
 assert(batt.options.padding_left == 4 and batt.options.padding_right == 4, 'battery has symmetric item spacing')
 assert(batt.options.icon.padding_left == 2 and batt.options.icon.padding_right == 2, 'battery has normal icon spacing')
-assert(items.battery_percent.options.position == 'popup.battery_icon', 'battery percentage is in popup')
-assert(items.battery_percent.options.label.font.size == 12, 'popup label uses pomodoro sizing')
-assert(batt.options['popup.background.border_color'] == colors.border, 'battery uses the theme border')
-assert(batt.callbacks['mouse.entered'] and batt.callbacks['mouse.exited'], 'battery hover handlers installed')
-batt.callbacks['mouse.entered'](); assert(batt.values['popup.drawing'] == true)
-batt.callbacks['mouse.exited'](); assert(batt.values['popup.drawing'] == false)
+assert(items.battery_percent == nil, 'battery popup item is removed')
+assert(batt.options['popup.background.drawing'] == nil, 'battery has no popup background')
+assert(not batt.callbacks['mouse.entered'] and not batt.callbacks['mouse.exited'], 'battery hover is removed')
 for _, c in ipairs({{4, utf8.char(0xff15)}, {5, utf8.char(0xff1c)}, {29, utf8.char(0xff1c)},
   {30, utf8.char(0xff1b)}, {60, utf8.char(0xff1a)}, {90, utf8.char(0xff19)}}) do
   capture = 'Battery Power\n' .. c[1] .. '%'
@@ -102,45 +99,17 @@ assert(items['aerospace.ws.5'].values['icon.font.size'] == 24 and items['aerospa
 capture = ''
 dofile(root .. 'items/cafe.lua')
 local cafe = items.cafe
-local cafe_popup = items.cafe_remaining
 assert(cafe.options.update_freq == 60, 'caffeine status updates every 60 seconds')
-assert(cafe_popup.options.position == 'popup.cafe', 'remaining time is in the caffeine popup')
-assert(cafe.options['popup.background.border_color'] == colors.border, 'caffeine popup uses theme border')
-assert(cafe.options['popup.background.border_width'] == 2, 'caffeine popup uses common border width')
-assert(cafe.callbacks['mouse.entered'] and cafe.callbacks['mouse.exited'], 'caffeine popup opens on hover')
+assert(items.cafe_remaining == nil, 'remaining time moved out of the main bar')
+assert(not cafe.callbacks['mouse.entered'] and not cafe.callbacks['mouse.exited'], 'caffeine hover is removed')
+assert(cafe.callbacks['mouse.clicked'], 'preserve caffeine click toggle')
 assert(cafe.values.icon == utf8.char(0xf63e) and cafe.values['icon.color'] == colors.base04, 'inactive wake prevention uses rounded minus')
 capture = '123'
 cafe.callbacks.routine()
 assert(cafe.values.icon == utf8.char(0xf59a) and cafe.values['icon.color'] == colors.base0a, 'active wake prevention uses rounded square')
-local hover_jobs = {}
-Sbar.exec = function(command, callback) hover_jobs[#hover_jobs + 1] = {command=command, callback=callback} end
-utils.shell_quote = function(s) return "'" .. tostring(s):gsub("'", "'\\''") .. "'" end
-cafe.callbacks['mouse.entered']()
-assert(cafe.values['popup.drawing'] == true and #hover_jobs == 1, 'one query when hover begins')
-assert(hover_jobs[1].command:find('uu%-timeout') and hover_jobs[1].command:find('pmset %-g assertions'), 'query uses bounded pmset')
-cafe.callbacks['mouse.entered']()
-assert(#hover_jobs == 1, 'duplicate hover must not overlap a running query')
-hover_jobs[1].callback('PID=123\n   pid 999(caffeinate): x\n\tTimeout will fire in 30 secs\n   pid 123(caffeinate): x\n\tTimeout will fire in 86169 secs Action=TimeoutActionRelease\n', 0)
-assert(cafe_popup.values.label == '23h 56m', 'show matching process remaining time')
-cafe.callbacks['mouse.exited']()
-assert(cafe.values['popup.drawing'] == false, 'leaving closes the caffeine popup')
-cafe.callbacks['mouse.entered']()
-hover_jobs[2].callback('PID=123\n   pid 123(caffeinate): x\n\tno timeout\n', 0)
-assert(cafe_popup.values.label == '--', 'do not invent a timeout when none is reported')
-cafe.callbacks['mouse.exited']()
-cafe.callbacks['mouse.entered']()
-hover_jobs[3].callback('PID=none\n', 0)
-assert(cafe_popup.values.label == 'Off', 'show when no eligible caffeinate is running')
-cafe.callbacks['mouse.exited']()
-cafe.callbacks['mouse.entered']()
-cafe.callbacks['mouse.exited']()
-hover_jobs[4].callback('PID=123\n   pid 123(caffeinate): x\n\tTimeout will fire in 99 secs\n', 0)
-assert(cafe_popup.values.label == '--', 'ignore a query completed after hover ended')
-cafe.callbacks['mouse.entered']()
-hover_jobs[5].callback('PID=123\n   pid 123(caffeinate): x\n\tTimeout will fire in 99 secs\n', 124)
-assert(cafe_popup.values.label == '--', 'discard timed-out partial output')
 print('PASS: workspace focus and caffeine state')
 
+utils.shell_quote = function(s) return "'" .. tostring(s):gsub("'", [['"'"']]) .. "'" end
 local output_device, mute = 'MacBook Pro Speakers', false
 utils.set_alpha = function(c) return c end
 utils.capture = function(cmd)
@@ -152,8 +121,8 @@ utils.capture = function(cmd)
 end
 dofile(root .. 'items/sound_output.lua')
 local sound = items.sound_output
-assert(sound.options['popup.background.border_color'] == colors.border, 'speaker popup uses the theme border')
-assert(sound.options['popup.background.border_width'] == 2, 'speaker popup border matches weather')
+assert(sound.options['popup.background.drawing'] == nil, 'speaker has no popup')
+assert(items['sound_output.device.1'] == nil, 'output device rows are removed')
 for _, case in ipairs({ {'MacBook Pro Speakers', icons.device_laptop},
   {'Sony WH-1000XM5', icons.headphones}, {'AirPods', icons.device_airpods},
   {'LG HDR 4K', icons.device_desktop}, {'Other USB speaker', icons.volume} }) do
@@ -162,22 +131,9 @@ for _, case in ipairs({ {'MacBook Pro Speakers', icons.device_laptop},
   mute = true; sound.callbacks.routine()
   assert(sound.values.icon == icons.volume_off, 'mute overrides device: ' .. case[1])
 end
-assert(sound.callbacks['mouse.entered'] and sound.callbacks['mouse.exited'] and sound.callbacks['mouse.exited.global'], 'speaker popup responds to hover and leaving bar or popup')
-assert(not sound.callbacks['mouse.clicked'], 'speaker icon no longer toggles popup on click')
-output_device = 'MacBook Pro Speakers'
-sound.callbacks['mouse.entered']()
-assert(sound.values['popup.drawing'] == true, 'hover opens speaker popup')
-assert(items['sound_output.device.1'].values.label == 'MacBook Pro Speakers')
-assert(items['sound_output.device.2'].values.label == 'AirPods')
-assert(items['sound_output.device.3'].values.drawing == false, 'duplicate output devices are hidden')
-assert(items['sound_output.device.2'].values.click_script:find("-t output -s 'AirPods'", 1, true), 'popup devices remain selectable')
-sound.callbacks.routine()
-assert(sound.values['popup.drawing'] == true, 'routine refresh does not close an active hover popup')
-sound.callbacks['mouse.exited']()
-assert(sound.values['popup.drawing'] == false and items['sound_output.device.1'].values.drawing == false, 'leaving the speaker closes and clears popup')
-sound.callbacks['mouse.entered']()
-sound.callbacks['mouse.exited.global']()
-assert(sound.values['popup.drawing'] == false, 'leaving bar and popup closes popup')
+for _, event in ipairs({'mouse.entered', 'mouse.exited', 'mouse.exited.global', 'mouse.clicked'}) do
+  assert(not sound.callbacks[event], 'speaker is a read-only indicator: ' .. event)
+end
 print('PASS: output-device and mute icons')
 
 local real_date = os.date

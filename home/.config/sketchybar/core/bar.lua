@@ -3,6 +3,7 @@ local settings = require("lib.settings")
 
 Sbar.bar({
   position      = "top",
+  topmost       = settings.bar.topmost,
   height        = settings.bar.height,
   margin        = settings.bar.margin,
   y_offset      = settings.bar.y_offset,
