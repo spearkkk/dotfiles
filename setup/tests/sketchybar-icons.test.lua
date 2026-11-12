@@ -89,6 +89,7 @@ for i = 1, 5 do
   if i == 5 then assert(ws.options['icon.font'] == nil, 'backtick uses the default Tabler font') end
   assert(ws.options.width == 26 and ws.options['icon.align'] == 'center', 'workspace icons use equal centered cells')
   assert(ws.options['icon.width'] == 26, 'workspace glyphs are centered inside a fixed-width icon')
+  assert(ws.options.padding_left == 2 and ws.options.padding_right == 2, 'workspace items use identical symmetric spacing')
   assert(ws.values['icon.font.size'] == (i == 1 and 24 or 18))
   assert(ws.values['icon.color'] == (i == 1 and colors.base0a or colors.base04))
 end
@@ -179,12 +180,30 @@ sound.callbacks['mouse.exited.global']()
 assert(sound.values['popup.drawing'] == false, 'leaving bar and popup closes popup')
 print('PASS: output-device and mute icons')
 
+local real_date = os.date
+local seconds = '32'
+os.date = function(format)
+  if format == '*t' then return { wday = 5 } end
+  if format == '%a' then return 'Thu' end
+  if format == '%Y-%m-%d' then return '2026-11-12' end
+  if format == '%m-%d' then return '11-12' end
+  if format == '%S' then return seconds end
+  if format == '%H:%M:%S' then return '10:12:' .. seconds end
+  if format == '%H %M %S' then return '10 12 ' .. seconds end
+  error('unexpected date format: ' .. format)
+end
 dofile(root .. 'items/timestamp.lua')
 local time_opts = items.timestamp_time.options
 local date_opts = items.timestamp_date.options
-assert(time_opts.width == 54 and date_opts.width == 30, 'overlap clock cells to reduce the gap before weather')
-assert(time_opts.padding_right == 8 and date_opts.padding_right == -46, 'preserve date and time placement')
-assert(date_opts.icon.string == icons.calendar and date_opts.label.drawing, 'retain the date and its calendar icon')
+assert(time_opts.width == 54 and date_opts.width == 14, 'reduce the clock layout width to pull preceding items right')
+assert(time_opts.padding_right == 8 and date_opts.padding_right == -48, 'move only the date 2pt right')
+assert(date_opts.icon.drawing == false and date_opts.label.drawing, 'replace the calendar icon with text')
+assert(items.timestamp_date.values.label == 'THU 11-12', 'show English weekday and month-day without the year')
+assert(items.timestamp_time.values.label == '10:12:32', 'show time without a weekday or extra spacing')
+seconds = '33'
+items.timestamp_time.callbacks.routine()
+assert(items.timestamp_time.values.label == '10 12 33', 'retain blinking time separators')
+os.date = real_date
 
 dofile(root .. 'items/wifi.lua')
 dofile(root .. 'items/settings.lua')

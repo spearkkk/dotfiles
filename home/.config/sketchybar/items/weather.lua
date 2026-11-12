@@ -59,8 +59,9 @@ local weather_icon = Sbar.add("item", "weather_icon", {
   icon = {
     drawing = true,
     align = "center",
-    padding_left = settings.inner_padding,
-    padding_right = settings.inner_padding,
+    -- Shift the glyph right without changing the item's width or its neighbors.
+    padding_left = settings.inner_padding + 6,
+    padding_right = settings.inner_padding - 6,
     color = colors.foreground,
     font = {
       size = ICON_SIZE,

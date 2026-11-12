@@ -58,7 +58,7 @@ local icon, temp = items.weather_icon, items.weather_temp
 assert(icon.options.width == 26 and icon.options.icon.align == 'center', 'center weather in a 26px cell')
 assert(icon.options.icon.font.size == 20 and icon.options.y_offset == 0, "weather icon uses full centered size")
 assert(icon.options.padding_left == -8 and icon.options.padding_right == 4, "inset the clock underline left edge by twelve pixels")
-assert(icon.options.icon.padding_left == 2 and icon.options.icon.padding_right == 2, "weather has normal icon spacing")
+assert(icon.options.icon.padding_left == 8 and icon.options.icon.padding_right == -4, "shift the weather glyph right within the same cell")
 assert(temp.options.position == "popup.weather_icon", "temperature is in popup")
 assert(temp.options.label.font.size == 12, "popup label uses pomodoro sizing")
 assert(icon.options["popup.background.border_color"] == colors.border, "weather uses the theme border")
