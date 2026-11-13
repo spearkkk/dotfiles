@@ -4,8 +4,8 @@
 set -eu
 
 args=(
-  --bar display=all position=top height=80 margin=0 y_offset=4
-        corner_radius=8 border_width=3 blur_radius=0
+  --bar display=all position=top height=80 margin=0 y_offset=0
+        corner_radius=0 border_width=3 blur_radius=0
         color=0xff0a1f2e border_color=0xff0a1f2e
         padding_left=4 padding_right=4 shadow=off sticky=on
         topmost=window hidden=on

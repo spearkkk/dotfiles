@@ -85,8 +85,8 @@ class SketchibarTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout)
         bar = args[args.index("--bar") + 1:args.index("--default")]
-        for value in ("display=all", "height=80", "margin=0", "y_offset=4",
-                      "corner_radius=8", "border_width=3", "color=0xff0a1f2e",
+        for value in ("display=all", "height=80", "margin=0", "y_offset=0",
+                      "corner_radius=0", "border_width=3", "color=0xff0a1f2e",
                       "border_color=0xff0a1f2e", "topmost=window", "hidden=on"):
             self.assertIn(value, bar)
         self.assertFalse(any(arg.startswith("width=") for arg in bar))

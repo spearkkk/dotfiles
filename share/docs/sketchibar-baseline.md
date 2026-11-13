@@ -3,14 +3,14 @@
 Approved on 2026-11-12. Preserve this appearance in subsequent work.
 
 - Both bars have `margin=0`; AeroSpace gaps remain unchanged.
-- Main `sketchybar`: height 40pt, y-offset 4pt, `topmost=on`.
-- Detail `sketchibar`: height 80pt, y-offset 4pt, `topmost=window`.
+- Main `sketchybar`: height 40pt, y-offset 0pt, `topmost=on`.
+- Detail `sketchibar`: height 80pt, y-offset 0pt, `topmost=window`.
   Its background sits behind the main bar, forming one expanded outline.
 - All detail items and brackets use `y_offset=-20`, placing the information
   in the lower row. Positive offsets move upward and hide it behind the main bar.
 - Main item positions and sizes are unchanged.
 - Both backgrounds: `0xff0a1f2e`, border color `0xff0a1f2e`,
-  border width 3pt, corner radius 8pt, shadow off, blur radius 0.
+  border width 3pt, corner radius 0pt (square), shadow off, blur radius 0.
 - Width follows each display automatically, with no horizontal outer margin.
 
 ## Persistence status
@@ -26,6 +26,12 @@ display routing is coordinated through the `sketchibar` wrapper.
 `topmost=window` was verified as native window layer 3 for the detail bar;
 the main bar is layer 25. SketchyBar's bar query reports `topmost=on` for
 the detail bar even when its actual layer is 3.
+
+Tried 2026-11-13: main `topmost=window` (layer 3, to let the auto-hidden macOS
+menu bar, layer 24, appear above it). Rejected: with both bars at layer 3 the
+expanded detail backplate covered the main bar after a reload. Detail
+`topmost=off` is layer -20 and normal windows cover it. The main bar stays at
+`topmost=on`, so an auto-hidden macOS menu bar appears behind it.
 
 ## Live information
 
