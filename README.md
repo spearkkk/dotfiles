@@ -132,12 +132,33 @@ probability (including snow), today's low/high and wind in m/s.
 Missing weather values show `—`. Battery time is macOS's estimate;
 `↑` means time to full. The time item, including its icon and spacing, is hidden
 when fully charged, zero, unavailable or invalid. Wi-Fi details are not collected.
+The same battery group shows Mac battery/time → connected keyboard → connected
+trackpad, using Tabler `keyboard` and `rectangle` icons. Peripheral values refresh
+with the 60-second system collector and on wake/power events. Bluetooth System
+Profiler data identifies connected devices; Bluetooth HID registry data supplies
+missing battery values. Unknown/disconnected devices are hidden, never cached.
+There is one slot per device kind; ambiguous multiple keyboards or trackpads are
+hidden rather than displaying an unidentified value. AirPods/mouse batteries
+are not included yet. Device names and addresses are not persisted.
 There are no hover handlers or shortcuts. Reload with `sketchibar --reload`.
 The main bar's battery and wake-prevention hover popups are removed; its
 wake-prevention click toggle remains. Sound is a read-only status icon with
 no popup or output-device selection. Wake time is read from the selected
-`caffeinate` process's macOS assertion (`Off` when inactive, `--` if no timeout
-can be determined); Claude resume sessions are excluded as in the main bar.
+`caffeinate` process's macOS assertion (`--` if no timeout can be determined);
+Claude resume sessions are excluded as in the main bar. When inactive, the
+detail Coffee box and its group spacing are hidden. Main-bar toggles wait for
+process/assertion readiness before sending `sketchibar --trigger cafe_changed`.
+A dedicated Coffee collector handles that event immediately, independently of
+Bluetooth/battery collection, with a 60-second fallback and wake refresh.
+
+Pomodoro keeps one timer engine in the main bar. While the detail bar is visible,
+its leftmost right-aligned item shows the phase icon, cycle and remaining time instead of
+the main popup. Hiding or stopping the detail bar restores that popup without
+resetting the timer. Main-bar controls and notifications are unchanged.
+Use the `sketchibar` wrapper for visibility/reload/exit commands: it notifies the
+main bar to re-query visibility. Direct binary commands bypass this notification.
+Transient IPC failures fall back to the main popup with up to three retries;
+an absent optional bar is not polled indefinitely.
 
 ## Maintenance choices
 

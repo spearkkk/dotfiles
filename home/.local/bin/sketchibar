@@ -11,4 +11,25 @@ if [ "$#" -eq 0 ]; then
   set -- --config "$HOME/.config/sketchibar/sketchibarrc"
 fi
 
+notify=0
+domain=
+for arg in "$@"; do
+  case "$arg" in
+    --bar) domain=bar ;;
+    --exit|--reload) notify=1; domain=other ;;
+    --*) domain=other ;;
+    hidden=*) [ "$domain" != bar ] || notify=1 ;;
+  esac
+done
+
+if [ "$notify" -eq 1 ]; then
+  if (exec -a sketchibar "$binary" "$@"); then
+    # The main bar is optional; absence must not fail a successful bar command.
+    "$binary" --trigger sketchibar_visibility >/dev/null 2>&1 || :
+    exit 0
+  else
+    exit $?
+  fi
+fi
+
 exec -a sketchibar "$binary" "$@"

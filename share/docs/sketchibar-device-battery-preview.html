@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sketchibar · 연결 기기 배터리</title>
+  <style>
+    @font-face {
+      font-family: "Tabler Preview";
+      src: local("tabler-icons"), url("../../../Library/Fonts/tabler-icons-300.ttf") format("truetype");
+      font-weight: normal;
+      font-style: normal;
+      font-display: block;
+    }
+    :root {
+      color-scheme: dark;
+      font-family: "SF Pro", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #c6d8e4;
+      background: #071420;
+      --bar: #0a1f2e;
+      --panel: #142c3e;
+      --dim: #8ba7bb;
+      --green: #68be92;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 64px 24px; }
+    main { max-width: 1120px; margin: auto; }
+    .eyebrow { font-size: 11px; letter-spacing: .16em; color: var(--dim); }
+    h1 { font-size: clamp(25px, 4vw, 34px); font-weight: 600; letter-spacing: -.04em; margin: 14px 0 12px; }
+    .intro, footer { color: var(--dim); font-size: 13px; line-height: 1.8; }
+    .intro { margin: 0 0 32px; }
+    .desktop { padding: 20px 16px 80px; border: 1px solid #20394b; border-radius: 16px; background: linear-gradient(130deg, #163a43, #152639 75%); }
+    .bar { background: var(--bar); border: 3px solid var(--bar); border-radius: 8px; }
+    .main-row { height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 8px; }
+    .workspace { display: flex; align-items: center; gap: 12px; }
+    .workspace .icon { font-size: 18px; }
+    .workspace .inactive { color: #4a6e86; }
+    .main-status { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--dim); }
+    .detail-row { min-height: 40px; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; padding: 6px 4px; }
+    .group { height: 28px; padding: 0 12px; border-radius: 4px; background: var(--panel); display: inline-flex; align-items: center; gap: 16px; white-space: nowrap; }
+    .metric { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .icon { font-family: "Tabler Preview"; font-weight: normal; font-style: normal; font-size: 16px; line-height: 1; display: inline-block; }
+    .green { color: var(--green); }
+    .dim { color: var(--dim); }
+    .warm { color: #c8ae6a; }
+    .blue { color: #7896cc; }
+    .orange { color: #c8945a; }
+    .section-label { margin: 32px 0 12px; font-size: 12px; color: var(--dim); font-weight: 500; }
+    .cards { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+    .card { padding: 24px; background: #0b1b29; border: 1px solid #20394b; border-radius: 12px; }
+    .card h2 { font-size: 14px; font-weight: 500; margin: 0 0 6px; }
+    .card p { color: var(--dim); font-size: 12px; line-height: 1.7; margin: 0; }
+    .sample { display: flex; align-items: center; justify-content: center; min-height: 100px; margin: 18px 0; background: var(--bar); border-radius: 8px; }
+    .zoom { transform: scale(1.7); transform-origin: center; }
+    .choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    button { border: 1px solid #29485f; border-radius: 6px; background: transparent; color: var(--dim); padding: 9px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+    button[aria-pressed="true"] { background: #18394c; color: #e1edf4; border-color: #4a6e86; }
+    button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+    button .icon { vertical-align: -3px; margin-right: 6px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; color: var(--dim); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    footer { margin-top: 24px; font-size: 11px; }
+    footer a { color: inherit; }
+    @media (max-width: 720px) {
+      body { padding: 32px 16px; }
+      .cards { grid-template-columns: 1fr; }
+      .desktop { padding: 12px 8px 50px; }
+      .main-status .optional { display: none; }
+      .detail-row { gap: 14px; }
+      .zoom { transform: scale(1.4); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">SKETCHIBAR / DEVICE BATTERIES</div>
+    <h1>기기 배터리도, 한 그룹으로.</h1>
+    <p class="intro">이름 없이 아이콘과 잔량만. 맥북 배터리 왼쪽에 연결 기기를 모았습니다.</p>
+
+    <div class="desktop" aria-label="확장바 배치 미리보기">
+      <div class="bar">
+        <div class="main-row">
+          <div class="workspace" aria-label="메인 바 예시">
+            <i class="icon">&#xec17;</i><i class="icon">&#xf5be;</i>
+            <i class="icon inactive">&#xf5c4;</i><i class="icon inactive">&#xf5b2;</i><i class="icon inactive">&#xf5bf;</i>
+          </div>
+          <div class="main-status"><span class="optional">Sketchibar</span><i class="icon">&#xeabd;</i><i class="icon">&#xeb20;</i><i class="icon">&#xff19;</i><span>FRI 10:24</span></div>
+        </div>
+        <div class="detail-row">
+          <div class="group"><span class="metric"><i class="icon dim">&#xef04;</i>[2/4] 18:42</span></div>
+          <div class="group"><span class="metric"><i class="icon dim">&#xf59a;</i>1h 24m</span></div>
+          <div class="group" aria-label="연결 기기 배터리">
+            <span class="metric" aria-label="키보드 배터리 100퍼센트"><i class="icon green">&#xebd6;</i>100%</span>
+            <span class="metric" aria-label="트랙패드 배터리 91퍼센트"><i class="icon green trackpad">&#xed37;</i>91%</span>
+          </div>
+          <div class="group"><span class="metric"><i class="icon green">&#xff19;</i>82%</span><span class="metric dim"><i class="icon">&#xea70;</i>4h 12m</span></div>
+          <div class="group"><span class="metric"><i class="icon warm">&#xeb30;</i>8° (6°)</span><span class="metric blue">↓ 3°</span><span class="metric orange">↑ 12°</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">아이콘과 실제 표기</div>
+    <div class="cards">
+      <section class="card">
+        <h2>키보드 + 트랙패드</h2>
+        <p>위 바는 기본 크기, 아래는 아이콘을 보기 위한 확대입니다.</p>
+        <div class="sample">
+          <div class="group zoom">
+            <span class="metric"><i class="icon green">&#xebd6;</i>100%</span>
+            <span class="metric"><i class="icon green trackpad">&#xed37;</i>91%</span>
+          </div>
+        </div>
+        <p>다른 그룹과 같은 배경 · 높이 28pt · 둥글기 4pt · 그룹 간격 14pt.</p>
+      </section>
+      <section class="card">
+        <h2>트랙패드 아이콘 비교</h2>
+        <p>설치된 Tabler 3.51.0에는 전용 트랙패드 아이콘이 없어 대체 모양을 사용합니다.</p>
+        <div class="choices" aria-label="트랙패드 대체 아이콘 선택">
+          <button type="button" data-glyph="ed37" aria-pressed="true"><i class="icon">&#xed37;</i>rectangle · 추천</button>
+          <button type="button" data-glyph="f59a" aria-pressed="false"><i class="icon">&#xf59a;</i>square-rounded</button>
+          <button type="button" data-glyph="ee94" aria-pressed="false"><i class="icon">&#xee94;</i>hand-finger</button>
+        </div>
+        <div class="legend"><span><i class="icon">&#xf5a9;</i>AirPods</span><span><i class="icon">&#xf646;</i>케이스</span><span><i class="icon">&#xeaf9;</i>마우스</span></div>
+      </section>
+    </div>
+    <footer>
+      HTML 시안이며 실제 바에는 미적용입니다. 키보드 100% · 트랙패드 91%는 직전 조회값이며 나머지 수치는 예시입니다. 자동 갱신하지 않습니다.<br>
+      연결 해제·조회 불가 기기는 숨기는 구상입니다. 좁은 화면에서 이 HTML은 줄바꿈하며, 실제 바의 자동 줄바꿈을 뜻하지 않습니다.<br>
+      아이콘: 설치된 <a href="https://github.com/tabler/tabler-icons">Tabler Icons</a> 3.51.0 300 webfont · MIT.
+    </footer>
+  </main>
+  <script>
+    const buttons = [...document.querySelectorAll('button[data-glyph]')];
+    buttons.forEach(button => button.addEventListener('click', () => {
+      const glyph = String.fromCodePoint(parseInt(button.dataset.glyph, 16));
+      document.querySelectorAll('.trackpad').forEach(icon => { icon.textContent = glyph; });
+      buttons.forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
+    }));
+  </script>
+</body>
+</html>

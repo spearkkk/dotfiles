@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 """Bounded one-shot collectors for the detail bar; no samples or shell evaluation."""
 import json
+from contextlib import contextmanager
+import fcntl
 import math
 import os
 from pathlib import Path
+import plistlib
 import re
 import subprocess
 import sys
+from xml.parsers.expat import ExpatError
 
 GREEN, DIM = '0xff68be92', '0xff8ba7bb'
 YELLOW, BLUE, RED = '0xffc8ae6a', '0xff7896cc', '0xffd56b6b'
@@ -55,6 +59,69 @@ def battery(raw):
     return result
 
 
+def device_percent(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if 0 <= value <= 100 else None
+    if isinstance(value, str) and re.fullmatch(r'\d{1,3}%?', value):
+        pct = int(value.rstrip('%'))
+        return pct if pct <= 100 else None
+    return None
+
+
+def device_batteries(bluetooth, hid):
+    """Only connected keyboards/trackpads; registry-only entries may be stale."""
+    result = {}
+    for kind, glyph in [('keyboard', 0xebd6), ('trackpad', 0xed37)]:
+        result['sketchibar.battery.' + kind] = dict(item('', chr(glyph), DIM), drawing='off')
+    connected = {'keyboard': [], 'trackpad': []}
+    adapters = bluetooth.get('SPBluetoothDataType') if isinstance(bluetooth, dict) else None
+    for adapter in adapters if isinstance(adapters, list) else []:
+        entries = adapter.get('device_connected') if isinstance(adapter, dict) else None
+        for entry in entries if isinstance(entries, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            for name, props in entry.items():
+                if not isinstance(props, dict):
+                    continue
+                device_type = str(props.get('device_minorType', '')).lower()
+                kind = 'trackpad' if 'trackpad' in device_type else 'keyboard' if 'keyboard' in device_type else None
+                if kind:
+                    connected[kind].append((name, props))
+    for kind, devices in connected.items():
+        # One slot per kind: do not silently label multiple devices as one.
+        if len(devices) != 1:
+            continue
+        name, props = devices[0]
+        pct = device_percent(props.get('device_batteryLevelMain'))
+        if pct is None:
+            matches = [e for e in hid if isinstance(e, dict)
+                       and e.get('Product') == name and e.get('Transport') == 'Bluetooth'] if isinstance(hid, list) else []
+            if len(matches) == 1:
+                pct = device_percent(matches[0].get('BatteryPercent'))
+        if pct is not None:
+            result['sketchibar.battery.' + kind].update({
+                'label': f'{pct}%', 'drawing': 'on',
+                'icon.color': GREEN if pct > 50 else '0xffc8945a' if pct > 20 else RED,
+            })
+    return result
+
+
+def collect_device_batteries():
+    raw = run('/usr/sbin/system_profiler', '-timeout', '8', 'SPBluetoothDataType', '-json')
+    try:
+        bluetooth = json.loads(raw)
+    except ValueError:
+        bluetooth = {}
+    raw = run('/usr/sbin/ioreg', '-a', '-l', '-r', '-c', 'AppleDeviceManagementHIDEventService')
+    try:
+        hid = plistlib.loads(raw.encode()) if raw else []
+    except (plistlib.InvalidFileException, ValueError, ExpatError):
+        hid = []
+    return device_batteries(bluetooth, hid)
+
+
 def caffeine_pid():
     for pid in run('/usr/bin/pgrep', '-x', 'caffeinate').splitlines():
         if not pid.isdecimal():
@@ -67,8 +134,11 @@ def caffeine_pid():
 
 
 def caffeine(pid, assertions):
+    result = {'sketchibar.cafe': {'drawing': 'on' if pid else 'off'},
+              'sketchibar.gap.cafe': {'drawing': 'on' if pid else 'off'}}
     if not pid:
-        return {'sketchibar.cafe.remaining': item('Off', chr(0xf63e), '0xff4a6e86')}
+        result['sketchibar.cafe.remaining'] = dict(item('Off', chr(0xf63e), '0xff4a6e86'), drawing='off')
+        return result
     label, matching = '--', False
     for line in assertions.splitlines():
         owner = re.match(r'\s*pid\s+(\d+)\(', line)
@@ -81,7 +151,8 @@ def caffeine(pid, assertions):
             hours = minutes // 60
             label = '<1m' if 0 < seconds < 60 else (f'{hours}h {minutes % 60}m' if hours else f'{minutes}m')
             break
-    return {'sketchibar.cafe.remaining': item(label, chr(0xf59a), YELLOW)}
+    result['sketchibar.cafe.remaining'] = dict(item(label, chr(0xf59a), YELLOW), drawing='on')
+    return result
 
 
 def number(value):
@@ -152,6 +223,20 @@ def render(values, binary):
     subprocess.run(args, check=True, timeout=10)
 
 
+@contextmanager
+def system_lock(kind='system'):
+    # Serialize the snapshot AND publication across routine/wake/power workers.
+    # Never unlink the lock file: waiters must all lock the same inode.
+    path = Path.home() / ('Library/Caches/sketchibar-' + kind + '.lock')
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else 'system'
     if mode == 'weather':
@@ -161,11 +246,20 @@ def main():
             print(f'sketchibar-update: weather unavailable ({type(exc).__name__})', file=sys.stderr)
             values = weather({})
     elif mode == 'system':
-        values = battery(run('/usr/bin/pmset', '-g', 'batt'))
-        pid = caffeine_pid()
-        values.update(caffeine(pid, run('/usr/bin/pmset', '-g', 'assertions') if pid else ''))
+        with system_lock():
+            values = battery(run('/usr/bin/pmset', '-g', 'batt'))
+            values.update(collect_device_batteries())
+            render(values, str(Path.home() / '.local/bin/sketchibar'))
+        return
+    elif mode == 'cafe':
+        # Separate lock/worker: Bluetooth collection cannot delay a toggle.
+        with system_lock('cafe'):
+            pid = caffeine_pid()
+            values = caffeine(pid, run('/usr/bin/pmset', '-g', 'assertions') if pid else '')
+            render(values, str(Path.home() / '.local/bin/sketchibar'))
+        return
     else:
-        raise SystemExit('usage: sketchibar-update [system|weather]')
+        raise SystemExit('usage: sketchibar-update [system|cafe|weather]')
     render(values, str(Path.home() / '.local/bin/sketchibar'))
 
 

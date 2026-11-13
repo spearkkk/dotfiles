@@ -43,19 +43,38 @@ group sketchibar.weather sketchibar.weather.current sketchibar.weather.low \
       sketchibar.weather.high sketchibar.weather.precip sketchibar.weather.wind
 
 gap sketchibar.gap.weather
+item sketchibar.battery.trackpad '' '' 0xff8ba7bb
+args+=(--set sketchibar.battery.trackpad drawing=off)
+item sketchibar.battery.keyboard '' '' 0xff8ba7bb
+args+=(--set sketchibar.battery.keyboard drawing=off)
 item sketchibar.battery.time '' '—' 0xff8ba7bb
 args+=(--set sketchibar.battery.time drawing=off)
 item sketchibar.battery.level '９' '—' 0xff68be92
 args+=(--set sketchibar.battery.level icon.font.size=18)
-group sketchibar.battery sketchibar.battery.level sketchibar.battery.time
+group sketchibar.battery sketchibar.battery.level sketchibar.battery.time \
+      sketchibar.battery.keyboard sketchibar.battery.trackpad
 
 gap sketchibar.gap.cafe
 item sketchibar.cafe.remaining '' '--' 0xff4a6e86
 group sketchibar.cafe sketchibar.cafe.remaining
+args+=(--set sketchibar.cafe.remaining drawing=off --set sketchibar.cafe drawing=off
+       --set sketchibar.gap.cafe drawing=off)
+
+# Display only: the main bar owns the timer, persistence and notifications.
+gap sketchibar.gap.pomodoro
+args+=(
+  --add item sketchibar.pomodoro right
+  --set sketchibar.pomodoro drawing=off label="" icon=""
+)
+group sketchibar.pomodoro.group sketchibar.pomodoro
 
 # Quote the installed path for SketchyBar's shell-based script runner.
 printf -v helper '%q' "$HOME/.local/libexec/sketchibar-update"
 args+=(
+  --add event cafe_changed
+  --add item sketchibar.cafe.worker left
+  --set sketchibar.cafe.worker drawing=off updates=on update_freq=60 "script=$helper cafe"
+  --subscribe sketchibar.cafe.worker cafe_changed system_woke
   --add item sketchibar.system left
   --set sketchibar.system drawing=off update_freq=60 "script=$helper system"
   --subscribe sketchibar.system power_source_change system_woke

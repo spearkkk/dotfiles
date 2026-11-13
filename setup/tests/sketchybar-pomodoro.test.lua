@@ -2,8 +2,11 @@
 local root='home/.config/sketchybar/'
 local tests=0
 local function test(name,fn) fn();tests=tests+1;print('ok - '..name) end
-local function harness(seed)
+local function harness(seed, visible)
   local h={now=100000,disk=seed,items={},jobs={},shell={},logs={}}
+  h.detail_visible=visible or false
+  h.detail_jobs={}
+  h.detail_queue={}
   h.home=[[/tmp/Pomodoro ' home $(printf harmless)]]
   local settings=assert(loadfile(root..'lib/settings.lua'))()
   local utils=assert(loadfile(root..'lib/utils.lua'))()
@@ -37,10 +40,30 @@ local function harness(seed)
     function item:subscribe(event,callback) self.callbacks[event]=callback end
     h.items[name]=item;return item
   end,exec=function(command,callback)
+    if command:find('/.local/bin/sketchibar',1,true) then
+      h.detail_jobs[#h.detail_jobs+1]=command
+      if h.defer_detail then
+        h.detail_queue[#h.detail_queue+1]={command=command,callback=callback}
+        return
+      end
+      if command:find('--query bar',1,true) then
+        callback({hidden=h.detail_visible and 'off' or 'on',drawing='on'}, h.detail_exit or 0)
+      else
+        callback('', h.detail_set_exit or h.detail_exit or 0)
+      end
+      return
+    end
     if h.fail_schedule then error('private scheduling diagnostic') end
     h.jobs[#h.jobs+1]={command=command,callback=callback}
   end}
   assert(loadfile(root..'items/pomodoro.lua','t',env))()
+  function h.finish_detail(index,reply,code)
+    h.detail_queue[index].callback(reply,code)
+  end
+  function h.visibility(visible)
+    h.detail_visible=visible
+    h.items.pomodoro_work.callbacks.sketchibar_visibility({})
+  end
   function h.command(action) h.items.pomodoro_work.callbacks.pomodoro_change({ACTION=action}) end
   function h.advance(seconds)
     h.now=h.now+seconds
@@ -138,6 +161,89 @@ test('scheduling exceptions cannot stop the next timer',function()
     if message:find('nudge',1,true) then found=true end
   end
   assert(found)
+end)
+
+test('opening the detail bar moves only the display, not timer state',function()
+  local h=harness();h.command('start');h.advance(61)
+  local state=h.disk
+  assert(h.items.pomodoro_work.values['popup.drawing']==true)
+  h.visibility(true)
+  assert(h.disk==state and #h.jobs==0,'visibility must not restart or notify the timer')
+  assert(h.items.pomodoro_work.values.drawing==true,'main control stays visible')
+  assert(h.items.pomodoro_work.values['popup.drawing']==false)
+  assert(h.items.pomodoro_work_popup.values.drawing==false)
+  local command=h.detail_jobs[#h.detail_jobs]
+  assert(command:find('--set sketchibar.pomodoro',1,true))
+  assert(command:find('drawing=on',1,true) and command:find('[0/4] 23:59',1,true))
+  h.visibility(false)
+  assert(h.disk==state and h.items.pomodoro_work.values['popup.drawing']==true)
+  assert(h.items.pomodoro_work_popup.values.label=='[0/4] 23:59')
+end)
+
+test('visible detail bar restores current work and break time without duplicate timers',function()
+  for _,case in ipairs{
+    {seed='work\n99990\n1\nshort\n',label='[1/4] 24:50',icon=utf8.char(0xef04),main='pomodoro_work'},
+    {seed='break\n99990\n4\nlong\n',label='[4/4] 14:50(!)',icon=utf8.char(0xef69),main='pomodoro_break'},
+  } do
+    local h=harness(case.seed,true)
+    assert(h.disk==case.seed and #h.jobs==0)
+    local command=h.detail_jobs[#h.detail_jobs]
+    assert(command:find(case.label,1,true) and command:find(case.icon,1,true))
+    assert(h.items[case.main].values['popup.drawing']==false)
+    h.command('stop')
+    assert(h.detail_jobs[#h.detail_jobs]:find('drawing=off',1,true))
+  end
+end)
+
+test('unavailable detail display falls back to the original popup',function()
+  local h=harness(nil,true);h.command('start')
+  h.detail_exit=1;h.advance(1)
+  assert(h.items.pomodoro_work.values['popup.drawing']==true)
+  assert(#h.jobs==0 and h.disk:match('^work\n'))
+end)
+
+test('stale publication failure cannot override newer visibility',function()
+  local h=harness();h.command('start');h.defer_detail=true
+  h.visibility(true)
+  h.finish_detail(1,{hidden='off',drawing='on'},0) -- queues publication 2
+  h.visibility(false)
+  h.finish_detail(3,{hidden='on',drawing='on'},0)
+  h.visibility(true)
+  h.finish_detail(4,{hidden='off',drawing='on'},0)
+  h.finish_detail(2,'',1) -- old publication fails after the new open query
+  h.advance(1)
+  assert(h.items.pomodoro_work.values['popup.drawing']==false,'new visibility wins')
+  assert(#h.detail_queue==5,'next tick republishes to the new detail instance')
+end)
+
+test('empty successful visibility replies retry without restarting the timer',function()
+  local h=harness();h.command('start');local state=h.disk
+  h.defer_detail=true;h.visibility(true);h.finish_detail(1,'',0)
+  assert(h.items.pomodoro_work.values['popup.drawing']==true,'unknown visibility falls back safely')
+  h.defer_detail=false;h.advance(1)
+  assert(h.items.pomodoro_work.values['popup.drawing']==false,'transient empty reply recovers')
+  assert(h.detail_jobs[#h.detail_jobs]:find('drawing=on',1,true))
+  assert(h.disk==state and #h.jobs==0)
+end)
+
+test('unavailable optional bar has only bounded visibility retries',function()
+  local h=harness();h.command('start');h.detail_exit=1;h.visibility(true)
+  for _,seconds in ipairs({1,2,4}) do h.advance(seconds) end
+  local count=#h.detail_jobs
+  h.advance(30)
+  assert(#h.detail_jobs==count,'do not poll an absent optional bar forever')
+  assert(h.items.pomodoro_work.values['popup.drawing']==true)
+end)
+
+test('successful queries do not reset the failed publication retry budget',function()
+  local h=harness();h.command('start');h.detail_set_exit=1;h.visibility(true)
+  for _,seconds in ipairs({1,2,4}) do h.advance(seconds) end
+  local count=#h.detail_jobs
+  h.advance(30)
+  assert(#h.detail_jobs==count,'failed publication must not retry forever after valid queries')
+  assert(h.items.pomodoro_work.values['popup.drawing']==true)
+  h.detail_set_exit=0;h.visibility(true)
+  assert(h.items.pomodoro_work.values['popup.drawing']==false,'explicit event permits recovery')
 end)
 
 print('PASS: sketchybar-pomodoro ('..tests..' tests)')

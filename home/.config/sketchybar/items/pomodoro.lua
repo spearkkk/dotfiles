@@ -14,6 +14,19 @@ local pomodoro_work
 local pomodoro_work_popup
 local pomodoro_break
 local pomodoro_break_popup
+local detail_visible = false
+local detail_busy = false
+local detail_signature
+local apply_mode_ui
+local detail_epoch = 0
+local visibility_retries, visibility_retry_at = 0, nil
+local detail_binary = utils.shell_quote((os.getenv("HOME") or "") .. "/.local/bin/sketchibar")
+
+local function retry_visibility()
+  if visibility_retry_at or visibility_retries >= 3 then return end
+  visibility_retry_at = os.time() + 2 ^ visibility_retries
+  visibility_retries = visibility_retries + 1
+end
 
 local INACTIVE_COLOR = colors.foreground
 local ACTIVE_WORK_COLOR = colors.base04
@@ -109,21 +122,61 @@ local function notify(title, subtitle, message, sound, event)
   if not scheduled then utils.log("pomodoro: could not schedule nudge delivery") end
 end
 
-local function apply_mode_ui()
+-- There is only one timer engine. The detail bar receives display properties,
+-- never a timer command, state-file write or notification schedule.
+local function publish_detail(label)
+  if not detail_visible or detail_busy then return end
+  local active = mode ~= "none"
+  local icon = mode == "break" and icons.vaccine_bottle or icons.vaccine
+  local color = mode == "work" and ACTIVE_WORK_COLOR
+    or (break_kind == "long" and ACTIVE_LONG_BREAK_COLOR or ACTIVE_SHORT_BREAK_COLOR)
+  local signature = table.concat({tostring(active), icon, color, label or ""}, "|")
+  if detail_signature == signature then return end
+  local command = detail_binary .. " --set sketchibar.pomodoro "
+    .. utils.shell_quote("drawing=" .. (active and "on" or "off")) .. " "
+    .. utils.shell_quote("icon=" .. icon) .. " "
+    .. utils.shell_quote("icon.color=" .. color) .. " "
+    .. utils.shell_quote("label=" .. (label or ""))
+  detail_busy = true
+  detail_signature = signature
+  local epoch = detail_epoch
+  local scheduled = pcall(Sbar.exec, command .. " 2>/dev/null", function(_, exit_code)
+    detail_busy = false
+    if exit_code ~= 0 and epoch == detail_epoch then
+      detail_visible = false
+      detail_signature = nil
+      retry_visibility()
+      apply_mode_ui()
+      utils.log("pomodoro: detail display unavailable, using main popup")
+    elseif exit_code == 0 and epoch == detail_epoch then
+      visibility_retries, visibility_retry_at = 0, nil
+    end
+  end)
+  if not scheduled then
+    detail_busy = false
+    detail_visible = false
+    detail_signature = nil
+    retry_visibility()
+    apply_mode_ui()
+  end
+end
+
+apply_mode_ui = function()
+  local remaining = math.max(0, duration_for_mode(mode) - (os.time() - (start_time or os.time())))
+  local label = mode ~= "none" and popup_label(remaining) or nil
   if mode == "work" then
-    local label = popup_label(settings.pomodoro_work_seconds)
-    pomodoro_work:set({ drawing = true, ["icon.color"] = ACTIVE_WORK_COLOR, ["popup.drawing"] = true })
-    pomodoro_work_popup:set({ drawing = true, label = label })
+    pomodoro_work:set({ drawing = true, ["icon.color"] = ACTIVE_WORK_COLOR, ["popup.drawing"] = not detail_visible })
+    pomodoro_work_popup:set({ drawing = not detail_visible, label = label })
     pomodoro_break:set({ drawing = false, ["icon.color"] = INACTIVE_COLOR, ["popup.drawing"] = false })
     pomodoro_break_popup:set({ drawing = false, label = "" })
   elseif mode == "break" then
-    local label = popup_label(break_duration())
     local color = (break_kind == "long") and ACTIVE_LONG_BREAK_COLOR or ACTIVE_SHORT_BREAK_COLOR
-    pomodoro_break:set({ drawing = true, ["icon.color"] = color, ["popup.drawing"] = true })
-    pomodoro_break_popup:set({ drawing = true, label = label })
+    pomodoro_break:set({ drawing = true, ["icon.color"] = color, ["popup.drawing"] = not detail_visible })
+    pomodoro_break_popup:set({ drawing = not detail_visible, label = label })
     pomodoro_work:set({ drawing = false, ["icon.color"] = INACTIVE_COLOR, ["popup.drawing"] = false })
     pomodoro_work_popup:set({ drawing = false, label = "" })
   end
+  publish_detail(label)
 end
 
 pomodoro_work = Sbar.add("item", "pomodoro_work", {
@@ -199,6 +252,43 @@ Sbar.add("bracket", "pomodoro_group", { "pomodoro_break", "pomodoro_work" }, {
 
 Sbar.add("event", "pomodoro_change")
 
+Sbar.add("event", "sketchibar_visibility")
+local visibility_busy, visibility_pending = false, false
+local function refresh_visibility()
+  detail_epoch = detail_epoch + 1
+  if visibility_busy then visibility_pending = true; return end
+  visibility_busy = true
+  local epoch = detail_epoch
+  local scheduled = pcall(Sbar.exec, detail_binary .. " --query bar 2>/dev/null", function(info, exit_code)
+    visibility_busy = false
+    if epoch == detail_epoch then
+      local valid = exit_code == 0 and type(info) == "table"
+        and (info.hidden == "off" or info.hidden == "on")
+      detail_visible = valid and info.hidden == "off" and info.drawing ~= "off"
+      detail_signature = nil
+      if valid then
+        visibility_retry_at = nil
+        -- A visible bar is usable only after its display update succeeds.
+        if not detail_visible then visibility_retries = 0 end
+      else
+        retry_visibility()
+      end
+      apply_mode_ui()
+    end
+    if visibility_pending then
+      visibility_pending = false
+      refresh_visibility()
+    end
+  end)
+  if not scheduled then
+    visibility_busy = false
+    visibility_pending = false
+    detail_visible = false
+    retry_visibility()
+    apply_mode_ui()
+  end
+end
+
 local function stop_timer()
   mode = "none"
   start_time = nil
@@ -215,6 +305,7 @@ local function stop_timer()
     ["popup.drawing"]  = false,
   })
   pomodoro_break_popup:set({ drawing = false, label = "" })
+  publish_detail(nil)
   utils.log("pomodoro: stopped")
 end
 
@@ -264,7 +355,11 @@ local function complete_break()
 end
 
 local function on_routine()
-  if mode == "none" then return end
+  if visibility_retry_at and os.time() >= visibility_retry_at then
+    visibility_retry_at = nil
+    refresh_visibility()
+  end
+  if mode == "none" then publish_detail(nil); return end
   local duration  = duration_for_mode(mode)
   local remaining = duration - (os.time() - (start_time or os.time()))
   if remaining <= 0 then
@@ -277,6 +372,7 @@ local function on_routine()
     return
   end
   local label = popup_label(remaining)
+  publish_detail(label)
   if mode == "work" then
     pomodoro_work_popup:set({ label = label })
   else
@@ -334,3 +430,9 @@ pomodoro_break:subscribe("routine", function(env) on_routine() end)
 pomodoro_work:subscribe("mouse.clicked", function(env) on_click("work", env) end)
 pomodoro_break:subscribe("mouse.clicked", function(env) on_click("break", env) end)
 pomodoro_work:subscribe("pomodoro_change", on_command)
+
+pomodoro_work:subscribe("sketchibar_visibility", function()
+  visibility_retries, visibility_retry_at = 0, nil
+  refresh_visibility()
+end)
+refresh_visibility()

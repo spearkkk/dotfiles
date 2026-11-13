@@ -306,6 +306,10 @@ if not "$lua_bin" "$repo_root/setup/tests/sketchybar-icons.test.lua"
     mark_fail "Sketchybar icon tests failed"
 end
 
+if not "$lua_bin" "$repo_root/setup/tests/sketchybar-cafe.test.lua"
+    mark_fail "Sketchybar Coffee event tests failed"
+end
+
 log_step "Sketchybar weather"
 if not env LUA_BIN="$lua_bin" bash "$repo_root/setup/tests/sketchybar-weather.test.sh"
     mark_fail "Sketchybar weather tests failed"
