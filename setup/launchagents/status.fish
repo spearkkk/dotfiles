@@ -9,13 +9,16 @@ set uid (id -u)
 source (dirname (status -f))/helpers.fish
 set labels \
     dev.spearkkk.sketchybar.media-daemon \
-    dev.spearkkk.sketchybar.calendar-daemon
+    dev.spearkkk.sketchybar.calendar-daemon \
+    dev.spearkkk.sketchibar
 set log_files \
     /tmp/dev.spearkkk.sketchybar.media-daemon.log \
-    /tmp/dev.spearkkk.sketchybar.calendar-daemon.log
+    /tmp/dev.spearkkk.sketchybar.calendar-daemon.log \
+    /tmp/dev.spearkkk.sketchibar.log
 set error_log_files \
     /tmp/dev.spearkkk.sketchybar.media-daemon.err.log \
-    /tmp/dev.spearkkk.sketchybar.calendar-daemon.err.log
+    /tmp/dev.spearkkk.sketchybar.calendar-daemon.err.log \
+    /tmp/dev.spearkkk.sketchibar.err.log
 set stopped 0
 
 for index in (seq (count $labels))
