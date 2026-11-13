@@ -14,8 +14,11 @@ flush = function()
   local hidden = pending_hidden
   pending_hidden = nil
   command_busy = true
-  local scheduled = pcall(Sbar.exec,
-    detail_binary .. " --bar hidden=" .. (hidden and "on" or "off") .. " >/dev/null 2>&1",
+  local command = detail_binary .. " --bar hidden=" .. (hidden and "on" or "off") .. " >/dev/null 2>&1"
+  -- Both bars share window layer 3 so the macOS menu bar (layer 24) can show
+  -- above them. Re-asserting topmost raises the main bar over the detail backplate.
+  if not hidden then command = command .. "; sketchybar --bar topmost=window >/dev/null 2>&1" end
+  local scheduled = pcall(Sbar.exec, command,
     function()
       command_busy = false
       flush()
