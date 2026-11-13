@@ -113,12 +113,24 @@ check that updates existing widgets; it is not part of the default checker.
 `~/.config/sketchibar/sketchibarrc`. After applying the base Stow package:
 
 ```fish
-sketchibar &                          # start; not enabled at login
+sketchibar &                          # start hidden; not enabled at login
 sketchibar --bar hidden=toggle        # toggle visibility without stopping it
 sketchibar --bar hidden=off           # show
 sketchibar --bar hidden=on            # hide
 sketchibar --exit                     # stop only the second bar
 ```
+
+Hover anywhere over the main bar to reveal the detail bar. Moving into the
+detail row keeps it open; leaving both bars closes it after 300ms. Re-entry
+cancels a pending close. Before closing, a one-shot native cursor query checks
+the actual display/bar bounds, handling overlapping tracking areas and late
+relay events; this adds a small query delay after the 300ms debounce. Transient
+query failures retry up to three times and otherwise log a diagnostic. There
+is no continuous cursor polling. There is no extra button or shortcut, and manual
+visibility commands above still work. The optional process must already be
+running; hovering does not launch it. Both configurations start with the detail
+bar hidden. Geometry is unchanged: native `hidden` is boolean and cannot be
+animated directly, so opening/closing is instantaneous.
 
 It spans each display with an 80pt backplate and puts wake-prevention time,
 battery and weather
@@ -140,7 +152,7 @@ missing battery values. Unknown/disconnected devices are hidden, never cached.
 There is one slot per device kind; ambiguous multiple keyboards or trackpads are
 hidden rather than displaying an unidentified value. AirPods/mouse batteries
 are not included yet. Device names and addresses are not persisted.
-There are no hover handlers or shortcuts. Reload with `sketchibar --reload`.
+There are no device hover popups or shortcuts. Reload with `sketchibar --reload`.
 The main bar's battery and wake-prevention hover popups are removed; its
 wake-prevention click toggle remains. Sound is a read-only status icon with
 no popup or output-device selection. Wake time is read from the selected

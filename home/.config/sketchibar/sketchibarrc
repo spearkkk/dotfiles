@@ -8,7 +8,7 @@ args=(
         corner_radius=8 border_width=3 blur_radius=0
         color=0xff0a1f2e border_color=0xff0a1f2e
         padding_left=4 padding_right=4 shadow=off sticky=on
-        topmost=window hidden=off
+        topmost=window hidden=on
   --default background.drawing=off icon.drawing=on
             icon.font="tabler-icons:Regular:16" icon.padding_left=4 icon.padding_right=5
             label.font="SF Pro:Regular:12" label.color=0xffc6d8e4
@@ -70,7 +70,17 @@ group sketchibar.pomodoro.group sketchibar.pomodoro
 
 # Quote the installed path for SketchyBar's shell-based script runner.
 printf -v helper '%q' "$HOME/.local/libexec/sketchibar-update"
+printf -v main_binary '%q' "$(command -v sketchybar)"
+hover_script='case "$SENDER" in
+  mouse.entered.global) action=enter ;;
+  mouse.exited.global) action=exit ;;
+  *) exit 0 ;;
+esac
+'"$main_binary"' --trigger sketchibar_hover "ACTION=$action"'
 args+=(
+  --add item sketchibar.hover left
+  --set sketchibar.hover drawing=off updates=on "script=$hover_script"
+  --subscribe sketchibar.hover mouse.entered.global mouse.exited.global
   --add event cafe_changed
   --add item sketchibar.cafe.worker left
   --set sketchibar.cafe.worker drawing=off updates=on update_freq=60 "script=$helper cafe"

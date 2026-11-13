@@ -17,9 +17,11 @@ Approved on 2026-11-12. Preserve this appearance in subsequent work.
 
 The detail-bar startup configuration preserves the 80pt backplate,
 zero margin and lower-row offsets. The main bar's `margin=0` and `topmost=on`
-are also persisted in its configuration. Coordinated toggle/restore behavior
-for the bar backgrounds is not implemented; Pomodoro display routing is
-coordinated through the `sketchibar` wrapper.
+are also persisted in its configuration. The detail bar starts hidden. Main-bar
+global hover reveals it; it stays open over either bar and closes 300ms after
+leaving both. Re-entry cancels a pending close. No geometry animation or separate
+button is used; manual wrapper visibility commands remain available. Pomodoro
+display routing is coordinated through the `sketchibar` wrapper.
 
 `topmost=window` was verified as native window layer 3 for the detail bar;
 the main bar is layer 25. SketchyBar's bar query reports `topmost=on` for

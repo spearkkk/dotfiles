@@ -2,7 +2,7 @@ local loaded = {}
 local names = {
   "apple", "front_app", "aerospace", "todays", "timestamp", "weather",
   "battery", "input_source", "cafe", "dim_toggle", "settings", "wifi",
-  "sound_output", "media", "pomodoro",
+  "sound_output", "media", "pomodoro", "expansion",
 }
 for _, name in ipairs(names) do
   package.preload["items." .. name] = function() loaded[#loaded + 1] = name end

@@ -87,7 +87,7 @@ class SketchibarTests(unittest.TestCase):
         bar = args[args.index("--bar") + 1:args.index("--default")]
         for value in ("display=all", "height=80", "margin=0", "y_offset=4",
                       "corner_radius=8", "border_width=3", "color=0xff0a1f2e",
-                      "border_color=0xff0a1f2e", "topmost=window", "hidden=off"):
+                      "border_color=0xff0a1f2e", "topmost=window", "hidden=on"):
             self.assertIn(value, bar)
         self.assertFalse(any(arg.startswith("width=") for arg in bar))
         self.assertIn("--subscribe", args)
@@ -110,6 +110,10 @@ class SketchibarTests(unittest.TestCase):
         self.assertEqual(args[event - 2:event], ['--add', 'event'])
         self.assertTrue(any(arg.startswith('script=') and arg.endswith(' cafe') for arg in args))
         self.assertIn('sketchibar.cafe.worker', args)
+        self.assertIn('sketchibar.hover', args)
+        self.assertIn('mouse.entered.global', args)
+        self.assertIn('mouse.exited.global', args)
+        self.assertTrue(any(arg.startswith('script=') and 'sketchibar_hover' in arg for arg in args))
         self.assertTrue(any(arg.startswith("script=") and "sketchibar-update" in arg for arg in args))
         for sample in ("label=18° (17°)", "label=82%", "label=Home Wi-Fi", "label=192.168.0.24"):
             self.assertNotIn(sample, args)
@@ -164,6 +168,26 @@ class SketchibarTests(unittest.TestCase):
         for path in (LAUNCHER, CONFIG):
             self.assertTrue(os.access(path, os.X_OK), str(path))
             subprocess.run(["/bin/bash", "-n", str(path)], check=True)
+
+    def test_detail_hover_relay_forwards_only_enter_and_exit_to_main(self):
+        calls = self.base / 'hover-calls'
+        main = self.bin / 'sketchybar'
+        main.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n')
+        main.chmod(0o700)
+        fake = self.home / '.local/bin/sketchibar'
+        fake.write_text('#!/usr/bin/env python3\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+        fake.chmod(0o700)
+        env = dict(self.env, PATH=str(self.bin) + ':' + os.environ['PATH'], CALLS=str(calls))
+        result = subprocess.run(['/bin/bash', str(CONFIG)], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout)
+        relay = next(a.removeprefix('script=') for a in args
+                     if a.startswith('script=') and 'sketchibar_hover' in a)
+        subprocess.run(['/bin/sh', '-n'], input=relay, text=True, check=True)
+        for sender in ('mouse.entered.global', 'mouse.exited.global', 'routine', 'forced'):
+            subprocess.run(['/bin/sh', '-c', relay], env=dict(env, SENDER=sender), check=True)
+        self.assertEqual(calls.read_text().splitlines(),
+                         ['--trigger sketchibar_hover ACTION=enter', '--trigger sketchibar_hover ACTION=exit'])
 
 
 if __name__ == "__main__":
