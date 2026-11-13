@@ -132,6 +132,11 @@ running; hovering does not launch it. Both configurations start with the detail
 bar hidden. Geometry is unchanged: native `hidden` is boolean and cannot be
 animated directly, so opening/closing is instantaneous.
 
+An optional `~/.config/sketchibar/profile.sh` is sourced before the initial
+update. Local overlays can use the shared `item`, `group` and `gap` helpers;
+profile errors stop configuration instead of silently dropping the overlay.
+Profile-specific data and display restrictions remain the overlay's responsibility.
+
 It spans each display with an 80pt backplate and puts wake-prevention time,
 battery and weather
 in the lower row, aligned right. The main bar must use `margin=0` and

@@ -90,7 +90,18 @@ args+=(
   --subscribe sketchibar.system power_source_change system_woke
   --set sketchibar.weather.current update_freq=1800 "script=$helper weather"
   --subscribe sketchibar.weather.current system_woke wifi_change
-  --update
 )
+
+# Optional, local-only overlays share the same item/group/gap helpers. Keep all
+# profile-specific names, collectors and data outside the common configuration.
+profile="$HOME/.config/sketchibar/profile.sh"
+if [[ -e "$profile" || -L "$profile" ]]; then
+  if [[ ! -f "$profile" || ! -r "$profile" ]]; then
+    printf 'sketchibar: local profile is not a readable file\n' >&2
+    exit 1
+  fi
+  source "$profile"
+fi
+args+=(--update)
 
 "$HOME/.local/bin/sketchibar" "${args[@]}"

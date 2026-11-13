@@ -189,6 +189,27 @@ class SketchibarTests(unittest.TestCase):
         self.assertEqual(calls.read_text().splitlines(),
                          ['--trigger sketchibar_hover ACTION=enter', '--trigger sketchibar_hover ACTION=exit'])
 
+    def test_optional_local_profile_can_add_hidden_items_using_shared_style(self):
+        fake = self.home / '.local/bin/sketchibar'
+        fake.write_text('#!/usr/bin/env python3\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+        fake.chmod(0o700)
+        profile = self.home / '.config/sketchibar/profile.sh'
+        profile.parent.mkdir(parents=True)
+        profile.write_text("gap profile.gap\nitem profile.example 'x' '' 0xff8ba7bb\n"
+                           "group profile.group profile.example\n"
+                           "args+=(--set profile.example drawing=off)\n")
+        result = subprocess.run(['/bin/bash', str(CONFIG)], env=dict(self.env, PATH=os.environ['PATH']),
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout)
+        self.assertIn('profile.example', args)
+        self.assertIn('profile.group', args)
+        self.assertLess(args.index('profile.example'), args.index('--update'))
+        profile.write_text('return 19\n')
+        failed = subprocess.run(['/bin/bash', str(CONFIG)], env=dict(self.env, PATH=os.environ['PATH']),
+                                text=True, capture_output=True)
+        self.assertEqual(failed.returncode, 19, 'local profile errors must not be ignored')
+
 
 if __name__ == "__main__":
     unittest.main()
