@@ -7,7 +7,7 @@ args=(
   --bar display=all position=top height=28 margin=0 y_offset=0
         corner_radius=0 border_width=3 blur_radius=0
         color=0xff0a1f2e border_color=0xff0a1f2e
-        padding_left=4 padding_right=12 shadow=off sticky=on
+        padding_left=12 padding_right=12 shadow=off sticky=on
         topmost=window hidden=off
   --default background.drawing=off icon.drawing=on
             icon.font="tabler-icons:Regular:16" icon.padding_left=4 icon.padding_right=5
@@ -70,6 +70,22 @@ group sketchibar.pomodoro.group sketchibar.pomodoro
 
 # Quote the installed path for SketchyBar's shell-based script runner.
 printf -v helper '%q' "$HOME/.local/libexec/sketchibar-update"
+printf -v detail_binary '%q' "$HOME/.local/bin/sketchibar"
+
+# Display only: the app name and logo moved here from the main bar, keeping their look.
+front_app_script='[ "$SENDER" = front_app_switched ] && '"$detail_binary"' --set "$NAME" label="$INFO"'
+args+=(
+  --add item sketchibar.apple left
+  --set sketchibar.apple "icon=" icon.color=0xffc47a72 icon.font="tabler-icons:Regular:20"
+        icon.padding_left=2 icon.padding_right=2 label.drawing=off
+  --add item sketchibar.front_app left
+  --set sketchibar.front_app icon.drawing=off label="" label.font="SF Pro:Italic:13"
+        label.max_chars=28 label.padding_left=10 label.padding_right=10
+        background.drawing=on background.color=0xff142c3e background.height=26
+        background.corner_radius=4 background.border_width=3 background.border_color=0xe54a6e86
+        background.padding_left=6 background.padding_right=6 "script=$front_app_script"
+  --subscribe sketchibar.front_app front_app_switched
+)
 printf -v main_binary '%q' "$(command -v sketchybar)"
 hover_script='case "$SENDER" in
   mouse.entered.global) action=enter ;;

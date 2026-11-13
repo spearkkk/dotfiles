@@ -9,7 +9,7 @@ M.bar = {
   corner_radius = 0,
   border_width  = 3,
   blur_radius   = 0,
-  padding_left  = 4,
+  padding_left  = 7,
   padding_right = 4,
 }
 

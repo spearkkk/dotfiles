@@ -1,6 +1,6 @@
 local loaded = {}
 local names = {
-  "apple", "front_app", "aerospace", "todays", "timestamp", "pomodoro",
+  "aerospace", "todays", "timestamp", "pomodoro",
   "input_source", "cafe", "dim_toggle", "settings", "wifi",
   "sound_output", "media",
 }

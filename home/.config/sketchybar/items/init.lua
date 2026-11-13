@@ -1,5 +1,3 @@
-require("items.apple")
-require("items.front_app")
 require("items.aerospace")
 require("items.todays")
 require("items.timestamp")
