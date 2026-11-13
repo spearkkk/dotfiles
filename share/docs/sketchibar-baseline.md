@@ -4,10 +4,10 @@ Approved on 2026-11-12. Preserve this appearance in subsequent work.
 
 - Both bars have `margin=0`; AeroSpace gaps remain unchanged.
 - Main `sketchybar`: height 40pt, y-offset 0pt, `topmost=window` (layer 3, below the auto-hidden macOS menu bar at layer 24).
-- Detail `sketchibar`: height 80pt, y-offset 0pt, `topmost=window`.
-  Its background sits behind the main bar, forming one expanded outline.
-- All detail items and brackets use `y_offset=-20`, placing the information
-  in the lower row. Positive offsets move upward and hide it behind the main bar.
+- Detail `sketchibar`: height 40pt, y-offset 40pt, `topmost=window`.
+  It occupies the row directly below the main bar and never overlaps it; the
+  matching background and border colors make one expanded outline.
+- Detail items and brackets use `y_offset=0` within that row.
 - Main item positions and sizes are unchanged.
 - Both backgrounds: `0xff0a1f2e`, border color `0xff0a1f2e`,
   border width 3pt, corner radius 0pt (square), shadow off, blur radius 0.
@@ -15,8 +15,8 @@ Approved on 2026-11-12. Preserve this appearance in subsequent work.
 
 ## Persistence status
 
-The detail-bar startup configuration preserves the 80pt backplate,
-zero margin and lower-row offsets. The main bar's `margin=0` and `topmost=window`
+The detail-bar startup configuration preserves the 40pt lower row,
+zero margin and its y-offset. The main bar's `margin=0` and `topmost=window`
 are also persisted in its configuration. The detail bar starts hidden. Main-bar
 global hover reveals it; it stays open over either bar and closes 300ms after
 leaving both. Re-entry cancels a pending close. No geometry animation or separate
@@ -24,12 +24,12 @@ button is used; manual wrapper visibility commands remain available. Pomodoro
 display routing is coordinated through the `sketchibar` wrapper.
 
 `topmost=window` was verified as native window layer 3 for both bars, so the
-auto-hidden macOS menu bar (layer 24) appears above them. Same-layer order is
-by recency, so each detail show is followed by `sketchybar --bar topmost=window`
-to raise the main bar over the detail backplate (without it, the backplate
-covered the main bar after a reload). Detail `topmost=off` is layer -20 and
-normal windows cover it. SketchyBar's bar query reports `topmost=on` even when
-the actual layer is 3.
+auto-hidden macOS menu bar (layer 24) appears above them. The bars do not
+overlap, so their same-layer order does not matter. An earlier 80pt detail
+backplate behind the main bar needed `sketchybar --bar topmost=window` after
+each show to stay below it, and that re-assertion flickered on hover. Detail
+`topmost=off` is layer -20 and normal windows cover it. SketchyBar's bar query
+reports `topmost=on` even when the actual layer is 3.
 
 ## Live information
 

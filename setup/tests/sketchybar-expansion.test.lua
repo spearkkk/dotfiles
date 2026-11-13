@@ -25,7 +25,7 @@ local function harness(defer)
       if (h.point_failures or 0)>0 then h.point_failures=h.point_failures-1;callback('',0) else callback(h.point,0) end
     elseif command:find('--query bar',1,true) then
       if (h.bar_failures or 0)>0 then h.bar_failures=h.bar_failures-1;callback('',0)
-      else callback({height=80,y_offset=4,margin=0,position='top'},0) end
+      else callback({height=40,y_offset=40,margin=0,position='top'},0) end
     elseif not command:find('sleep',1,true) and not h.defer then callback('',0) end
   end}
   assert(loadfile(path,'t',env))()

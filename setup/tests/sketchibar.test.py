@@ -85,15 +85,15 @@ class SketchibarTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout)
         bar = args[args.index("--bar") + 1:args.index("--default")]
-        for value in ("display=all", "height=80", "margin=0", "y_offset=0",
+        for value in ("display=all", "height=40", "margin=0", "y_offset=40",
                       "corner_radius=0", "border_width=3", "color=0xff0a1f2e",
                       "border_color=0xff0a1f2e", "topmost=window", "hidden=on"):
             self.assertIn(value, bar)
         self.assertFalse(any(arg.startswith("width=") for arg in bar))
         self.assertIn("--subscribe", args)
         self.assertNotIn("label=미리보기", args)
-        self.assertIn("y_offset=-20", args)
-        self.assertNotIn("y_offset=20", args)
+        self.assertIn("y_offset=0", args)
+        self.assertNotIn("y_offset=-20", args)
         for name in ("sketchibar.battery.keyboard", "sketchibar.battery.trackpad"):
             self.assertIn(name, args)
         battery_group = args.index("sketchibar.battery")

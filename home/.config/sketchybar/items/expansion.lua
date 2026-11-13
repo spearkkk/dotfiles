@@ -6,7 +6,7 @@ local command_busy = false
 local pending_hidden
 local pointer_query = [[/usr/bin/osascript -l JavaScript -e 'ObjC.import("CoreGraphics"); var p = $.CGEventGetLocation($.CGEventCreate(null)); JSON.stringify({x:p.x, y:p.y});']]
 
--- Keep the approved 80pt backplate unchanged. Native hidden is a boolean, not
+-- The detail bar occupies the 40pt row below the main bar, so the two never overlap. Native hidden is a boolean, not
 -- an animatable property. Serialize IPC so an older hide cannot beat a new show.
 local flush
 flush = function()
@@ -15,9 +15,6 @@ flush = function()
   pending_hidden = nil
   command_busy = true
   local command = detail_binary .. " --bar hidden=" .. (hidden and "on" or "off") .. " >/dev/null 2>&1"
-  -- Both bars share window layer 3 so the macOS menu bar (layer 24) can show
-  -- above them. Re-asserting topmost raises the main bar over the detail backplate.
-  if not hidden then command = command .. "; sketchybar --bar topmost=window >/dev/null 2>&1" end
   local scheduled = pcall(Sbar.exec, command,
     function()
       command_busy = false
@@ -68,9 +65,11 @@ local function close_later()
           if type(frame) == "table" then
             has_frame = true
             local margin, offset = bar.margin or 0, bar.y_offset or 0
-            local top = bar.position == "bottom" and frame.y + frame.h - bar.height - offset or frame.y + offset
+            -- The detail bar sits directly below the main bar; treat both as one region.
+            local top = bar.position == "bottom" and frame.y + frame.h - bar.height - offset or frame.y
+            local bottom = bar.position == "bottom" and frame.y + frame.h or frame.y + offset + bar.height
             if point.x >= frame.x + margin and point.x < frame.x + frame.w - margin
-              and point.y >= top and point.y < top + bar.height then return end
+              and point.y >= top and point.y < bottom then return end
           end
         end
         if not has_frame then retry(attempt);return end

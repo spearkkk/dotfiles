@@ -1,10 +1,10 @@
 #!/bin/bash
 # Detail collectors are independent of the main bar.
-# Main bar must remain above this backplate (topmost=on, margin=0).
+# Sits directly below the main bar (40pt row); both are window layer 3, so they never overlap.
 set -eu
 
 args=(
-  --bar display=all position=top height=80 margin=0 y_offset=0
+  --bar display=all position=top height=40 margin=0 y_offset=40
         corner_radius=0 border_width=3 blur_radius=0
         color=0xff0a1f2e border_color=0xff0a1f2e
         padding_left=4 padding_right=4 shadow=off sticky=on
@@ -13,7 +13,7 @@ args=(
             icon.font="tabler-icons:Regular:16" icon.padding_left=4 icon.padding_right=5
             label.font="SF Pro:Regular:12" label.color=0xffc6d8e4
             label.padding_left=0 label.padding_right=5
-            padding_left=3 padding_right=3 update_freq=0 y_offset=-20
+            padding_left=3 padding_right=3 update_freq=0 y_offset=0
 )
 
 item() {
