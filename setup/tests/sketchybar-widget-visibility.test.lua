@@ -7,7 +7,7 @@ local home = "/tmp/sketchybar-widget-visibility-synthetic"
 local calendar_path = home .. "/.cache/sketchybar/calendar.tsv"
 local media_path = home .. "/.cache/sketchybar/media.tsv"
 local real_date = os.date
-local refs, requests, files, reads, logs, commands, now, minutes, creation_order
+local refs, requests, files, reads, logs, commands, now, minutes, creation_order, detail_todays
 local temporary_serial = 0
 local function is_permit_path(path)
   return type(path)=="string" and path:match("^/tmp/sketchybar%-widget%-visibility%-permit%-%d+[%w.]*$") ~= nil
@@ -53,10 +53,18 @@ end
 local function calendar()
   files[calendar_path]="1000\ttrue\n10:10\t11:00\tPRIVATE_EVENT\tPRIVATE_CALENDAR\n"
 end
+-- The calendar item is drawn by the detail bar; what the hidden controller published is its state.
+local function todays_state()
+  local state = {}
+  for key,value in pairs(detail_todays) do state[key]=value end
+  state.drawing = state.drawing=="on"
+  return state
+end
 local function visible(want, ids)
   for _,name in ipairs(names) do
-    assert(refs[name].props.drawing==want, name .. " drawing expected " .. tostring(want))
-    if ids then assert(refs[name].props.display==ids, name .. " association expected " .. ids) end
+    local props = name=="todays" and todays_state() or refs[name].props
+    assert(props.drawing==want, name .. " drawing expected " .. tostring(want))
+    if ids then assert(props.display==ids, name .. " association expected " .. ids) end
   end
 end
 local function media_visible(want, ids)
@@ -79,6 +87,7 @@ local function reset(empty)
   end
   _G.__dotfiles_display_policy=nil; _G.todays=nil
   refs, requests, files, reads, logs, commands = {}, {}, {}, {}, {}, {}
+  detail_todays = {}
   creation_order = {}
   now, minutes = 10000, 600
   files[home.."/.config/sketchybar/display_blocklist"]="Blocked\n"
@@ -181,6 +190,13 @@ local function reset(empty)
       refs[name]=item; return item
     end,
     exec=function(command,callback)
+      if command:find("/.local/bin/sketchibar' --set sketchibar.todays ",1,true) or command:find("/.local/bin/sketchibar --set sketchibar.todays ",1,true) then
+        for pair in command:gmatch("'([^']*=[^']*)'") do
+          local key,value=pair:match("^([^=]+)=(.*)$"); detail_todays[key]=value
+        end
+        if callback then callback("",0) end
+        return
+      end
       assert(command:find("sketchybar-bounded-query",1,true) and command:find("sketchybar-display-snapshot",1,true), "unexpected external query")
       local permit=assert(command:match("%-%-permit '([^']+)'"), "query launch must carry a permit")
       assert(is_permit_path(permit) and files[permit]~=nil, "query must reserve permission before launch")
@@ -208,10 +224,8 @@ local tests = {
     reset(); visible(false); complete(excluded); visible(false)
     reason("todays","ready"); reason("media","ready")
   end},
-  {"D01-D07/W03: focus, ID swap while visible, popup close and recovery", function()
+  {"D01-D07/W03: focus, ID swap while visible and recovery", function()
     reset(); complete(allowed); visible(true,"2,3")
-    event("todays","mouse.entered")
-    assert(refs.todays.props["popup.drawing"]==true)
     event("media_label","routine") -- consume one content tick, independent of display notifications
     local label=refs.media_label.props.label
     local calendar_reads,media_reads=reads[calendar_path],reads[media_path]
@@ -224,9 +238,7 @@ local tests = {
     assert(refs.media_label.props.label==label, "display callback must not advance marquee")
     assert(reads[calendar_path]==calendar_reads and reads[media_path]==media_reads, "display callback must not reread content")
     topology(excluded); visible(false)
-    assert(refs.todays.props["popup.drawing"]==false)
     topology(allowed); visible(true,"2,3")
-    assert(refs.todays.props["popup.drawing"]==false, "popup must not auto reopen")
     assert(refs.media_label.props.label==label, "hide/show must preserve scroll position")
     event("media_label","routine")
     assert(refs.media_label.props.label=="RIVATE_TRACK_abcdefghijk", "display callbacks must preserve next marquee tick")
@@ -240,13 +252,6 @@ local tests = {
     topology(allowed); media_visible(true,"2,3")
     assert(refs.media_label.props.label=="NEW_PRIVATE_TRACK - PRIV", "recovery rendered stale track")
   end},
-  {"W03: a late hover cannot reopen a hidden calendar popup", function()
-    reset(); complete(allowed)
-    event("todays","mouse.entered")
-    topology(excluded)
-    event("todays","mouse.entered")
-    assert(refs.todays.props["popup.drawing"]==false, "hidden popup reopened")
-  end},
   {"W02: malformed cache fields never reach the marquee decoder", function()
     reset(); complete(allowed)
     for _,value in ipairs({now.."\ttrue\tinvalid\tPRIVATE_TRACK\t", now.."\ttrue\ttrue\t"..string.char(255).."\t"}) do
@@ -255,42 +260,29 @@ local tests = {
     end
   end},
   {"W02: upcoming, ongoing and ended calendar", function()
-    reset(); complete(allowed); assert(refs.todays.props.drawing)
-    minutes=620; event("todays","routine"); assert(refs.todays.props.drawing)
-    minutes=660; event("todays","routine"); assert(not refs.todays.props.drawing)
+    reset(); complete(allowed); assert(todays_state().drawing)
+    minutes=620; event("todays","routine"); assert(todays_state().drawing)
+    minutes=660; event("todays","routine"); assert(not todays_state().drawing)
     reason("todays","no_upcoming_event")
-    topology(snapshot({4,1},{"Allowed","Blocked"})); assert(not refs.todays.props.drawing)
+    topology(snapshot({4,1},{"Allowed","Blocked"})); assert(not todays_state().drawing)
   end},
-  {"calendar popup hover, border and right-click shortcut", function()
+  {"calendar event is drawn by the detail bar; the controller has no hover, popup or click", function()
     reset(); complete(allowed)
-    local colors = require('lib.colors')
-    assert(refs.todays.props['popup.background.border_color'] == colors.border)
-    assert(refs.todays.props['popup.background.border_width'] == 2)
-    event('todays', 'mouse.entered')
-    assert(refs.todays.props['popup.drawing'] == true)
-    assert(refs['todays.event.1'].props.label:find('PRIVATE_EVENT',1,true))
-    event('todays', 'mouse.clicked', {BUTTON='left'})
-    assert(refs.todays.props['popup.drawing'] == true, 'left click must not close popup')
-    event('todays', 'mouse.exited')
-    assert(refs.todays.props['popup.drawing'] == false)
-    event('todays', 'mouse.entered')
-    event('todays', 'mouse.exited.global')
-    assert(refs.todays.props['popup.drawing'] == false)
-    local previous = #commands
-    event('todays', 'mouse.clicked', {BUTTON='right'})
-    assert(#commands == previous+1 and commands[#commands]:find('Calendar',1,true), 'right click still opens Calendar')
+    assert(refs.todays.props.drawing==false, "main-bar controller must stay hidden")
+    assert(refs.todays.callbacks['mouse.entered']==nil and refs.todays.callbacks['mouse.exited']==nil
+      and refs.todays.callbacks['mouse.clicked']==nil, "todays has no mouse behavior")
+    assert(refs['todays.event.1']==nil, 'todays has no popup rows')
+    assert(todays_state().label:find('PRIVATE_EVENT',1,true), "label is published to the detail bar")
   end},
   {"nested calendar event takes priority until it ends", function()
     reset(); complete(allowed)
     files[calendar_path] = '1000\ttrue\n09:00\t18:00\tOuter\tC\n14:00\t15:00\tInner\tC\n'
     for _, now_minutes in ipairs({600, 840, 899}) do
       minutes=now_minutes; event('todays','routine')
-      assert(refs.todays.props.label:find('Inner',1,true), 'inner event should win before and during it')
+      assert(todays_state().label:find('Inner',1,true), 'inner event should win before and during it')
     end
     minutes=900; event('todays','routine')
-    assert(refs.todays.props.label:find('Outer',1,true), 'outer event returns when inner ends')
-    event('todays','mouse.entered')
-    assert(refs['todays.event.1'].props.label:find('Outer',1,true) and refs['todays.event.2'].props.label:find('Inner',1,true), 'popup keeps all events in original order')
+    assert(todays_state().label:find('Outer',1,true), 'outer event returns when inner ends')
   end},
   {"calendar containment handles equal boundaries, deeper nesting and partial overlaps", function()
     reset(); complete(allowed)
@@ -304,7 +296,7 @@ local tests = {
     }
     for _,case in ipairs(cases) do
       files[calendar_path]='1000\ttrue\n'..case[1]; minutes=600; event('todays','routine')
-      assert(refs.todays.props.label:find(case[2],1,true), 'unexpected selection for '..case[2])
+      assert(todays_state().label:find(case[2],1,true), 'unexpected selection for '..case[2])
     end
   end},
   {"W02: pause timeout survives focus and topology changes", function()

@@ -5,22 +5,21 @@ local paths = require("lib.paths")
 local display = require("lib.display")
 
 local ITEM = "todays"
+local DETAIL_ITEM = "sketchibar.todays"
+local detail_binary = utils.shell_quote((os.getenv("HOME") or "") .. "/.local/bin/sketchibar")
 local CACHE_FILE = paths.calendar_cache
 local REQUEST_FILE = paths.calendar_refresh_request
 local LABEL_MAX_CHARS = 20
-local POPUP_SLOTS = 16
-local ITEM_WIDTH = 210
 local BLINK_BG_ALPHA_DIM = 18
 local BLINK_BG_ALPHA_BRIGHT = 34
 local BLINK_BORDER_ALPHA_DIM = 55
 local BLINK_BORDER_ALPHA_BRIGHT = 100
 
-local row_items = {}
 local display_state = { status = "error", reason = "query_failed", allowed_ids = {}, generation = 0 }
-local last_label = ""
 local next_event = nil
 local events = {}
 local blink_phase = false
+local detail_signature, detail_busy, detail_pending
 
 local function trim(s)
   return tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -127,60 +126,45 @@ end
 
 Sbar.add("event", "calendar_change")
 
+-- The visible item lives in the display-only detail bar (see sketchibarrc). This
+-- hidden item only receives events; the main bar never draws it.
 local todays = Sbar.add("item", ITEM, {
   drawing = false,
-  position = "q",
-  width = ITEM_WIDTH,
-  icon = { drawing = false },
-  label = {
-    drawing = true,
-    align = "left",
-    color = colors.foreground,
-    padding_left = 10,
-    padding_right = 10,
-    font = { style = "Regular", size = settings.label_size },
-  },
-  background = {
-    drawing = true,
-    color = colors.background_alt,
-    padding_left = 6,
-    padding_right = 6,
-    height = settings.defaults.bg_height + 4,
-    corner_radius = settings.defaults.corner_radius,
-    border_width = 0,
-    border_color = colors.base08,
-    y_offset = settings.defaults.bg_y_offset,
-  },
+  position = "left",
+  width = 0,
   update_freq = settings.update_freq_fast,
-  popup = {
-    align = "left",
-    drawing = false,
-    background = {
-      drawing = true,
-      color = utils.set_alpha(colors.background_alt, 90),
-      border_color = colors.border,
-      border_width = 2,
-      corner_radius = 4,
-    },
-  },
 })
 
-for i = 1, POPUP_SLOTS do
-  local name = string.format("%s.event.%d", ITEM, i)
-  row_items[i] = Sbar.add("item", name, {
-    position = "popup." .. ITEM,
-    drawing = false,
-    icon = { drawing = false },
-    label = {
-      drawing = true,
-      align = "left",
-      padding_left = 6,
-      padding_right = 6,
-      color = colors.foreground,
-      font = { size = settings.label_size - 1 },
-    },
-    background = { drawing = false },
-  })
+local publish_detail
+publish_detail = function(attrs)
+  local keys = {}
+  for key in pairs(attrs) do keys[#keys + 1] = key end
+  table.sort(keys)
+  local parts = {}
+  for _, key in ipairs(keys) do
+    local value = attrs[key]
+    if type(value) == "boolean" then value = value and "on" or "off" end
+    parts[#parts + 1] = utils.shell_quote(key .. "=" .. tostring(value))
+  end
+  local signature = table.concat(parts, " ")
+  if signature == detail_signature then return end
+  if detail_busy then detail_pending = attrs return end
+  detail_busy = true
+  detail_signature = signature
+  local scheduled = pcall(Sbar.exec,
+    detail_binary .. " --set " .. DETAIL_ITEM .. " " .. signature .. " >/dev/null 2>&1",
+    function(_, exit_code)
+      detail_busy = false
+      -- Detail bar not running: retry on the next refresh instead of caching the failure.
+      if exit_code ~= 0 then detail_signature = nil end
+      local pending = detail_pending
+      detail_pending = nil
+      if pending then publish_detail(pending) end
+    end)
+  if not scheduled then
+    detail_busy, detail_signature = false, nil
+    utils.log("todays: could not schedule detail update")
+  end
 end
 
 local function read_cache()
@@ -256,29 +240,11 @@ local function read_cache()
   return true
 end
 
-local function rebuild_popup()
-  for i = 1, POPUP_SLOTS do
-    local evt = events[i]
-    if not evt then
-      row_items[i]:set({ drawing = false })
-    else
-      local state = state_for_event(evt)
-      local color = (state == "upcoming") and colors.foreground or colors.base04
-      row_items[i]:set({
-        drawing = true,
-        label = string.format("%s  %s", evt.start, evt.title),
-        ["label.color"] = color,
-      })
-    end
-  end
-end
-
 local function apply_style()
   local attrs = display.attributes(display_state, next_event ~= nil)
   display.log_visibility(ITEM, display_state, next_event and "ready" or "no_upcoming_event", attrs.drawing)
   if not attrs.drawing then
-    attrs["popup.drawing"] = false
-    todays:set(attrs)
+    publish_detail(attrs)
     return
   end
 
@@ -317,53 +283,27 @@ local function apply_style()
   end
 
   local raw = string.format("%s  %s", next_event.start, next_event.title)
-  local padded = trim_and_pad(raw, LABEL_MAX_CHARS)
-  if padded ~= last_label then
-    todays:set({ label = padded })
-    last_label = padded
-  end
-
+  attrs.label = trim_and_pad(raw, LABEL_MAX_CHARS)
   attrs["label.color"] = label_color
   attrs["background.border_width"] = border_width
   attrs["background.border_color"] = border_color
   attrs["background.color"] = bg_color
-  todays:set(attrs)
-end
-
-local function open_calendar_today()
-  os.execute([[
-open -a Calendar >/dev/null 2>&1;
-osascript -e 'tell application "Calendar" to activate' >/dev/null 2>&1;
-osascript -e 'tell application "System Events" to keystroke "t" using {command down}' >/dev/null 2>&1
-]])
+  publish_detail(attrs)
 end
 
 local function refresh()
   read_cache()
-  rebuild_popup()
   apply_style()
 end
 
 todays:subscribe({ "routine", "calendar_change", "forced", "system_woke" }, refresh)
 
-todays:subscribe("mouse.entered", function()
-  if not display.attributes(display_state, next_event ~= nil).drawing then return end
-  rebuild_popup()
-  todays:set({ ["popup.drawing"] = true })
-end)
-
--- Subscribe globally as well so SketchyBar keeps the popup open when the
--- pointer moves from the item into its popup.
-todays:subscribe({ "mouse.exited", "mouse.exited.global" }, function()
-  todays:set({ ["popup.drawing"] = false })
-end)
-
-todays:subscribe("mouse.clicked", function(env)
-  if not display.attributes(display_state, next_event ~= nil).drawing then return end
-  local button = tostring((env and env.BUTTON) or "")
-  if button == "right" or button == "2" then
-    open_calendar_today()
-  end
+-- The `sketchibar` wrapper triggers this after the detail bar restarts or is shown;
+-- its item then starts blank, so forget what was last sent and publish again.
+Sbar.add("event", "sketchibar_visibility")
+todays:subscribe("sketchibar_visibility", function()
+  detail_signature = nil
+  refresh()
 end)
 
 os.execute("mkdir -p " .. utils.shell_quote(paths.cache_dir) .. "; touch " .. utils.shell_quote(REQUEST_FILE) .. " >/dev/null 2>&1")

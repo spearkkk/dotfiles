@@ -85,6 +85,13 @@ args+=(
         background.corner_radius=4 background.border_width=3 background.border_color=0xe54a6e86
         background.padding_left=6 background.padding_right=6 "script=$front_app_script"
   --subscribe sketchibar.front_app front_app_switched
+  # Next calendar event; the main bar's hidden `todays` item computes and publishes it.
+  --add item sketchibar.todays left
+  --set sketchibar.todays drawing=off icon.drawing=off label="" width=210 label.align=left
+        label.font="SF Pro:Regular:13" label.padding_left=10 label.padding_right=10
+        background.drawing=on background.color=0xff142c3e background.height=26
+        background.corner_radius=4 background.border_width=0 background.border_color=0xffc47a72
+        background.padding_left=6 background.padding_right=6
 )
 printf -v main_binary '%q' "$(command -v sketchybar)"
 hover_script='case "$SENDER" in

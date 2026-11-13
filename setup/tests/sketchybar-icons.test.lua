@@ -173,7 +173,10 @@ for _, name in ipairs({'wifi', 'settings', 'cafe', 'sound_output', 'dim_toggle'}
   assert(opts.padding_left == 4 and opts.padding_right == 4, name .. ' has symmetric item padding')
 end
 
--- Today's widget must keep its event label and popup while hiding the icon.
+-- Today's event is drawn by the detail bar: the main-bar item is a hidden controller that
+-- publishes the label there; hover, popup and click are removed.
+local published = {}
+Sbar.exec = function(command, callback) published[#published + 1] = command; if callback then callback('', 0) end end
 local fake_cache = { read = function() return 'header\ttrue' end,
   lines = function()
     local done = false
@@ -187,15 +190,19 @@ local libs = { ['lib.icons']=icons, ['lib.colors']=colors, ['lib.settings']=sett
   ['lib.display']=display }
 local env = setmetatable({ Sbar = Sbar, require = function(n) return assert(libs[n], n) end,
   io = { open = function() return fake_cache end },
-  os = { date = function() return {hour=9, min=0} end, execute = function() return true end } }, {__index=_G})
+  os = { date = function() return {hour=9, min=0} end, execute = function() return true end,
+    getenv = function() return '/tmp/home' end } }, {__index=_G})
 assert(loadfile(root .. 'items/todays.lua', 't', env))()
 local todays = items.todays
-assert(todays.options.icon.drawing == false, 'todays must not show an icon')
-assert(todays.values.label:find('Example meet', 1, true), 'preserve event label')
-assert(todays.values.icon == nil, 'refresh must not restore icon')
-assert(todays.callbacks['mouse.entered'] and todays.callbacks['mouse.exited'] and todays.callbacks['mouse.exited.global'], 'popup opens on hover')
-assert(todays.callbacks['mouse.clicked'], 'preserve calendar shortcut')
-print('PASS: todays event remains visible without an icon')
+assert(todays.options.drawing == false, 'main-bar todays must stay hidden')
+local last = published[#published] or ''
+assert(last:find('--set sketchibar.todays', 1, true), 'publish to the detail bar')
+assert(last:find('Example meet', 1, true), 'preserve event label')
+assert(not last:find('icon=', 1, true), 'refresh must not restore icon')
+assert(not todays.callbacks['mouse.entered'] and not todays.callbacks['mouse.exited'] and not todays.callbacks['mouse.exited.global'], 'todays hover is removed')
+assert(todays.options.popup == nil and items['todays.event.1'] == nil, 'todays has no popup')
+assert(not todays.callbacks['mouse.clicked'], 'todays is not clickable')
+print('PASS: todays event is published to the detail bar')
 
 -- Media has a separate text item; only its icon gets the common cell.
 libs['lib.paths'] = {media_tsv = 'fixture', media_refresh_request = 'fixture'}
