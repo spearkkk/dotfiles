@@ -3,8 +3,9 @@ local M = {}
 M.bar = {
   height        = 40,
   margin        = 0,
-  topmost       = "window",
-  y_offset      = 0,
+  -- The detail bar occupies the top 28pt. The main bar starts at 26 so its 26pt
+  -- items begin at 33, below the menu bar reveal strip that takes clicks above it.
+  y_offset      = 26,
   corner_radius = 0,
   border_width  = 3,
   blur_radius   = 0,

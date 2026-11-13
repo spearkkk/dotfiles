@@ -29,9 +29,10 @@ local function retry_visibility()
 end
 
 local INACTIVE_COLOR = colors.foreground
-local ACTIVE_WORK_COLOR = colors.base04
-local ACTIVE_SHORT_BREAK_COLOR = colors.base0d
-local ACTIVE_LONG_BREAK_COLOR = colors.base0e
+-- Work looks "poisoned" purple; breaks use the normal foreground.
+local ACTIVE_WORK_COLOR = colors.base0e
+local ACTIVE_SHORT_BREAK_COLOR = colors.foreground
+local ACTIVE_LONG_BREAK_COLOR = colors.foreground
 
 os.execute("mkdir -p " .. utils.shell_quote(pomo_dir))
 
@@ -180,11 +181,12 @@ apply_mode_ui = function()
 end
 
 pomodoro_work = Sbar.add("item", "pomodoro_work", {
-  position                           = "e",
+  position                           = "right",
   icon                               = icons.vaccine,
   ["icon.font.size"]                  = settings.icon_size,
-  ["icon.padding_left"]              = settings.outer_padding,
+  ["icon.padding_left"]              = 0,
   ["icon.padding_right"]             = 0,
+  ["padding_right"]                  = 2,
   ["label.drawing"]                  = false,
   ["background.drawing"]             = false,
   drawing                            = true,
@@ -212,11 +214,12 @@ pomodoro_work_popup = Sbar.add("item", "pomodoro_work_popup", {
 })
 
 pomodoro_break = Sbar.add("item", "pomodoro_break", {
-  position                           = "e",
+  position                           = "right",
   icon                               = icons.vaccine_bottle,
   ["icon.font.size"]                 = settings.icon_size,
-  ["icon.padding_left"]              = settings.outer_padding,
+  ["icon.padding_left"]              = 0,
   ["icon.padding_right"]             = 0,
+  ["padding_right"]                  = 2,
   ["label.drawing"]                  = false,
   ["background.drawing"]             = false,
   drawing                            = false,

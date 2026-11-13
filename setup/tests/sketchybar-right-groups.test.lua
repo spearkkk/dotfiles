@@ -7,8 +7,8 @@ Sbar = { add = function(kind, name, members, options)
 end }
 local add_groups = require("items.right_groups")
 local function check()
-  assert(groups.right_utility == nil and groups.right_system == nil, "only weather and time have an underline")
-  assert(table.concat(groups.right_clock.members, ",") == "weather_icon,timestamp_time", "anchor underline to time, not the overlapping date's negative padding")
+  assert(groups.right_utility == nil and groups.right_system == nil, "only pomodoro and time have an underline")
+  assert(table.concat(groups.right_clock.members, ",") == "pomodoro_break,pomodoro_work,timestamp_time", "anchor underline to pomodoro and time, not the overlapping date's negative padding")
   for _, group in pairs(groups) do
     assert(group.options["background.drawing"] == true)
     assert(group.options["background.height"] == 2)
@@ -22,4 +22,4 @@ check()
 groups = {}
 add_groups({ right_utility_items = {"mosaic_monthly_icon"} })
 check()
-print("PASS: only weather, date and time have an underline")
+print("PASS: only pomodoro and time have an underline")

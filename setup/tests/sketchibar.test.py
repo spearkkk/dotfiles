@@ -85,9 +85,9 @@ class SketchibarTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout)
         bar = args[args.index("--bar") + 1:args.index("--default")]
-        for value in ("display=all", "height=40", "margin=0", "y_offset=40",
+        for value in ("display=all", "height=28", "margin=0", "y_offset=0",
                       "corner_radius=0", "border_width=3", "color=0xff0a1f2e",
-                      "border_color=0xff0a1f2e", "topmost=window", "hidden=on"):
+                      "border_color=0xff0a1f2e", "topmost=window", "hidden=off"):
             self.assertIn(value, bar)
         self.assertFalse(any(arg.startswith("width=") for arg in bar))
         self.assertIn("--subscribe", args)
@@ -145,7 +145,7 @@ class SketchibarTests(unittest.TestCase):
             start = args.index("--set", args.index(gap_name))
             end = next((i for i in range(start + 2, len(args))
                         if args[i].startswith("--")), len(args))
-            self.assertIn("width=14", args[start:end])
+            self.assertIn("width=10", args[start:end])
         start = args.index("--set", pomo)
         end = next((i for i in range(start + 2, len(args))
                     if args[i].startswith("--")), len(args))

@@ -1,19 +1,19 @@
 #!/bin/bash
 # Detail collectors are independent of the main bar.
-# Sits directly below the main bar (40pt row); both are window layer 3, so they never overlap.
+# Display-only row above the main bar, over the menu bar reveal strip (top 33pt).
 set -eu
 
 args=(
-  --bar display=all position=top height=40 margin=0 y_offset=40
+  --bar display=all position=top height=28 margin=0 y_offset=0
         corner_radius=0 border_width=3 blur_radius=0
         color=0xff0a1f2e border_color=0xff0a1f2e
-        padding_left=4 padding_right=4 shadow=off sticky=on
-        topmost=window hidden=on
+        padding_left=4 padding_right=12 shadow=off sticky=on
+        topmost=window hidden=off
   --default background.drawing=off icon.drawing=on
             icon.font="tabler-icons:Regular:16" icon.padding_left=4 icon.padding_right=5
             label.font="SF Pro:Regular:12" label.color=0xffc6d8e4
-            label.padding_left=0 label.padding_right=5
-            padding_left=3 padding_right=3 update_freq=0 y_offset=0
+            label.padding_left=0 label.padding_right=3
+            padding_left=2 padding_right=2 update_freq=0 y_offset=0
 )
 
 item() {
@@ -29,7 +29,7 @@ group() {
 }
 
 gap() {
-  args+=(--add item "$1" right --set "$1" width=14
+  args+=(--add item "$1" right --set "$1" width=10
          icon.drawing=off label.drawing=off background.drawing=off)
 }
 
